@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Quick Capture</title>
+
+<style>
+  *,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;height:100%;overscroll-behavior:none}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter","Segoe UI",Roboto,sans-serif;
+    background:#000;color:#fafafa;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    min-height:100vh;min-height:100dvh;
+    display:flex;flex-direction:column;
+    letter-spacing:-0.011em;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
+    background:
+      radial-gradient(circle at 15% 5%, rgba(99,102,241,0.08) 0%, transparent 40%),
+      radial-gradient(circle at 85% 95%, rgba(168,85,247,0.06) 0%, transparent 40%);
+  }
+  button{font-family:inherit;cursor:pointer;border:0;background:transparent;color:inherit;letter-spacing:-0.005em}
+  input,textarea,select{font-family:inherit;font-size:16px;letter-spacing:-0.005em}
+
+  /* Header — clean glassmorphism */
+  .app-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px 14px;
+    background:rgba(0,0,0,0.7);
+    backdrop-filter:saturate(180%) blur(20px);
+    -webkit-backdrop-filter:saturate(180%) blur(20px);
+    border-bottom:0.5px solid rgba(255,255,255,0.08);
+    position:sticky;top:0;z-index:10;
+  }
+  .app-title{font-size:18px;font-weight:700;display:flex;align-items:center;gap:10px;letter-spacing:-0.025em}
+  .app-title-emoji{
+    width:32px;height:32px;border-radius:9px;
+    background:linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 12px rgba(99,102,241,0.4);
+    font-size:18px;
+  }
+  .sync-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:6px 12px;border-radius:999px;
+    background:rgba(255,255,255,0.06);
+    font-size:11px;font-weight:600;
+    color:#a1a1aa;
+    border:0.5px solid rgba(255,255,255,0.1);
+    letter-spacing:0.01em;
+    transition:all 0.2s;
+  }
+  .sync-chip.ok{background:rgba(34,197,94,0.12);color:#4ade80;border-color:rgba(34,197,94,0.25)}
+  .sync-chip.warn{background:rgba(251,191,36,0.12);color:#fbbf24;border-color:rgba(251,191,36,0.25)}
+  .sync-chip.error{background:rgba(239,68,68,0.12);color:#f87171;border-color:rgba(239,68,68,0.25)}
+  .sync-chip.syncing{background:rgba(99,102,241,0.12);color:#818cf8;border-color:rgba(99,102,241,0.25)}
+  .sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+  .sync-chip.syncing .sync-dot{animation:pulse 1.5s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.85)}}
+
+  /* Tab bar — bottom nav, glass effect */
+  .tab-bar{
+    display:flex;
+    border-top:0.5px solid rgba(255,255,255,0.08);
+    background:rgba(0,0,0,0.85);
+    backdrop-filter:saturate(180%) blur(24px);
+    -webkit-backdrop-filter:saturate(180%) blur(24px);
+    position:sticky;bottom:0;
+    padding:8px 8px calc(env(safe-area-inset-bottom) + 8px);
+    z-index:9;
+    gap:4px;
+  }
+  .tab{
+    flex:1;padding:8px 6px 6px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:10px;font-weight:600;
+    color:#71717a;
+    background:transparent;border-radius:14px;
+    transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position:relative;
+    letter-spacing:0;
+  }
+  .tab .tab-icon{font-size:22px;line-height:1;transition:transform 0.2s}
+  .tab:active .tab-icon{transform:scale(0.9)}
+  .tab.active{color:#fafafa}
+  .tab.active .tab-icon{transform:scale(1.05)}
+  .tab.active::before{
+    content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+    width:24px;height:3px;
+    background:linear-gradient(90deg, #6366f1, #a855f7);
+    border-radius:0 0 2px 2px;
+  }
+  .tab .badge{
+    position:absolute;top:4px;right:50%;transform:translateX(16px);
+    background:linear-gradient(135deg, #ef4444, #dc2626);
+    color:#fff;font-size:9px;font-weight:700;
+    padding:1px 6px;border-radius:10px;min-width:16px;text-align:center;
+    box-shadow:0 2px 6px rgba(239,68,68,0.5);
+  }
+
+  .main{flex:1;overflow-y:auto;padding:0 16px 20px;-webkit-overflow-scrolling:touch}
+
+  /* Filter chips — pill style */
+  .filters{display:flex;gap:8px;padding:14px 0 6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .filter-chip{
+    flex-shrink:0;padding:7px 14px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.08);
+    color:#a1a1aa;
+    border-radius:999px;
+    font-size:12px;font-weight:600;
+    white-space:nowrap;
+    letter-spacing:-0.005em;
+    transition:all 0.15s;
+  }
+  .filter-chip.active{
+    background:linear-gradient(135deg, #6366f1, #818cf8);
+    color:#fff;border-color:transparent;
+    box-shadow:0 4px 12px rgba(99,102,241,0.35);
+  }
+
+  /* Section titles */
+  .section-title{
+    font-size:11px;font-weight:700;
+    color:#71717a;
+    text-transform:uppercase;letter-spacing:0.08em;
+    margin:22px 4px 10px;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+
+  /* Empty states */
+  .empty{padding:60px 20px;text-align:center}
+  .empty-icon{
+    font-size:56px;margin-bottom:16px;
+    opacity:0.4;
+    filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+  }
+  .empty-title{font-size:16px;font-weight:600;color:#a1a1aa;margin-bottom:6px;letter-spacing:-0.015em}
+  .empty-sub{font-size:13px;color:#52525b}
+
+  /* Items — card style with depth */
+  .item{
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+    padding:14px 16px;margin-bottom:8px;
+    display:flex;gap:12px;align-items:flex-start;
+    animation:slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition:all 0.15s;
+  }
+  .item:active{transform:scale(0.99);background:rgba(255,255,255,0.06)}
+  @keyframes slideIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .item.done{opacity:0.45}
+  .item.done .item-title{text-decoration:line-through;color:#71717a}
+  .check{
+    flex-shrink:0;width:24px;height:24px;
+    border-radius:50%;
+    border:1.5px solid rgba(255,255,255,0.2);
+    background:transparent;
+    display:flex;align-items:center;justify-content:center;
+    transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-top:1px;
+  }
+  .check.checked{
+    background:linear-gradient(135deg, #22c55e, #16a34a);
+    border-color:transparent;
+    color:#fff;font-size:13px;
+    box-shadow:0 2px 8px rgba(34,197,94,0.4);
+  }
+  .item-content{flex:1;min-width:0;cursor:pointer}
+  .item-title{
+    font-size:15px;font-weight:500;line-height:1.4;
+    color:#fafafa;
+    word-wrap:break-word;overflow-wrap:break-word;
+    letter-spacing:-0.011em;
+  }
+  .item-body{
+    font-size:13px;color:#a1a1aa;line-height:1.5;margin-top:5px;
+    white-space:pre-wrap;word-wrap:break-word;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .item-meta{
+    font-size:11px;color:#52525b;
+    margin-top:8px;
+    display:flex;gap:6px;flex-wrap:wrap;align-items:center;
+  }
+  .item-tag{
+    padding:2px 8px;
+    background:rgba(255,255,255,0.06);
+    border-radius:6px;
+    font-size:10.5px;color:#a1a1aa;font-weight:600;
+    letter-spacing:0.01em;
+  }
+  .item-tag.notebook{background:rgba(99,102,241,0.15);color:#a5b4fc;border:0.5px solid rgba(99,102,241,0.25)}
+  .item-tag.inbox{background:rgba(251,146,60,0.15);color:#fdba74;border:0.5px solid rgba(251,146,60,0.25)}
+  .item-tag.due{background:rgba(251,191,36,0.15);color:#fcd34d}
+  .item-tag.due.overdue{background:rgba(239,68,68,0.15);color:#fca5a5}
+  .item-delete{
+    padding:6px 10px;color:#52525b;
+    font-size:20px;line-height:1;
+    opacity:0.4;transition:all 0.15s;
+  }
+  .item-delete:active{opacity:1;color:#ef4444;transform:scale(0.92)}
+
+  /* Notebook cards — modern grid */
+  .nb-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-bottom:14px;
+  }
+  .nb-card{
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:16px;
+    padding:16px;
+    display:flex;flex-direction:column;gap:8px;
+    text-align:left;
+    min-height:108px;
+    transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    position:relative;overflow:hidden;
+  }
+  .nb-card::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(circle at 100% 0%, rgba(99,102,241,0.1) 0%, transparent 60%);
+    pointer-events:none;opacity:0;transition:opacity 0.2s;
+  }
+  .nb-card:active{transform:scale(0.97);background:rgba(255,255,255,0.07)}
+  .nb-card:active::before{opacity:1}
+  .nb-card-icon{font-size:26px;line-height:1}
+  .nb-card-title{
+    font-size:14px;font-weight:600;color:#fafafa;
+    line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    letter-spacing:-0.011em;
+  }
+  .nb-card-meta{font-size:11px;color:#71717a;margin-top:auto;font-weight:500}
+  .nb-card.inbox{
+    background:linear-gradient(135deg, rgba(251,146,60,0.12), rgba(251,146,60,0.02));
+    border-color:rgba(251,146,60,0.2);
+  }
+  .nb-card.inbox::before{
+    background:radial-gradient(circle at 100% 0%, rgba(251,146,60,0.15) 0%, transparent 60%);
+  }
+  .nb-card.all{
+    background:linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.04));
+  }
+
+  /* FAB — premium button with gradient */
+  .fab{
+    position:fixed;right:20px;
+    bottom:calc(env(safe-area-inset-bottom) + 86px);
+    width:56px;height:56px;
+    border-radius:50%;
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-size:28px;font-weight:300;line-height:1;
+    z-index:8;
+    transition:all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .fab:active{transform:scale(0.92)}
+  .fab.task{
+    background:linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+    box-shadow:0 8px 24px rgba(99,102,241,0.5), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .fab.note{
+    background:linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+    box-shadow:0 8px 24px rgba(34,197,94,0.5), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+  .fab.idea{
+    background:linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    box-shadow:0 8px 24px rgba(245,158,11,0.5), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+
+  /* Bottom Sheet — iOS-style */
+  .sheet-overlay{
+    position:fixed;inset:0;
+    background:rgba(0,0,0,0.6);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    z-index:50;
+    opacity:0;pointer-events:none;
+    transition:opacity 0.3s;
+  }
+  .sheet-overlay.open{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;
+    background:#1a1a1c;
+    border-top:0.5px solid rgba(255,255,255,0.08);
+    border-radius:24px 24px 0 0;
+    z-index:51;
+    transform:translateY(100%);
+    transition:transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    max-height:92vh;
+    display:flex;flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+    box-shadow:0 -20px 60px rgba(0,0,0,0.5);
+  }
+  .sheet.open{transform:translateY(0)}
+  .sheet-handle{
+    width:38px;height:5px;
+    background:rgba(255,255,255,0.2);
+    border-radius:3px;
+    margin:10px auto 6px;
+  }
+  .sheet-header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 18px 14px;
+    border-bottom:0.5px solid rgba(255,255,255,0.06);
+  }
+  .sheet-title{font-size:17px;font-weight:700;letter-spacing:-0.022em}
+  .sheet-cancel{
+    color:#71717a;font-size:15px;padding:8px;
+    transition:color 0.15s;font-weight:500;
+  }
+  .sheet-cancel:active{color:#a1a1aa}
+  .sheet-save{
+    color:#818cf8;font-size:16px;font-weight:700;padding:8px;
+    transition:opacity 0.15s;
+    letter-spacing:-0.011em;
+  }
+  .sheet-save:active{opacity:0.7}
+  .sheet-body{padding:18px 20px 24px;overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+  .sheet-field{margin-bottom:18px}
+  .sheet-label{
+    font-size:11px;font-weight:600;
+    color:#a1a1aa;
+    text-transform:uppercase;letter-spacing:0.08em;
+    margin-bottom:8px;display:block;
+  }
+  .sheet-input,.sheet-textarea,.sheet-select{
+    width:100%;
+    background:rgba(255,255,255,0.06);
+    border:0.5px solid rgba(255,255,255,0.1);
+    border-radius:12px;
+    padding:12px 14px;
+    color:#fafafa;
+    font-size:15.5px;
+    outline:none;-webkit-appearance:none;
+    transition:all 0.2s;
+    letter-spacing:-0.011em;
+  }
+  .sheet-input:focus,.sheet-textarea:focus,.sheet-select:focus{
+    border-color:#6366f1;
+    background:rgba(99,102,241,0.06);
+    box-shadow:0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .sheet-textarea{min-height:96px;resize:vertical;line-height:1.5;font-family:inherit}
+  .sheet-textarea.tall{min-height:160px}
+
+  /* Briefing — premium feel */
+  .br-greeting{
+    margin:0 0 4px;
+    font-size:26px;font-weight:800;
+    letter-spacing:-0.03em;
+    background:linear-gradient(135deg, #fafafa 0%, #a1a1aa 100%);
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .br-date{font-size:13px;color:#71717a;margin-bottom:18px;font-weight:500;letter-spacing:-0.005em}
+  .br-stat-row{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+    margin-bottom:18px;
+  }
+  .br-stat{
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+    padding:14px 8px;
+    text-align:center;
+    position:relative;overflow:hidden;
+  }
+  .br-stat::before{
+    content:"";position:absolute;top:-20%;left:-20%;width:140%;height:140%;
+    background:radial-gradient(circle, var(--glow, rgba(99,102,241,0.1)) 0%, transparent 60%);
+    pointer-events:none;
+  }
+  .br-stat-val{
+    position:relative;
+    font-size:28px;font-weight:800;
+    line-height:1;letter-spacing:-0.025em;
+    font-feature-settings:"tnum";
+    font-variant-numeric:tabular-nums;
+  }
+  .br-stat-lab{
+    position:relative;
+    font-size:10px;color:#71717a;
+    margin-top:6px;
+    text-transform:uppercase;letter-spacing:0.06em;
+    font-weight:600;
+  }
+  .br-card{
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:16px;
+    padding:18px;margin-bottom:12px;
+  }
+  .br-card h3{
+    margin:0 0 12px;
+    font-size:14px;font-weight:700;
+    color:#fafafa;
+    display:flex;align-items:center;gap:8px;
+    letter-spacing:-0.015em;
+  }
+  .br-line{
+    padding:9px 12px;
+    background:rgba(255,255,255,0.04);
+    border-radius:10px;margin-bottom:5px;
+    font-size:13.5px;
+    display:flex;gap:8px;align-items:center;
+    letter-spacing:-0.005em;
+  }
+  .br-line.overdue{background:rgba(239,68,68,0.1);color:#fca5a5;border:0.5px solid rgba(239,68,68,0.15)}
+  .br-line.today{background:rgba(251,191,36,0.1);color:#fcd34d;border:0.5px solid rgba(251,191,36,0.15)}
+  .br-line.done{opacity:0.5;text-decoration:line-through}
+
+  /* Toast */
+  .toast{
+    position:fixed;left:50%;bottom:160px;transform:translateX(-50%);
+    background:rgba(26,26,28,0.95);
+    backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+    border:0.5px solid rgba(255,255,255,0.1);
+    color:#fafafa;
+    padding:11px 18px;
+    border-radius:999px;
+    font-size:13px;font-weight:600;
+    box-shadow:0 12px 32px rgba(0,0,0,0.6);
+    z-index:200;
+    opacity:0;pointer-events:none;
+    transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    max-width:80%;text-align:center;
+    letter-spacing:-0.011em;
+  }
+  .toast.show{opacity:1;transform:translate(-50%,-8px)}
+  .toast.ok{border-color:rgba(34,197,94,0.3);color:#86efac}
+  .toast.error{border-color:rgba(239,68,68,0.3);color:#fca5a5}
+  .toast.warn{border-color:rgba(251,191,36,0.3);color:#fcd34d}
+
+  .pull-hint{text-align:center;padding:8px;font-size:11px;color:#52525b;opacity:0;transition:opacity 0.2s;font-weight:500}
+  .main.pulling .pull-hint{opacity:1}
+
+  .back-btn{
+    padding:8px 10px;font-size:14px;
+    color:#818cf8;
+    background:transparent;
+    display:flex;align-items:center;gap:4px;
+    font-weight:600;letter-spacing:-0.011em;
+    transition:opacity 0.15s;
+  }
+  .back-btn:active{opacity:0.6}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="app-title">
+    <div class="app-title-emoji">⚡</div>
+    <span>Quick Capture</span>
+  </div>
+  <button class="sync-chip" id="syncChip" onclick="manualSync()">
+    <span class="sync-dot"></span>
+    <span id="syncText">…</span>
+  </button>
+</div>
+
+<div class="main" id="main">
+  <div class="pull-hint">↓ Loslassen für Sync</div>
+  <div id="content"></div>
+</div>
+
+<button class="fab task" id="fab" onclick="openSheet()">+</button>
+
+<div class="tab-bar">
+  <button class="tab active" data-tab="tasks">
+    <span class="tab-icon">✓</span><span>Tasks</span>
+    <span class="badge" id="badgeTasks" style="display:none">0</span>
+  </button>
+  <button class="tab" data-tab="notes">
+    <span class="tab-icon">📝</span><span>Notes</span>
+  </button>
+  <button class="tab" data-tab="ideas">
+    <span class="tab-icon">💡</span><span>Ideen</span>
+  </button>
+  <button class="tab" data-tab="briefing">
+    <span class="tab-icon">☀️</span><span>Briefing</span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <button class="sheet-cancel" onclick="closeSheet()">Abbrechen</button>
+    <div class="sheet-title" id="sheetTitle">Neu</div>
+    <button class="sheet-save" id="sheetSave" onclick="submitSheet()">Speichern</button>
+  </div>
+  <div class="sheet-body" id="sheetBody"></div>
+</div>
+
+<script>
+'use strict';
+
+const HARDCODED_BASE_URL = 'https://management-xo2-pro.netlify.app';
+const BLOB_KEY = 'app-data.json';
+const PENDING_STORAGE_KEY = 'qc-mobile-pending-changes';
+const LAST_DATA_KEY = 'qc-mobile-last-data';
+const LAST_ETAG_KEY = 'qc-mobile-last-etag';
+
+let _data = null;
+let _etag = null;
+let _pendingChanges = [];
+let _currentTab = 'tasks';
+let _currentFilter = 'open';
+let _selectedNotebook = null;
+let _syncing = false;
+let _sheetMode = null;
+let _sheetCtx = {};
+
+function setSyncStatus(state, text) {
+  document.getElementById('syncChip').className = 'sync-chip ' + state;
+  document.getElementById('syncText').textContent = text;
+}
+
+async function pullData(silent = false) {
+  if (_syncing) return;
+  _syncing = true;
+  if (!silent) setSyncStatus('syncing', 'Lade…');
+
+  try {
+    const url = HARDCODED_BASE_URL + '/.netlify/functions/blob-get?key=' + encodeURIComponent(BLOB_KEY) + '&_ts=' + Date.now();
+    const r = await fetch(url, { method: 'GET', cache: 'no-store' });
+    
+    if (r.status === 404) {
+      _data = { entities: { tasks: {}, notes: {}, ideas: {}, notebooks: {} } };
+      _etag = null;
+      setSyncStatus('warn', 'Leer');
+      render();
+      return;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    
+    const text = await r.text();
+    _data = JSON.parse(text);
+    _etag = r.headers.get('ETag') || r.headers.get('etag');
+    
+    localStorage.setItem(LAST_DATA_KEY, text);
+    if (_etag) localStorage.setItem(LAST_ETAG_KEY, _etag);
+    
+    await applyPendingChanges();
+    setSyncStatus('ok', 'Synced');
+    render();
+  } catch (e) {
+    console.error('Pull failed:', e);
+    setSyncStatus('error', 'Offline');
+    const cached = localStorage.getItem(LAST_DATA_KEY);
+    if (cached) {
+      try { 
+        _data = JSON.parse(cached); 
+        _etag = localStorage.getItem(LAST_ETAG_KEY);
+        render();
+        toast('Offline — letzte Version', 'warn');
+      } catch(_) {}
+    } else {
+      toast('Verbindung fehlgeschlagen', 'error');
+    }
+  } finally { _syncing = false; }
+}
+
+async function pushData() {
+  if (!_data || _syncing) return false;
+  _syncing = true;
+  setSyncStatus('syncing', 'Speichern…');
+  
+  try {
+    _data.updatedAt = new Date().toISOString();
+    if (_data.meta) _data.meta.updatedAt = _data.updatedAt;
+    
+    const url = HARDCODED_BASE_URL + '/.netlify/functions/blob-put?key=' + encodeURIComponent(BLOB_KEY);
+    const headers = { 'Content-Type': 'application/json' };
+    if (_etag) headers['If-Match'] = _etag;
+    
+    const body = JSON.stringify(_data);
+    const r = await fetch(url, { method: 'PUT', headers, body });
+    
+    if (r.status === 412) {
+      toast('Konflikt — synchronisiere…', 'warn');
+      _syncing = false;
+      await pullData(true);
+      return false;
+    }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    
+    const newEtag = r.headers.get('ETag') || r.headers.get('etag');
+    if (newEtag) {
+      _etag = newEtag;
+      localStorage.setItem(LAST_ETAG_KEY, newEtag);
+    }
+    localStorage.setItem(LAST_DATA_KEY, body);
+    _pendingChanges = [];
+    localStorage.removeItem(PENDING_STORAGE_KEY);
+    setSyncStatus('ok', 'Synced');
+    return true;
+  } catch (e) {
+    console.error('Push failed:', e);
+    setSyncStatus('error', 'Offline');
+    savePending();
+    toast('Offline gespeichert', 'warn');
+    return false;
+  } finally { _syncing = false; }
+}
+
+function savePending() {
+  if (_pendingChanges.length > 0) {
+    localStorage.setItem(PENDING_STORAGE_KEY, JSON.stringify(_pendingChanges));
+  }
+}
+
+async function applyPendingChanges() {
+  const stored = localStorage.getItem(PENDING_STORAGE_KEY);
+  if (!stored) return;
+  try {
+    const ops = JSON.parse(stored);
+    if (!ops?.length) return;
+    ops.forEach(op => applyOp(op));
+    const ok = await pushData();
+    if (ok) toast(ops.length + ' Änderung(en) synchronisiert', 'ok');
+  } catch (e) { console.error('Pending replay failed:', e); }
+}
+
+function applyOp(op) {
+  if (!_data.entities) _data.entities = {};
+  ['tasks','notes','ideas','notebooks'].forEach(k => {
+    if (!_data.entities[k]) _data.entities[k] = {};
+  });
+  const E = _data.entities;
+  
+  if (op.type === 'add-task') E.tasks[op.payload.id] = op.payload;
+  else if (op.type === 'update-task') {
+    const t = E.tasks[op.payload.id];
+    if (t) Object.assign(t, op.payload, { updatedAt: new Date().toISOString() });
+  }
+  else if (op.type === 'delete-task') delete E.tasks[op.payload.id];
+  else if (op.type === 'add-note') E.notes[op.payload.id] = op.payload;
+  else if (op.type === 'update-note') {
+    const n = E.notes[op.payload.id];
+    if (n) Object.assign(n, op.payload, { updatedAt: new Date().toISOString() });
+  }
+  else if (op.type === 'delete-note') delete E.notes[op.payload.id];
+  else if (op.type === 'add-idea') E.ideas[op.payload.id] = op.payload;
+  else if (op.type === 'update-idea') {
+    const i = E.ideas[op.payload.id];
+    if (i) Object.assign(i, op.payload, { updatedAt: new Date().toISOString() });
+  }
+  else if (op.type === 'delete-idea') delete E.ideas[op.payload.id];
+}
+
+async function manualSync() { await pullData(); }
+
+setInterval(() => { if (!document.hidden) pullData(true); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pullData(true); });
+
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function newId(kind) { return kind + '_' + generateId(); }
+
+async function performOp(op) {
+  if (!_data) return;
+  applyOp(op);
+  _pendingChanges.push(op);
+  render();
+  const ok = await pushData();
+  if (!ok) savePending();
+}
+
+function escHTML(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function formatDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today.getTime() + 86400000);
+  const yesterday = new Date(today.getTime() - 86400000);
+  const dDay = new Date(d); dDay.setHours(0,0,0,0);
+  if (dDay.getTime() === today.getTime()) return 'Heute';
+  if (dDay.getTime() === tomorrow.getTime()) return 'Morgen';
+  if (dDay.getTime() === yesterday.getTime()) return 'Gestern';
+  return d.toLocaleDateString('de-CH', { day: '2-digit', month: 'short' });
+}
+
+function getTasks() {
+  if (!_data?.entities?.tasks) return [];
+  return Object.values(_data.entities.tasks).filter(t => !t.deleted && !t.archived);
+}
+function getNotes() {
+  if (!_data?.entities?.notes) return [];
+  return Object.values(_data.entities.notes).filter(n => !n.deleted && !n.archived);
+}
+function getIdeas() {
+  if (!_data?.entities?.ideas) return [];
+  return Object.values(_data.entities.ideas).filter(i => !i.deleted && !i.archived);
+}
+function getNotebooks() {
+  if (!_data?.entities?.notebooks) return [];
+  return Object.values(_data.entities.notebooks)
+    .filter(nb => !nb.deleted && !nb.archived)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+}
+
+function render() {
+  const openTasks = getTasks().filter(t => t.status !== 'done').length;
+  const tasksBadge = document.getElementById('badgeTasks');
+  if (openTasks > 0) {
+    tasksBadge.textContent = openTasks > 99 ? '99' : openTasks;
+    tasksBadge.style.display = 'inline-block';
+  } else {
+    tasksBadge.style.display = 'none';
+  }
+  
+  const fab = document.getElementById('fab');
+  fab.className = 'fab';
+  if (_currentTab === 'tasks') fab.classList.add('task');
+  else if (_currentTab === 'notes') fab.classList.add('note');
+  else if (_currentTab === 'ideas') fab.classList.add('idea');
+  fab.style.display = (_currentTab === 'briefing') ? 'none' : 'flex';
+  
+  const c = document.getElementById('content');
+  if (_currentTab === 'tasks') c.innerHTML = renderTasks();
+  else if (_currentTab === 'notes') c.innerHTML = renderNotes();
+  else if (_currentTab === 'ideas') c.innerHTML = renderIdeas();
+  else if (_currentTab === 'briefing') c.innerHTML = renderBriefing();
+}
+
+function renderTasks() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today.getTime() + 86400000);
+  let tasks = getTasks();
+  
+  if (_currentFilter === 'open') tasks = tasks.filter(t => t.status !== 'done');
+  else if (_currentFilter === 'done') tasks = tasks.filter(t => t.status === 'done');
+  else if (_currentFilter === 'today') {
+    tasks = tasks.filter(t => {
+      if (t.status === 'done') return false;
+      if (!t.dueDate) return false;
+      const dd = new Date(t.dueDate);
+      return dd >= today && dd < tomorrow;
+    });
+  } else if (_currentFilter === 'overdue') {
+    tasks = tasks.filter(t => {
+      if (t.status === 'done') return false;
+      if (!t.dueDate) return false;
+      return new Date(t.dueDate) < today;
+    });
+  }
+  
+  tasks.sort((a, b) => {
+    if ((a.status === 'done') !== (b.status === 'done')) return a.status === 'done' ? 1 : -1;
+    if (a.dueDate && !b.dueDate) return -1;
+    if (!a.dueDate && b.dueDate) return 1;
+    if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+  
+  let html = `<div class="filters">
+    <button class="filter-chip ${_currentFilter==='open'?'active':''}" onclick="setFilter('open')">Offen</button>
+    <button class="filter-chip ${_currentFilter==='today'?'active':''}" onclick="setFilter('today')">Heute</button>
+    <button class="filter-chip ${_currentFilter==='overdue'?'active':''}" onclick="setFilter('overdue')">Überfällig</button>
+    <button class="filter-chip ${_currentFilter==='done'?'active':''}" onclick="setFilter('done')">Erledigt</button>
+    <button class="filter-chip ${_currentFilter==='all'?'active':''}" onclick="setFilter('all')">Alle</button>
+  </div>`;
+  
+  if (tasks.length === 0) {
+    html += `<div class="empty"><div class="empty-icon">✓</div><div class="empty-title">Keine Tasks</div><div class="empty-sub">Tippe + um eine Aufgabe zu erstellen</div></div>`;
+    return html;
+  }
+  
+  html += tasks.map(t => {
+    const done = t.status === 'done';
+    const overdue = t.dueDate && !done && new Date(t.dueDate) < today;
+    const meta = [];
+    if (t.dueDate) meta.push(`<span class="item-tag due ${overdue?'overdue':''}">📅 ${formatDate(t.dueDate)}</span>`);
+    if (t.priority) meta.push(`<span class="item-tag">⚡ ${escHTML(t.priority)}</span>`);
+    return `<div class="item ${done?'done':''}" data-id="${t.id}">
+      <button class="check ${done?'checked':''}" onclick="toggleTask('${t.id}')">${done?'✓':''}</button>
+      <div class="item-content" onclick="editTask('${t.id}')">
+        <div class="item-title">${escHTML(t.title || 'Ohne Titel')}</div>
+        ${t.description ? `<div class="item-body">${escHTML(t.description)}</div>` : ''}
+        ${meta.length ? `<div class="item-meta">${meta.join('')}</div>` : ''}
+      </div>
+      <button class="item-delete" onclick="deleteTask('${t.id}')">×</button>
+    </div>`;
+  }).join('');
+  
+  return html;
+}
+
+window.setFilter = function(f) { _currentFilter = f; render(); };
+
+window.toggleTask = async function(id) {
+  const t = _data?.entities?.tasks?.[id];
+  if (!t) return;
+  const newStatus = t.status === 'done' ? 'todo' : 'done';
+  await performOp({
+    type: 'update-task',
+    payload: { id, status: newStatus, completedAt: newStatus === 'done' ? new Date().toISOString() : null }
+  });
+};
+
+window.editTask = function(id) {
+  const t = _data?.entities?.tasks?.[id];
+  if (!t) return;
+  _sheetMode = 'task';
+  _sheetCtx = { editId: id };
+  openSheetForm(t);
+};
+
+window.deleteTask = async function(id) {
+  if (!confirm('Aufgabe wirklich löschen?')) return;
+  await performOp({ type: 'delete-task', payload: { id } });
+  toast('Gelöscht', 'ok');
+};
+
+function renderNotes() {
+  if (_selectedNotebook === null) {
+    const notebooks = getNotebooks();
+    const allNotes = getNotes();
+    const inboxCount = allNotes.filter(n => !n.notebookId).length;
+    
+    let html = '<div class="section-title">📚 Notizbücher</div>';
+    html += '<div class="nb-grid">';
+    html += `<button class="nb-card inbox" onclick="openNotebook('inbox')">
+      <div class="nb-card-icon">📥</div>
+      <div class="nb-card-title">Inbox</div>
+      <div class="nb-card-meta">${inboxCount} Notiz${inboxCount===1?'':'en'} · neu hier</div>
+    </button>`;
+    notebooks.forEach(nb => {
+      const cnt = allNotes.filter(n => n.notebookId === nb.id).length;
+      html += `<button class="nb-card" onclick="openNotebook('${nb.id}')">
+        <div class="nb-card-icon" style="color:${escHTML(nb.color || '#6366f1')}">📓</div>
+        <div class="nb-card-title">${escHTML(nb.title || 'Notizbuch')}</div>
+        <div class="nb-card-meta">${cnt} Notiz${cnt===1?'':'en'}</div>
+      </button>`;
+    });
+    html += `<button class="nb-card all" onclick="openNotebook('all')">
+      <div class="nb-card-icon">🗂</div>
+      <div class="nb-card-title">Alle Notizen</div>
+      <div class="nb-card-meta">${allNotes.length} insgesamt</div>
+    </button>`;
+    html += '</div>';
+    
+    const recent = allNotes
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
+      .slice(0, 5);
+    if (recent.length > 0) {
+      html += '<div class="section-title">⏱ Zuletzt bearbeitet</div>';
+      html += recent.map(n => renderNoteItem(n)).join('');
+    }
+    return html;
+  }
+  
+  const allNotes = getNotes();
+  let notes, title;
+  if (_selectedNotebook === 'inbox') {
+    notes = allNotes.filter(n => !n.notebookId);
+    title = '📥 Inbox';
+  } else if (_selectedNotebook === 'all') {
+    notes = allNotes;
+    title = '🗂 Alle Notizen';
+  } else {
+    const nb = _data?.entities?.notebooks?.[_selectedNotebook];
+    notes = allNotes.filter(n => n.notebookId === _selectedNotebook);
+    title = '📓 ' + (nb?.title || 'Notizbuch');
+  }
+  notes.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  
+  let html = `<div style="display:flex;align-items:center;gap:6px;padding:10px 0 4px">
+    <button class="back-btn" onclick="openNotebook(null)">← Zurück</button>
+    <div style="flex:1;text-align:center;font-weight:700;font-size:15px">${escHTML(title)}</div>
+    <div style="width:60px"></div>
+  </div>`;
+  
+  if (notes.length === 0) {
+    html += `<div class="empty"><div class="empty-icon">📝</div><div class="empty-title">Keine Notizen</div><div class="empty-sub">Tippe + um eine zu erstellen</div></div>`;
+  } else {
+    html += notes.map(n => renderNoteItem(n)).join('');
+  }
+  return html;
+}
+
+function renderNoteItem(n) {
+  const isInbox = !n.notebookId;
+  const nb = n.notebookId ? _data?.entities?.notebooks?.[n.notebookId] : null;
+  const tags = [];
+  if (isInbox) tags.push('<span class="item-tag inbox">📥 Inbox</span>');
+  else if (nb) tags.push(`<span class="item-tag notebook">📓 ${escHTML(nb.title)}</span>`);
+  tags.push(`<span style="color:#3f3f46">${formatDate(n.updatedAt || n.createdAt)}</span>`);
+  const body = (n.content || '').replace(/<[^>]+>/g, '').trim();
+  
+  return `<div class="item" data-id="${n.id}">
+    <div class="item-content" onclick="editNote('${n.id}')">
+      <div class="item-title">${escHTML(n.title || 'Ohne Titel')}</div>
+      ${body ? `<div class="item-body">${escHTML(body)}</div>` : ''}
+      <div class="item-meta">${tags.join('')}</div>
+    </div>
+    <button class="item-delete" onclick="deleteNote('${n.id}')">×</button>
+  </div>`;
+}
+
+window.openNotebook = function(id) { _selectedNotebook = id; render(); };
+
+window.editNote = function(id) {
+  const n = _data?.entities?.notes?.[id];
+  if (!n) return;
+  _sheetMode = 'note';
+  _sheetCtx = { editId: id };
+  openSheetForm(n);
+};
+
+window.deleteNote = async function(id) {
+  if (!confirm('Notiz wirklich löschen?')) return;
+  await performOp({ type: 'delete-note', payload: { id } });
+  toast('Gelöscht', 'ok');
+};
+
+function renderIdeas() {
+  const ideas = getIdeas().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  if (ideas.length === 0) {
+    return `<div class="empty"><div class="empty-icon">💡</div><div class="empty-title">Keine Ideen</div><div class="empty-sub">Tippe + um eine festzuhalten</div></div>`;
+  }
+  return ideas.map(i => {
+    const tags = [];
+    if (i.status) tags.push(`<span class="item-tag">${escHTML(i.status)}</span>`);
+    if (Array.isArray(i.tags)) i.tags.forEach(t => tags.push(`<span class="item-tag">#${escHTML(t)}</span>`));
+    tags.push(`<span style="color:#3f3f46">${formatDate(i.createdAt)}</span>`);
+    return `<div class="item" data-id="${i.id}">
+      <div style="font-size:18px;flex-shrink:0;margin-top:1px">💡</div>
+      <div class="item-content" onclick="editIdea('${i.id}')">
+        <div class="item-title">${escHTML(i.title || (i.text||'').slice(0, 60) || 'Ohne Titel')}</div>
+        ${i.text ? `<div class="item-body">${escHTML(i.text)}</div>` : ''}
+        <div class="item-meta">${tags.join('')}</div>
+      </div>
+      <button class="item-delete" onclick="deleteIdea('${i.id}')">×</button>
+    </div>`;
+  }).join('');
+}
+
+window.editIdea = function(id) {
+  const i = _data?.entities?.ideas?.[id];
+  if (!i) return;
+  _sheetMode = 'idea';
+  _sheetCtx = { editId: id };
+  openSheetForm(i);
+};
+
+window.deleteIdea = async function(id) {
+  if (!confirm('Idee wirklich löschen?')) return;
+  await performOp({ type: 'delete-idea', payload: { id } });
+  toast('Gelöscht', 'ok');
+};
+
+function renderBriefing() {
+  if (!_data) return '<div class="empty">Lade…</div>';
+  
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today.getTime() + 86400000);
+  
+  const tasks = getTasks();
+  const openTasks = tasks.filter(t => t.status !== 'done');
+  const overdue = openTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
+  const todayTasks = openTasks.filter(t => {
+    if (!t.dueDate) return false;
+    const dd = new Date(t.dueDate);
+    return dd >= today && dd < tomorrow;
+  });
+  const doneToday = tasks.filter(t => {
+    if (t.status !== 'done' || !t.completedAt) return false;
+    const dd = new Date(t.completedAt);
+    return dd >= today && dd < tomorrow;
+  });
+  
+  const events = Object.values(_data?.entities?.calendarEvents || {})
+    .filter(ev => {
+      if (!ev || !ev.startDate) return false;
+      const sd = new Date(ev.startDate);
+      return sd >= today && sd < new Date(today.getTime() + 2 * 86400000);
+    })
+    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  
+  const ideasNew = getIdeas().filter(i => i.status === 'neu');
+  
+  let html = `<div style="padding-top:10px">
+    <h2 class="br-greeting">${greeting()}</h2>
+    <div class="br-date">${today.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+    
+    <div class="br-stat-row">
+      <div class="br-stat" style="--glow:rgba(34,197,94,0.15)">
+        <div class="br-stat-val" style="color:#22c55e">${doneToday.length}</div>
+        <div class="br-stat-lab">Erledigt heute</div>
+      </div>
+      <div class="br-stat" style="--glow:rgba(251,191,36,0.15)">
+        <div class="br-stat-val" style="color:#fbbf24">${todayTasks.length}</div>
+        <div class="br-stat-lab">Heute fällig</div>
+      </div>
+      <div class="br-stat" style="--glow:${overdue.length>0?'rgba(239,68,68,0.15)':'rgba(255,255,255,0.05)'}">
+        <div class="br-stat-val" style="color:${overdue.length>0?'#ef4444':'#52525b'}">${overdue.length}</div>
+        <div class="br-stat-lab">Überfällig</div>
+      </div>
+    </div>`;
+  
+  if (overdue.length > 0) {
+    html += '<div class="br-card"><h3>⚠️ Überfällig</h3>';
+    html += overdue.slice(0, 6).map(t => `<div class="br-line overdue">${escHTML(t.title || '')} <span style="margin-left:auto;opacity:0.7">${formatDate(t.dueDate)}</span></div>`).join('');
+    if (overdue.length > 6) html += `<div style="font-size:11px;color:#71717a;margin-top:8px;text-align:center">…und ${overdue.length-6} weitere</div>`;
+    html += '</div>';
+  }
+  
+  if (todayTasks.length > 0) {
+    html += '<div class="br-card"><h3>📌 Heute fällig</h3>';
+    html += todayTasks.slice(0, 8).map(t => `<div class="br-line today">${escHTML(t.title || '')}</div>`).join('');
+    html += '</div>';
+  }
+  
+  if (events.length > 0) {
+    html += '<div class="br-card"><h3>📅 Termine</h3>';
+    html += events.slice(0, 5).map(ev => {
+      const sd = new Date(ev.startDate);
+      const isToday = sd < tomorrow;
+      const time = sd.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+      return `<div class="br-line ${isToday?'today':''}"><strong>${time}</strong> ${escHTML(ev.title || ev.summary || '')} ${!isToday?'<span style="margin-left:auto;opacity:0.7">Morgen</span>':''}</div>`;
+    }).join('');
+    html += '</div>';
+  }
+  
+  if (doneToday.length > 0) {
+    html += '<div class="br-card"><h3>✅ Heute erledigt</h3>';
+    html += doneToday.slice(0, 6).map(t => `<div class="br-line done">${escHTML(t.title || '')}</div>`).join('');
+    html += '</div>';
+  }
+  
+  if (ideasNew.length > 0) {
+    html += '<div class="br-card"><h3>💡 Neue Ideen</h3>';
+    html += ideasNew.slice(0, 5).map(i => `<div class="br-line">${escHTML(i.title || (i.text||'').slice(0, 70))}</div>`).join('');
+    html += '</div>';
+  }
+  
+  if (overdue.length === 0 && todayTasks.length === 0 && events.length === 0 && doneToday.length === 0) {
+    html += `<div class="empty"><div class="empty-icon">☀️</div><div class="empty-title">Ruhiger Tag</div><div class="empty-sub">Keine fälligen Aufgaben oder Termine</div></div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Späte Stunde';
+  if (h < 11) return 'Guten Morgen';
+  if (h < 14) return 'Guten Tag';
+  if (h < 18) return 'Schönen Nachmittag';
+  if (h < 22) return 'Guten Abend';
+  return 'Späten Abend';
+}
+
+function openSheet() {
+  if (_currentTab === 'tasks') _sheetMode = 'task';
+  else if (_currentTab === 'notes') _sheetMode = 'note';
+  else if (_currentTab === 'ideas') _sheetMode = 'idea';
+  else return;
+  _sheetCtx = {};
+  openSheetForm(null);
+}
+
+function openSheetForm(existing) {
+  const sheet = document.getElementById('sheet');
+  const overlay = document.getElementById('sheetOverlay');
+  const title = document.getElementById('sheetTitle');
+  const body = document.getElementById('sheetBody');
+  
+  let html = '';
+  if (_sheetMode === 'task') {
+    title.textContent = existing ? 'Task bearbeiten' : 'Neue Aufgabe';
+    html = `
+      <div class="sheet-field">
+        <label class="sheet-label">Titel *</label>
+        <input type="text" class="sheet-input" id="fTitle" placeholder="Was muss gemacht werden?" value="${escHTML(existing?.title||'')}" autofocus />
+      </div>
+      <div class="sheet-field">
+        <label class="sheet-label">Beschreibung</label>
+        <textarea class="sheet-textarea" id="fDesc" placeholder="Optional — Details, Kontext, …">${escHTML(existing?.description||'')}</textarea>
+      </div>
+      <div class="sheet-field">
+        <label class="sheet-label">Fälligkeitsdatum</label>
+        <input type="date" class="sheet-input" id="fDue" value="${existing?.dueDate ? new Date(existing.dueDate).toISOString().slice(0,10) : ''}" />
+      </div>`;
+  }
+  else if (_sheetMode === 'note') {
+    const notebooks = getNotebooks();
+    const currentNbId = existing?.notebookId || (_selectedNotebook && _selectedNotebook !== 'inbox' && _selectedNotebook !== 'all' ? _selectedNotebook : '');
+    const nbOptions = '<option value="">📥 Inbox (kein Notizbuch)</option>' + 
+      notebooks.map(nb => `<option value="${nb.id}" ${nb.id===currentNbId?'selected':''}>📓 ${escHTML(nb.title)}</option>`).join('');
+    title.textContent = existing ? 'Notiz bearbeiten' : 'Neue Notiz';
+    html = `
+      <div class="sheet-field">
+        <label class="sheet-label">Titel</label>
+        <input type="text" class="sheet-input" id="fTitle" placeholder="Optionaler Titel" value="${escHTML(existing?.title||'')}" />
+      </div>
+      <div class="sheet-field">
+        <label class="sheet-label">Notiz *</label>
+        <textarea class="sheet-textarea tall" id="fContent" placeholder="Schreib deine Notiz…" autofocus>${escHTML(existing?.content||'')}</textarea>
+      </div>
+      <div class="sheet-field">
+        <label class="sheet-label">Notizbuch</label>
+        <select class="sheet-select" id="fNotebook">${nbOptions}</select>
+      </div>`;
+  }
+  else if (_sheetMode === 'idea') {
+    title.textContent = existing ? 'Idee bearbeiten' : 'Neue Idee';
+    html = `
+      <div class="sheet-field">
+        <label class="sheet-label">Titel</label>
+        <input type="text" class="sheet-input" id="fTitle" placeholder="Kurzer Titel" value="${escHTML(existing?.title||'')}" />
+      </div>
+      <div class="sheet-field">
+        <label class="sheet-label">Idee *</label>
+        <textarea class="sheet-textarea tall" id="fText" placeholder="Beschreib deine Idee…" autofocus>${escHTML(existing?.text||'')}</textarea>
+      </div>
+      <div class="sheet-field">
+        <label class="sheet-label">Tags (komma-separiert)</label>
+        <input type="text" class="sheet-input" id="fTags" placeholder="z.B. produkt, marketing" value="${escHTML(Array.isArray(existing?.tags) ? existing.tags.join(', ') : '')}" />
+      </div>`;
+  }
+  
+  body.innerHTML = html;
+  overlay.classList.add('open');
+  sheet.classList.add('open');
+  setTimeout(() => {
+    const auto = body.querySelector('[autofocus]');
+    if (auto) auto.focus();
+  }, 350);
+}
+
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheetOverlay').classList.remove('open');
+  _sheetMode = null;
+  _sheetCtx = {};
+}
+
+async function submitSheet() {
+  if (!_sheetMode) return;
+  const editId = _sheetCtx.editId;
+  
+  if (_sheetMode === 'task') {
+    const t = document.getElementById('fTitle').value.trim();
+    if (!t) { toast('Titel ist Pflicht', 'error'); return; }
+    const desc = document.getElementById('fDesc').value.trim();
+    const dueRaw = document.getElementById('fDue').value;
+    const due = dueRaw ? new Date(dueRaw + 'T00:00:00').toISOString() : null;
+    
+    if (editId) {
+      await performOp({ type: 'update-task', payload: { id: editId, title: t, description: desc, dueDate: due } });
+      toast('Aufgabe aktualisiert', 'ok');
+    } else {
+      const now = new Date().toISOString();
+      await performOp({ type: 'add-task', payload: {
+        id: newId('task'), title: t, description: desc,
+        status: 'todo', priority: null, dueDate: due,
+        createdAt: now, updatedAt: now, archived: false, deleted: false,
+        source: 'mobile',
+      }});
+      toast('Aufgabe erstellt', 'ok');
+    }
+  }
+  else if (_sheetMode === 'note') {
+    const titleVal = document.getElementById('fTitle').value.trim();
+    const content = document.getElementById('fContent').value.trim();
+    if (!content) { toast('Notiz darf nicht leer sein', 'error'); return; }
+    const nbVal = document.getElementById('fNotebook').value;
+    const finalTitle = titleVal || content.split('\n')[0].slice(0, 60);
+    
+    if (editId) {
+      await performOp({ type: 'update-note', payload: { id: editId, title: finalTitle, content, notebookId: nbVal || null } });
+      toast('Notiz aktualisiert', 'ok');
+    } else {
+      const now = new Date().toISOString();
+      await performOp({ type: 'add-note', payload: {
+        id: newId('note'), title: finalTitle, content,
+        notebookId: nbVal || null,
+        createdAt: now, updatedAt: now, archived: false, deleted: false,
+        source: 'mobile',
+      }});
+      toast(nbVal ? 'Notiz gespeichert' : 'Notiz in Inbox gespeichert', 'ok');
+    }
+  }
+  else if (_sheetMode === 'idea') {
+    const titleVal = document.getElementById('fTitle').value.trim();
+    const text = document.getElementById('fText').value.trim();
+    if (!text) { toast('Idee darf nicht leer sein', 'error'); return; }
+    const tagsRaw = document.getElementById('fTags').value.trim();
+    const tags = tagsRaw ? tagsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const finalTitle = titleVal || text.split('\n')[0].slice(0, 60);
+    
+    if (editId) {
+      await performOp({ type: 'update-idea', payload: { id: editId, title: finalTitle, text, tags } });
+      toast('Idee aktualisiert', 'ok');
+    } else {
+      const now = new Date().toISOString();
+      await performOp({ type: 'add-idea', payload: {
+        id: newId('idea'), title: finalTitle, text, tags,
+        status: 'neu', createdAt: now, updatedAt: now,
+      }});
+      toast('Idee gespeichert', 'ok');
+    }
+  }
+  closeSheet();
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    _currentTab = tab.dataset.tab;
+    if (_currentTab === 'notes') _selectedNotebook = null;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    render();
+  });
+});
+
+let _toastTimer = null;
+function toast(msg, kind = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + kind;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+let _ptr = { startY: 0, pulling: false };
+const main = document.getElementById('main');
+main.addEventListener('touchstart', e => {
+  if (main.scrollTop === 0) { _ptr.startY = e.touches[0].clientY; _ptr.pulling = false; }
+  else _ptr.startY = -1;
+}, { passive: true });
+main.addEventListener('touchmove', e => {
+  if (_ptr.startY < 0) return;
+  const delta = e.touches[0].clientY - _ptr.startY;
+  if (delta > 60 && !_ptr.pulling) { _ptr.pulling = true; main.classList.add('pulling'); }
+}, { passive: true });
+main.addEventListener('touchend', e => {
+  if (_ptr.pulling) pullData();
+  main.classList.remove('pulling');
+  _ptr.pulling = false; _ptr.startY = 0;
+});
+
+async function init() {
+  try {
+    const stored = localStorage.getItem(PENDING_STORAGE_KEY);
+    if (stored) _pendingChanges = JSON.parse(stored);
+  } catch(_) {}
+  
+  const cached = localStorage.getItem(LAST_DATA_KEY);
+  if (cached) {
+    try {
+      _data = JSON.parse(cached);
+      _etag = localStorage.getItem(LAST_ETAG_KEY);
+      render();
+    } catch(_) {}
+  }
+  
+  await pullData();
+}
+
+init();
+</script>
+
+</body>
+</html>
