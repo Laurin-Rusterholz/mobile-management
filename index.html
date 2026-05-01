@@ -457,7 +457,123 @@
     transition:opacity 0.15s;
   }
   .back-btn:active{opacity:0.6}
+
+  /* Sheet sizes — half / full */
+  .sheet.full{max-height:100vh;height:100dvh;border-radius:0;padding-top:env(safe-area-inset-top)}
+  .sheet-size-toggle{
+    background:rgba(255,255,255,0.06);
+    color:#a1a1aa;
+    padding:6px 10px;border-radius:8px;
+    font-size:13px;font-weight:600;
+    margin-right:6px;
+    transition:all 0.15s;
+  }
+  .sheet-size-toggle:active{background:rgba(255,255,255,0.1)}
+  .sheet-size-toggle.active{background:rgba(99,102,241,0.18);color:#a5b4fc}
+
+  /* Files block in editor */
+  .files-block{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+  .file-chip{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.08);
+    border-radius:12px;
+    text-align:left;cursor:pointer;
+    transition:all 0.15s;
+    color:#fafafa;text-decoration:none;
+  }
+  .file-chip:active{background:rgba(255,255,255,0.08);transform:scale(0.99)}
+  .file-chip-icon{
+    width:36px;height:36px;flex-shrink:0;
+    border-radius:9px;
+    background:linear-gradient(135deg, rgba(99,102,241,0.25), rgba(168,85,247,0.18));
+    display:flex;align-items:center;justify-content:center;
+    font-size:18px;
+  }
+  .file-chip-icon.pdf{background:linear-gradient(135deg, rgba(239,68,68,0.25), rgba(239,68,68,0.12))}
+  .file-chip-icon.img{background:linear-gradient(135deg, rgba(34,197,94,0.25), rgba(34,197,94,0.12))}
+  .file-chip-icon.doc{background:linear-gradient(135deg, rgba(59,130,246,0.25), rgba(59,130,246,0.12))}
+  .file-chip-info{flex:1;min-width:0}
+  .file-chip-name{
+    font-size:13.5px;font-weight:600;color:#fafafa;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    letter-spacing:-0.005em;
+  }
+  .file-chip-meta{font-size:10.5px;color:#71717a;margin-top:2px;font-weight:500}
+  .file-chip-arrow{color:#52525b;font-size:18px;flex-shrink:0}
+
+  /* Briefing - day picker pills */
+  .br-daypicker{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .br-daypicker::-webkit-scrollbar{display:none}
+  .br-day{
+    flex-shrink:0;padding:8px 14px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.08);
+    border-radius:999px;
+    font-size:12.5px;font-weight:600;color:#a1a1aa;
+    transition:all 0.15s;
+    letter-spacing:-0.005em;
+  }
+  .br-day.active{
+    background:linear-gradient(135deg, #6366f1, #818cf8);color:#fff;
+    border-color:transparent;
+    box-shadow:0 4px 12px rgba(99,102,241,0.3);
+  }
+
+  /* Briefing - sub-cards (smaller blocks) */
+  .br-subline{
+    padding:8px 12px;
+    background:rgba(255,255,255,0.03);
+    border-radius:8px;margin-bottom:5px;
+    font-size:13px;
+    display:flex;gap:8px;align-items:flex-start;
+    line-height:1.5;
+    letter-spacing:-0.005em;
+  }
+  .br-subline-time{
+    font-feature-settings:"tnum";
+    font-weight:700;color:#818cf8;
+    flex-shrink:0;
+  }
+  .br-pill-row{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .br-pill{
+    padding:3px 9px;
+    background:rgba(255,255,255,0.06);
+    border-radius:999px;
+    font-size:11px;font-weight:600;color:#a1a1aa;
+  }
+  .br-pill.belief{
+    background:linear-gradient(135deg, rgba(168,85,247,0.15), rgba(99,102,241,0.08));
+    color:#c4b5fd;
+    padding:8px 12px;font-size:12.5px;
+    border-radius:10px;display:block;margin-bottom:5px;
+    line-height:1.5;
+    border:0.5px solid rgba(168,85,247,0.18);
+  }
+  .br-routine-step{
+    display:flex;gap:10px;align-items:center;
+    padding:7px 0;
+    font-size:13px;
+    border-bottom:0.5px solid rgba(255,255,255,0.04);
+  }
+  .br-routine-step:last-child{border-bottom:0}
+  .br-routine-time{
+    color:#818cf8;font-weight:700;
+    font-feature-settings:"tnum";
+    min-width:42px;
+  }
+  .br-empty-card{
+    padding:14px;text-align:center;
+    background:rgba(255,255,255,0.02);
+    border-radius:10px;
+    color:#52525b;font-size:12px;
+  }
 </style>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 </head>
 <body>
 
@@ -502,7 +618,10 @@
   <div class="sheet-handle"></div>
   <div class="sheet-header">
     <button class="sheet-cancel" onclick="closeSheet()">Abbrechen</button>
-    <div class="sheet-title" id="sheetTitle">Neu</div>
+    <div style="display:flex;align-items:center;gap:0">
+      <button class="sheet-size-toggle" id="sheetToggle" onclick="toggleSheetSize()" title="Größe">⤢</button>
+      <div class="sheet-title" id="sheetTitle">Neu</div>
+    </div>
     <button class="sheet-save" id="sheetSave" onclick="submitSheet()">Speichern</button>
   </div>
   <div class="sheet-body" id="sheetBody"></div>
@@ -517,6 +636,23 @@ const PENDING_STORAGE_KEY = 'qc-mobile-pending-changes';
 const LAST_DATA_KEY = 'qc-mobile-last-data';
 const LAST_ETAG_KEY = 'qc-mobile-last-etag';
 
+// Firebase config (matches main app)
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC6xVo-wmXC4JjG7qMQnOExIJU-UDvBluE",
+  authDomain: "jupidu-36804.firebaseapp.com",
+  storageBucket: "jupidu-36804.firebasestorage.app",
+};
+
+let firebaseStorage = null;
+try {
+  if (window.firebase && firebase.initializeApp) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    firebaseStorage = firebase.storage();
+  }
+} catch(e) {
+  console.warn('Firebase init failed:', e);
+}
+
 let _data = null;
 let _etag = null;
 let _pendingChanges = [];
@@ -526,6 +662,84 @@ let _selectedNotebook = null;
 let _syncing = false;
 let _sheetMode = null;
 let _sheetCtx = {};
+let _sheetSize = 'half'; // 'half' | 'full'
+let _briefingDate = null; // null = today
+
+// ─────────────────────────────────────────────────
+// File helpers (Firebase + direct URL)
+// ─────────────────────────────────────────────────
+function fileIcon(f) {
+  const name = (f.name || '').toLowerCase();
+  const type = (f.type || '').toLowerCase();
+  if (type.includes('pdf') || name.endsWith('.pdf')) return { icon: '📄', kind: 'pdf' };
+  if (type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|heic)$/i.test(name)) return { icon: '🖼', kind: 'img' };
+  if (/\.(doc|docx|odt|rtf)$/i.test(name)) return { icon: '📝', kind: 'doc' };
+  if (/\.(xls|xlsx|csv|ods)$/i.test(name)) return { icon: '📊', kind: 'doc' };
+  if (/\.(ppt|pptx|key|odp)$/i.test(name)) return { icon: '🎞', kind: 'doc' };
+  if (/\.(zip|rar|7z|tar|gz)$/i.test(name)) return { icon: '🗜', kind: '' };
+  if (type.startsWith('audio/')) return { icon: '🎵', kind: '' };
+  if (type.startsWith('video/')) return { icon: '🎬', kind: '' };
+  return { icon: '📎', kind: '' };
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+}
+
+window.openFile = async function(fileJson) {
+  let f;
+  try { f = JSON.parse(decodeURIComponent(fileJson)); } catch(e) { toast('Datei ungültig', 'error'); return; }
+  
+  if (f.url) {
+    window.open(f.url, '_blank');
+    return;
+  }
+  if (f.storagePath && firebaseStorage) {
+    toast('Lade Datei…', 'warn');
+    try {
+      const url = await firebaseStorage.ref(f.storagePath).getDownloadURL();
+      window.open(url, '_blank');
+    } catch(e) {
+      console.error('Firebase download failed:', e);
+      toast('Datei konnte nicht geladen werden', 'error');
+    }
+    return;
+  }
+  toast('Keine Datei-URL vorhanden', 'error');
+};
+
+function renderFilesBlock(files) {
+  if (!Array.isArray(files) || files.length === 0) return '';
+  let html = '<div class="files-block">';
+  files.forEach(f => {
+    if (!f) return;
+    const ic = fileIcon(f);
+    const meta = [f.size ? formatFileSize(f.size) : '', f.uploadedAt ? formatDate(f.uploadedAt) : ''].filter(Boolean).join(' · ');
+    const fJson = encodeURIComponent(JSON.stringify({ url: f.url, storagePath: f.storagePath, name: f.name }));
+    html += `<button class="file-chip" onclick="openFile('${fJson}')">
+      <div class="file-chip-icon ${ic.kind}">${ic.icon}</div>
+      <div class="file-chip-info">
+        <div class="file-chip-name">${escHTML(f.name || 'Datei')}</div>
+        ${meta ? `<div class="file-chip-meta">${meta}</div>` : ''}
+      </div>
+      <div class="file-chip-arrow">›</div>
+    </button>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+window.toggleSheetSize = function() {
+  _sheetSize = _sheetSize === 'half' ? 'full' : 'half';
+  const sheet = document.getElementById('sheet');
+  sheet.classList.toggle('full', _sheetSize === 'full');
+  const btn = document.getElementById('sheetToggle');
+  btn.classList.toggle('active', _sheetSize === 'full');
+  btn.textContent = _sheetSize === 'full' ? '⤡' : '⤢';
+};
 
 function setSyncStatus(state, text) {
   document.getElementById('syncChip').className = 'sync-chip ' + state;
@@ -746,30 +960,38 @@ function renderTasks() {
   const today = new Date(); today.setHours(0,0,0,0);
   const tomorrow = new Date(today.getTime() + 86400000);
   let tasks = getTasks();
+  const todayStr = todayYmd();
+  const tomorrowStr = todayYmd(new Date(Date.now() + 86400000));
+  
+  // Helper: Task-Due als YYYY-MM-DD-String
+  const taskDueYmd = (t) => {
+    if (!t.dueDate) return null;
+    if (typeof t.dueDate === 'string' && t.dueDate.length === 10) return t.dueDate;
+    try { return todayYmd(new Date(t.dueDate)); } catch(e) { return null; }
+  };
   
   if (_currentFilter === 'open') tasks = tasks.filter(t => t.status !== 'done');
   else if (_currentFilter === 'done') tasks = tasks.filter(t => t.status === 'done');
   else if (_currentFilter === 'today') {
     tasks = tasks.filter(t => {
       if (t.status === 'done') return false;
-      if (!t.dueDate) return false;
-      const dd = new Date(t.dueDate);
-      return dd >= today && dd < tomorrow;
+      return taskDueYmd(t) === todayStr;
     });
   } else if (_currentFilter === 'overdue') {
     tasks = tasks.filter(t => {
       if (t.status === 'done') return false;
-      if (!t.dueDate) return false;
-      return new Date(t.dueDate) < today;
+      const yd = taskDueYmd(t);
+      return yd && yd < todayStr;
     });
   }
   
   tasks.sort((a, b) => {
     if ((a.status === 'done') !== (b.status === 'done')) return a.status === 'done' ? 1 : -1;
-    if (a.dueDate && !b.dueDate) return -1;
-    if (!a.dueDate && b.dueDate) return 1;
-    if (a.dueDate && b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
-    return new Date(b.createdAt) - new Date(a.createdAt);
+    const ay = taskDueYmd(a), by = taskDueYmd(b);
+    if (ay && !by) return -1;
+    if (!ay && by) return 1;
+    if (ay && by) return ay.localeCompare(by);
+    return (b.createdAt || '').localeCompare(a.createdAt || '');
   });
   
   let html = `<div class="filters">
@@ -787,10 +1009,12 @@ function renderTasks() {
   
   html += tasks.map(t => {
     const done = t.status === 'done';
-    const overdue = t.dueDate && !done && new Date(t.dueDate) < today;
+    const dueYmd = taskDueYmd(t);
+    const overdue = dueYmd && !done && dueYmd < todayStr;
     const meta = [];
-    if (t.dueDate) meta.push(`<span class="item-tag due ${overdue?'overdue':''}">📅 ${formatDate(t.dueDate)}</span>`);
+    if (dueYmd) meta.push(`<span class="item-tag due ${overdue?'overdue':''}">📅 ${formatDateYmd(dueYmd)}</span>`);
     if (t.priority) meta.push(`<span class="item-tag">⚡ ${escHTML(t.priority)}</span>`);
+    if (Array.isArray(t.files) && t.files.length) meta.push(`<span class="item-tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc">📎 ${t.files.length}</span>`);
     return `<div class="item ${done?'done':''}" data-id="${t.id}">
       <button class="check ${done?'checked':''}" onclick="toggleTask('${t.id}')">${done?'✓':''}</button>
       <div class="item-content" onclick="editTask('${t.id}')">
@@ -904,6 +1128,7 @@ function renderNoteItem(n) {
   const tags = [];
   if (isInbox) tags.push('<span class="item-tag inbox">📥 Inbox</span>');
   else if (nb) tags.push(`<span class="item-tag notebook">📓 ${escHTML(nb.title)}</span>`);
+  if (Array.isArray(n.files) && n.files.length) tags.push(`<span class="item-tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc">📎 ${n.files.length}</span>`);
   tags.push(`<span style="color:#3f3f46">${formatDate(n.updatedAt || n.createdAt)}</span>`);
   const body = (n.content || '').replace(/<[^>]+>/g, '').trim();
   
@@ -969,96 +1194,310 @@ window.deleteIdea = async function(id) {
   toast('Gelöscht', 'ok');
 };
 
+// Hilfsfunktion: heutiges Datum in YYYY-MM-DD (Local-Time, wie Hauptapp)
+function todayYmd(d) {
+  const x = d || new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return x.getFullYear() + '-' + pad(x.getMonth() + 1) + '-' + pad(x.getDate());
+}
+
+function setBriefingDate(ymd) {
+  _briefingDate = ymd;
+  render();
+}
+window.setBriefingDate = setBriefingDate;
+
 function renderBriefing() {
   if (!_data) return '<div class="empty">Lade…</div>';
   
-  const today = new Date(); today.setHours(0,0,0,0);
-  const tomorrow = new Date(today.getTime() + 86400000);
+  const realToday = todayYmd();
+  const selectedDate = _briefingDate || realToday;
+  const isToday = selectedDate === realToday;
   
-  const tasks = getTasks();
-  const openTasks = tasks.filter(t => t.status !== 'done');
-  const overdue = openTasks.filter(t => t.dueDate && new Date(t.dueDate) < today);
-  const todayTasks = openTasks.filter(t => {
-    if (!t.dueDate) return false;
-    const dd = new Date(t.dueDate);
-    return dd >= today && dd < tomorrow;
+  // Day picker: -2..+5 days
+  const dayPicker = [];
+  const baseDate = new Date(realToday + 'T00:00:00');
+  for (let off = -2; off <= 5; off++) {
+    const d = new Date(baseDate.getTime() + off * 86400000);
+    const ymd = todayYmd(d);
+    let label;
+    if (off === 0) label = 'Heute';
+    else if (off === 1) label = 'Morgen';
+    else if (off === -1) label = 'Gestern';
+    else label = d.toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    dayPicker.push({ ymd, label, active: ymd === selectedDate });
+  }
+  
+  // Datums-Vergleiche
+  const e = _data?.entities || {};
+  const allTasks = Object.values(e.tasks || {}).filter(t => !t.deleted && !t.archived);
+  
+  // Aufgaben (dueDate ist String YYYY-MM-DD oder ISO)
+  const taskDateYmd = (t) => {
+    if (!t.dueDate) return null;
+    if (typeof t.dueDate === 'string' && t.dueDate.length === 10) return t.dueDate;
+    try { return todayYmd(new Date(t.dueDate)); } catch(e) { return null; }
+  };
+  
+  const overdueTasks = allTasks.filter(t => {
+    if (t.status === 'done') return false;
+    const yd = taskDateYmd(t);
+    return yd && yd < selectedDate;
+  }).sort((a, b) => (taskDateYmd(a) || '').localeCompare(taskDateYmd(b) || ''));
+  
+  const todayDueTasks = allTasks.filter(t => {
+    if (t.status === 'done') return false;
+    return taskDateYmd(t) === selectedDate;
   });
-  const doneToday = tasks.filter(t => {
-    if (t.status !== 'done' || !t.completedAt) return false;
-    const dd = new Date(t.completedAt);
-    return dd >= today && dd < tomorrow;
+  
+  // 3 Tage voraus
+  const future3 = todayYmd(new Date(new Date(selectedDate + 'T00:00:00').getTime() + 3 * 86400000));
+  const upcomingTasks = allTasks.filter(t => {
+    if (t.status === 'done') return false;
+    const yd = taskDateYmd(t);
+    return yd && yd > selectedDate && yd <= future3;
+  }).sort((a, b) => (taskDateYmd(a) || '').localeCompare(taskDateYmd(b) || ''));
+  
+  // Erledigte
+  const doneTasksToday = allTasks.filter(t => {
+    if (t.status !== 'done') return false;
+    const ca = t.completedAt || t.updatedAt;
+    if (!ca) return false;
+    return ca.slice(0, 10) === selectedDate;
   });
   
-  const events = Object.values(_data?.entities?.calendarEvents || {})
-    .filter(ev => {
-      if (!ev || !ev.startDate) return false;
-      const sd = new Date(ev.startDate);
-      return sd >= today && sd < new Date(today.getTime() + 2 * 86400000);
-    })
-    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+  // Calendar Events (Hauptapp: ev.date = 'YYYY-MM-DD', startTime = 'HH:MM')
+  const calEvents = Object.values(e.calendarEvents || {})
+    .filter(ev => ev && ev.date === selectedDate)
+    .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
   
-  const ideasNew = getIdeas().filter(i => i.status === 'neu');
+  // Meetings (next 7 days)
+  const future7 = todayYmd(new Date(new Date(selectedDate + 'T00:00:00').getTime() + 7 * 86400000));
+  const upcomingMeetings = Object.values(e.meetings || {})
+    .filter(m => m && m.date && m.date >= selectedDate && m.date <= future7 && !m.deleted)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   
+  // Daily goals
+  const dailyGoals = (_data.dailyGoals && _data.dailyGoals[selectedDate]) || [];
+  
+  // Goals (visible)
+  const allGoals = Object.values(e.goals || {}).filter(g => g && g.status !== 'done' && g.status !== 'archived');
+  const hiddenGoalIds = _data?.dailyBriefing?.hiddenGoals || [];
+  const visibleGoals = allGoals.filter(g => !hiddenGoalIds.includes(g.id));
+  
+  // Daily Briefing extras
+  const db = _data.dailyBriefing || {};
+  const beliefs = db.beliefs || [];
+  const customRoutines = db.customRoutines || [];
+  const todayBlocks = (db.timeBlocks || {})[selectedDate] || [];
+  todayBlocks.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+  const dayLog = (db.dailyLog || {})[selectedDate] || {};
+  
+  // Selected projects
+  const selectedProjectIds = db.selectedProjects || [];
+  const selectedProjects = Object.values(e.projects || {}).filter(p => selectedProjectIds.includes(p.id));
+  
+  // Recent ideas
+  const recentIdeas = Object.values(e.ideas || {})
+    .filter(i => i && !i.deleted)
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, 5);
+  
+  // Build HTML
+  const dateObj = new Date(selectedDate + 'T00:00:00');
   let html = `<div style="padding-top:10px">
-    <h2 class="br-greeting">${greeting()}</h2>
-    <div class="br-date">${today.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+    <h2 class="br-greeting">${isToday ? greeting() : dateObj.toLocaleDateString('de-CH', { weekday: 'long' })}</h2>
+    <div class="br-date">${dateObj.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+    
+    <div class="br-daypicker">
+      ${dayPicker.map(d => `<button class="br-day ${d.active?'active':''}" onclick="setBriefingDate('${d.ymd}')">${d.label}</button>`).join('')}
+    </div>
     
     <div class="br-stat-row">
       <div class="br-stat" style="--glow:rgba(34,197,94,0.15)">
-        <div class="br-stat-val" style="color:#22c55e">${doneToday.length}</div>
-        <div class="br-stat-lab">Erledigt heute</div>
+        <div class="br-stat-val" style="color:#22c55e">${doneTasksToday.length}</div>
+        <div class="br-stat-lab">Erledigt</div>
       </div>
       <div class="br-stat" style="--glow:rgba(251,191,36,0.15)">
-        <div class="br-stat-val" style="color:#fbbf24">${todayTasks.length}</div>
-        <div class="br-stat-lab">Heute fällig</div>
+        <div class="br-stat-val" style="color:#fbbf24">${todayDueTasks.length}</div>
+        <div class="br-stat-lab">Fällig ${isToday?'heute':'an Tag'}</div>
       </div>
-      <div class="br-stat" style="--glow:${overdue.length>0?'rgba(239,68,68,0.15)':'rgba(255,255,255,0.05)'}">
-        <div class="br-stat-val" style="color:${overdue.length>0?'#ef4444':'#52525b'}">${overdue.length}</div>
+      <div class="br-stat" style="--glow:${overdueTasks.length>0?'rgba(239,68,68,0.15)':'rgba(255,255,255,0.05)'}">
+        <div class="br-stat-val" style="color:${overdueTasks.length>0?'#ef4444':'#52525b'}">${overdueTasks.length}</div>
         <div class="br-stat-lab">Überfällig</div>
       </div>
     </div>`;
   
-  if (overdue.length > 0) {
-    html += '<div class="br-card"><h3>⚠️ Überfällig</h3>';
-    html += overdue.slice(0, 6).map(t => `<div class="br-line overdue">${escHTML(t.title || '')} <span style="margin-left:auto;opacity:0.7">${formatDate(t.dueDate)}</span></div>`).join('');
-    if (overdue.length > 6) html += `<div style="font-size:11px;color:#71717a;margin-top:8px;text-align:center">…und ${overdue.length-6} weitere</div>`;
-    html += '</div>';
-  }
-  
-  if (todayTasks.length > 0) {
-    html += '<div class="br-card"><h3>📌 Heute fällig</h3>';
-    html += todayTasks.slice(0, 8).map(t => `<div class="br-line today">${escHTML(t.title || '')}</div>`).join('');
-    html += '</div>';
-  }
-  
-  if (events.length > 0) {
-    html += '<div class="br-card"><h3>📅 Termine</h3>';
-    html += events.slice(0, 5).map(ev => {
-      const sd = new Date(ev.startDate);
-      const isToday = sd < tomorrow;
-      const time = sd.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
-      return `<div class="br-line ${isToday?'today':''}"><strong>${time}</strong> ${escHTML(ev.title || ev.summary || '')} ${!isToday?'<span style="margin-left:auto;opacity:0.7">Morgen</span>':''}</div>`;
+  // ─ Tagesziele ─
+  if (dailyGoals.length > 0) {
+    html += '<div class="br-card"><h3>🎯 Tagesziele</h3>';
+    html += dailyGoals.map(g => {
+      const isCompleted = g.completed || g.status === 'done';
+      return `<div class="br-subline ${isCompleted?'done':''}" style="opacity:${isCompleted?0.5:1}">
+        <span style="font-size:14px">${isCompleted?'✓':'○'}</span>
+        <span>${escHTML(g.title || g.text || '')}</span>
+      </div>`;
     }).join('');
     html += '</div>';
   }
   
-  if (doneToday.length > 0) {
-    html += '<div class="br-card"><h3>✅ Heute erledigt</h3>';
-    html += doneToday.slice(0, 6).map(t => `<div class="br-line done">${escHTML(t.title || '')}</div>`).join('');
+  // ─ Zeitblöcke ─
+  if (todayBlocks.length > 0) {
+    html += '<div class="br-card"><h3>⏱ Tagesplanung</h3>';
+    html += todayBlocks.map(tb => `<div class="br-subline">
+      <span class="br-subline-time">${escHTML(tb.startTime || '')}–${escHTML(tb.endTime || '')}</span>
+      <span>${escHTML(tb.title || '')}</span>
+    </div>`).join('');
     html += '</div>';
   }
   
-  if (ideasNew.length > 0) {
-    html += '<div class="br-card"><h3>💡 Neue Ideen</h3>';
-    html += ideasNew.slice(0, 5).map(i => `<div class="br-line">${escHTML(i.title || (i.text||'').slice(0, 70))}</div>`).join('');
+  // ─ Termine ─
+  if (calEvents.length > 0) {
+    html += '<div class="br-card"><h3>📅 Termine</h3>';
+    html += calEvents.map(ev => {
+      const time = ev.allDay ? 'Ganztags' : (ev.startTime || '') + (ev.endTime ? '–' + ev.endTime : '');
+      return `<div class="br-subline">
+        <span class="br-subline-time">${escHTML(time)}</span>
+        <span>${escHTML(ev.title || '')}${ev.location ? '<span style="color:#71717a"> · ' + escHTML(ev.location) + '</span>' : ''}</span>
+      </div>`;
+    }).join('');
     html += '</div>';
   }
   
-  if (overdue.length === 0 && todayTasks.length === 0 && events.length === 0 && doneToday.length === 0) {
-    html += `<div class="empty"><div class="empty-icon">☀️</div><div class="empty-title">Ruhiger Tag</div><div class="empty-sub">Keine fälligen Aufgaben oder Termine</div></div>`;
+  // ─ Überfällig ─
+  if (overdueTasks.length > 0) {
+    html += '<div class="br-card"><h3>⚠️ Überfällig</h3>';
+    html += overdueTasks.slice(0, 8).map(t => `<div class="br-line overdue" onclick="editTask('${t.id}')">
+      <span style="flex:1">${escHTML(t.title || '')}</span>
+      <span style="opacity:0.7;font-size:11px">${formatDateYmd(taskDateYmd(t))}</span>
+    </div>`).join('');
+    if (overdueTasks.length > 8) html += `<div style="font-size:11px;color:#71717a;margin-top:8px;text-align:center">…und ${overdueTasks.length-8} weitere</div>`;
+    html += '</div>';
   }
+  
+  // ─ Heute fällig ─
+  if (todayDueTasks.length > 0) {
+    html += '<div class="br-card"><h3>📌 Aufgaben für diesen Tag</h3>';
+    html += todayDueTasks.map(t => {
+      const done = t.status === 'done';
+      return `<div class="br-line ${done?'done':'today'}" onclick="editTask('${t.id}')">${escHTML(t.title || '')}</div>`;
+    }).join('');
+    html += '</div>';
+  }
+  
+  // ─ Bald fällig ─
+  if (upcomingTasks.length > 0) {
+    html += '<div class="br-card"><h3>🔜 Bald fällig (3 Tage)</h3>';
+    html += upcomingTasks.slice(0, 6).map(t => `<div class="br-subline" onclick="editTask('${t.id}')">
+      <span class="br-subline-time">${formatDateYmd(taskDateYmd(t))}</span>
+      <span>${escHTML(t.title || '')}</span>
+    </div>`).join('');
+    html += '</div>';
+  }
+  
+  // ─ Meetings ─
+  if (upcomingMeetings.length > 0) {
+    html += '<div class="br-card"><h3>🤝 Anstehende Meetings</h3>';
+    html += upcomingMeetings.slice(0, 5).map(m => `<div class="br-subline">
+      <span class="br-subline-time">${formatDateYmd(m.date)}${m.time ? ' ' + m.time : ''}</span>
+      <span>${escHTML(m.title || '')}</span>
+    </div>`).join('');
+    html += '</div>';
+  }
+  
+  // ─ Heute erledigt ─
+  if (doneTasksToday.length > 0) {
+    html += '<div class="br-card"><h3>✅ Erledigt</h3>';
+    html += doneTasksToday.slice(0, 8).map(t => `<div class="br-line done">${escHTML(t.title || '')}</div>`).join('');
+    html += '</div>';
+  }
+  
+  // ─ Routinen ─
+  if (customRoutines.length > 0) {
+    html += '<div class="br-card"><h3>🔄 Routinen</h3>';
+    customRoutines.forEach(r => {
+      html += `<div style="font-size:12.5px;font-weight:700;color:#a1a1aa;margin:8px 0 4px;display:flex;align-items:center;gap:6px">
+        <span>${r.icon || '🔄'}</span><span>${escHTML(r.name || '')}</span>
+      </div>`;
+      (r.steps || []).forEach(s => {
+        html += `<div class="br-routine-step">
+          ${s.time ? '<span class="br-routine-time">' + escHTML(s.time) + '</span>' : '<span class="br-routine-time" style="color:#52525b">·</span>'}
+          <span style="flex:1">${escHTML(s.text || '')}</span>
+        </div>`;
+      });
+    });
+    html += '</div>';
+  }
+  
+  // ─ Glaubenssätze ─
+  if (beliefs.length > 0) {
+    html += '<div class="br-card"><h3>💭 Glaubenssätze</h3>';
+    beliefs.slice(0, 5).forEach(b => {
+      html += `<div class="br-pill belief">"${escHTML(b.text || '')}"</div>`;
+    });
+    html += '</div>';
+  }
+  
+  // ─ Aktive Projekte ─
+  if (selectedProjects.length > 0) {
+    html += '<div class="br-card"><h3>📁 Aktive Projekte</h3>';
+    html += selectedProjects.map(p => `<div class="br-subline">
+      <span style="font-size:14px">${p.icon || '📁'}</span>
+      <span>${escHTML(p.title || '')}</span>
+      ${p.status ? '<span class="br-pill" style="margin-left:auto">' + escHTML(p.status) + '</span>' : ''}
+    </div>`).join('');
+    html += '</div>';
+  }
+  
+  // ─ Visible goals ─
+  if (visibleGoals.length > 0 && isToday) {
+    html += '<div class="br-card"><h3>🎯 Ziele</h3>';
+    html += visibleGoals.slice(0, 5).map(g => `<div class="br-subline">
+      <span>${escHTML(g.title || '')}</span>
+    </div>`).join('');
+    html += '</div>';
+  }
+  
+  // ─ Recent Ideas ─
+  if (recentIdeas.length > 0 && isToday) {
+    html += '<div class="br-card"><h3>💡 Neueste Ideen</h3>';
+    html += recentIdeas.map(i => `<div class="br-subline" onclick="(function(){_currentTab=\\'ideas\\';document.querySelectorAll(\\'.tab\\').forEach(t=>t.classList.toggle(\\'active\\',t.dataset.tab===\\'ideas\\'));render();})();editIdea('${i.id}')">
+      <span style="font-size:14px">💡</span>
+      <span>${escHTML(i.title || (i.text || '').slice(0, 70))}</span>
+    </div>`).join('');
+    html += '</div>';
+  }
+  
+  // ─ Tagesnotiz ─
+  if (dayLog.notes) {
+    html += `<div class="br-card"><h3>📓 Tagesnotiz</h3>
+      <div style="font-size:13.5px;color:#a1a1aa;line-height:1.6;white-space:pre-wrap">${escHTML(dayLog.notes)}</div>
+    </div>`;
+  }
+  
+  // Empty?
+  const hasAnything = dailyGoals.length || todayBlocks.length || calEvents.length || overdueTasks.length 
+    || todayDueTasks.length || upcomingTasks.length || upcomingMeetings.length 
+    || doneTasksToday.length || customRoutines.length || beliefs.length 
+    || selectedProjects.length || dayLog.notes;
+  if (!hasAnything) {
+    html += `<div class="empty"><div class="empty-icon">☀️</div><div class="empty-title">Ruhiger Tag</div><div class="empty-sub">Keine Termine, keine Aufgaben</div></div>`;
+  }
+  
   html += '</div>';
   return html;
+}
+
+function formatDateYmd(ymd) {
+  if (!ymd) return '';
+  const realToday = todayYmd();
+  if (ymd === realToday) return 'Heute';
+  const tom = todayYmd(new Date(Date.now() + 86400000));
+  if (ymd === tom) return 'Morgen';
+  const yest = todayYmd(new Date(Date.now() - 86400000));
+  if (ymd === yest) return 'Gestern';
+  const d = new Date(ymd + 'T00:00:00');
+  return d.toLocaleDateString('de-CH', { day: '2-digit', month: 'short' });
 }
 
 function greeting() {
@@ -1089,6 +1528,7 @@ function openSheetForm(existing) {
   let html = '';
   if (_sheetMode === 'task') {
     title.textContent = existing ? 'Task bearbeiten' : 'Neue Aufgabe';
+    const filesHtml = renderFilesBlock(existing?.files);
     html = `
       <div class="sheet-field">
         <label class="sheet-label">Titel *</label>
@@ -1100,8 +1540,9 @@ function openSheetForm(existing) {
       </div>
       <div class="sheet-field">
         <label class="sheet-label">Fälligkeitsdatum</label>
-        <input type="date" class="sheet-input" id="fDue" value="${existing?.dueDate ? new Date(existing.dueDate).toISOString().slice(0,10) : ''}" />
-      </div>`;
+        <input type="date" class="sheet-input" id="fDue" value="${existing?.dueDate ? (typeof existing.dueDate === 'string' && existing.dueDate.length === 10 ? existing.dueDate : new Date(existing.dueDate).toISOString().slice(0,10)) : ''}" />
+      </div>
+      ${filesHtml ? `<div class="sheet-field"><label class="sheet-label">Anhänge (${(existing.files||[]).length})</label>${filesHtml}</div>` : ''}`;
   }
   else if (_sheetMode === 'note') {
     const notebooks = getNotebooks();
@@ -1109,6 +1550,13 @@ function openSheetForm(existing) {
     const nbOptions = '<option value="">📥 Inbox (kein Notizbuch)</option>' + 
       notebooks.map(nb => `<option value="${nb.id}" ${nb.id===currentNbId?'selected':''}>📓 ${escHTML(nb.title)}</option>`).join('');
     title.textContent = existing ? 'Notiz bearbeiten' : 'Neue Notiz';
+    
+    // Wenn vorhandene Notiz bearbeitet wird mit langem Inhalt → automatisch Vollbild
+    if (existing && (existing.content || '').length > 200) {
+      _sheetSize = 'full';
+    }
+    
+    const filesHtml = renderFilesBlock(existing?.files);
     html = `
       <div class="sheet-field">
         <label class="sheet-label">Titel</label>
@@ -1116,12 +1564,13 @@ function openSheetForm(existing) {
       </div>
       <div class="sheet-field">
         <label class="sheet-label">Notiz *</label>
-        <textarea class="sheet-textarea tall" id="fContent" placeholder="Schreib deine Notiz…" autofocus>${escHTML(existing?.content||'')}</textarea>
+        <textarea class="sheet-textarea tall" id="fContent" placeholder="Schreib deine Notiz…" style="${_sheetSize==='full'?'min-height:60vh':''}" autofocus>${escHTML(existing?.content||'')}</textarea>
       </div>
       <div class="sheet-field">
         <label class="sheet-label">Notizbuch</label>
         <select class="sheet-select" id="fNotebook">${nbOptions}</select>
-      </div>`;
+      </div>
+      ${filesHtml ? `<div class="sheet-field"><label class="sheet-label">Anhänge</label>${filesHtml}</div>` : ''}`;
   }
   else if (_sheetMode === 'idea') {
     title.textContent = existing ? 'Idee bearbeiten' : 'Neue Idee';
@@ -1141,6 +1590,15 @@ function openSheetForm(existing) {
   }
   
   body.innerHTML = html;
+  
+  // Größe anwenden (kann durch _sheetMode 'note' auf 'full' gewechselt sein)
+  sheet.classList.toggle('full', _sheetSize === 'full');
+  const toggleBtn = document.getElementById('sheetToggle');
+  if (toggleBtn) {
+    toggleBtn.classList.toggle('active', _sheetSize === 'full');
+    toggleBtn.textContent = _sheetSize === 'full' ? '⤡' : '⤢';
+  }
+  
   overlay.classList.add('open');
   sheet.classList.add('open');
   setTimeout(() => {
@@ -1151,9 +1609,11 @@ function openSheetForm(existing) {
 
 function closeSheet() {
   document.getElementById('sheet').classList.remove('open');
+  document.getElementById('sheet').classList.remove('full');
   document.getElementById('sheetOverlay').classList.remove('open');
   _sheetMode = null;
   _sheetCtx = {};
+  _sheetSize = 'half';
 }
 
 async function submitSheet() {
@@ -1165,7 +1625,7 @@ async function submitSheet() {
     if (!t) { toast('Titel ist Pflicht', 'error'); return; }
     const desc = document.getElementById('fDesc').value.trim();
     const dueRaw = document.getElementById('fDue').value;
-    const due = dueRaw ? new Date(dueRaw + 'T00:00:00').toISOString() : null;
+    const due = dueRaw || null;
     
     if (editId) {
       await performOp({ type: 'update-task', payload: { id: editId, title: t, description: desc, dueDate: due } });
