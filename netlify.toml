@@ -1,10 +1,17 @@
+# Netlify Configuration für Quick Capture Mobile
+# Single-Page-App, kein Build-Schritt nötig
+
 [build]
-  functions = "netlify/functions"
   publish = "."
 
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["@netlify/blobs"]
+# Secrets-Scanning: Firebase API-Keys sind nicht geheim (kommen aus Firebase
+# Security Rules, nicht aus dem Key selbst). Daher diese Werte als bekannt-OK
+# markieren, damit der Build nicht abgebrochen wird.
+[build.environment]
+  SECRETS_SCAN_OMIT_KEYS = "AIzaSyC6xVo-wmXC4JjG7qMQnOExIJU-UDvBluE"
+
+# Alternativ: Gesamtes Secrets-Scanning deaktivieren (auskommentiert)
+#  SECRETS_SCAN_ENABLED = "false"
 
 [[headers]]
   for = "/*"
@@ -12,3 +19,10 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# SPA-Fallback (falls du später Pretty-URLs willst)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
