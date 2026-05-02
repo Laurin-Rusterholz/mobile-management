@@ -1066,32 +1066,27 @@ window.setFilter = function(f) { _currentFilter = f; render(); };
 
 window.toggleTask = async function(id) {
   const t = _data?.entities?.tasks?.[id];
-  if (!t) return;
+  if (!t) {
+    console.warn('toggleTask: task not found', id);
+    return;
+  }
   const newStatus = t.status === 'done' ? 'todo' : 'done';
   
   // Haptic feedback
   if (navigator.vibrate) navigator.vibrate(newStatus === 'done' ? [20] : [12]);
   
-  // Optimistic UI: sofort animieren
-  const itemEl = document.querySelector(`.item[data-id="${id}"]`);
-  if (itemEl && newStatus === 'done' && _currentFilter === 'open') {
-    itemEl.classList.add('completing');
-    setTimeout(() => {
-      // Update real state nach Animation
-      performOp({
-        type: 'update-task',
-        payload: { id, status: newStatus, completedAt: new Date().toISOString() }
-      });
-    }, 350);
-    return;
+  // Direkt updaten - simpler ist besser. Animation kann scheitern, Update darf nicht.
+  try {
+    await performOp({
+      type: 'update-task',
+      payload: { id, status: newStatus, completedAt: newStatus === 'done' ? new Date().toISOString() : null }
+    });
+    if (newStatus === 'done') toast('✓ Erledigt', 'ok');
+    else toast('↻ Wieder offen', 'ok');
+  } catch(e) {
+    console.error('toggleTask failed:', e);
+    toast('Fehler beim Speichern', 'err');
   }
-  
-  await performOp({
-    type: 'update-task',
-    payload: { id, status: newStatus, completedAt: newStatus === 'done' ? new Date().toISOString() : null }
-  });
-  
-  if (newStatus === 'done') toast('✓ Erledigt', 'ok');
 };
 
 window.editTask = function(id) {
@@ -1502,6 +1497,12 @@ function renderBriefing() {
       <span>${escHTML(tb.title || '')}</span>
     </div>`).join('');
     html += '</div>';
+  } else if (isToday) {
+    // Hint: Tagesplan auf Quantus erstellen
+    html += `<div class="br-card" style="background:rgba(168,85,247,0.05);border-color:rgba(168,85,247,0.2)">
+      <h3 style="color:#c084fc">⏱ Kein Tagesplan</h3>
+      <div style="font-size:12.5px;color:#a1a1aa;line-height:1.5">Plane deinen Tag in Quantus → Daily Briefing → Operativ um Zeitblöcke zu sehen.</div>
+    </div>`;
   }
   
   // ─ Termine ─
