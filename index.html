@@ -1183,6 +1183,27 @@ window.editTask = function(id) {
   openSheetForm(t);
 };
 
+// Erledigen aus Modal heraus — schließt Modal + zeigt Toast
+window.markTaskFromSheet = async function(id, makeDone) {
+  if (navigator.vibrate) navigator.vibrate(makeDone ? [20] : [12]);
+  
+  try {
+    await performOp({
+      type: 'update-task',
+      payload: { 
+        id, 
+        status: makeDone ? 'done' : 'todo', 
+        completedAt: makeDone ? new Date().toISOString() : null 
+      }
+    });
+    toast(makeDone ? '✓ Erledigt' : '↻ Wieder offen', 'ok');
+    closeSheet();
+  } catch(e) {
+    console.error('markTaskFromSheet failed:', e);
+    toast('Fehler beim Speichern', 'err');
+  }
+};
+
 window.deleteTask = async function(id) {
   if (!confirm('Aufgabe wirklich löschen?')) return;
   await performOp({ type: 'delete-task', payload: { id } });
@@ -1769,7 +1790,37 @@ function openSheetForm(existing) {
   if (_sheetMode === 'task') {
     title.textContent = existing ? 'Task bearbeiten' : 'Neue Aufgabe';
     const filesHtml = renderFilesBlock(existing?.files);
+    const isDone = existing && existing.status === 'done';
+    
+    // Status-Block: Erledigen / Wieder öffnen
+    let statusHtml = '';
+    if (existing) {
+      statusHtml = `<div class="sheet-field" style="margin-bottom:18px">
+        <button onclick="markTaskFromSheet('${existing.id}', ${isDone ? 'false' : 'true'})" style="
+          width:100%;
+          padding:14px 18px;
+          border-radius:12px;
+          border:0;
+          font-size:15px;
+          font-weight:700;
+          cursor:pointer;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:10px;
+          ${isDone 
+            ? 'background:rgba(255,255,255,0.06);color:#a1a1aa;border:1px solid rgba(255,255,255,0.1);'
+            : 'background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 4px 12px rgba(34,197,94,0.3);'
+          }
+        ">
+          ${isDone ? '↻ Wieder öffnen' : '✓ Als erledigt markieren'}
+        </button>
+        ${isDone && existing.completedAt ? `<div style="text-align:center;font-size:11px;color:#71717a;margin-top:8px">Erledigt am ${new Date(existing.completedAt).toLocaleDateString('de-CH', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>` : ''}
+      </div>`;
+    }
+    
     html = `
+      ${statusHtml}
       <div class="sheet-field">
         <label class="sheet-label">Titel *</label>
         <input type="text" class="sheet-input" id="fTitle" placeholder="Was muss gemacht werden?" value="${escHTML(existing?.title||'')}" autofocus />
