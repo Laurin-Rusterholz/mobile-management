@@ -80,16 +80,17 @@
     gap:4px;
   }
   .tab{
-    flex:1;padding:8px 6px 6px;
+    flex:1;padding:8px 4px 6px;
     display:flex;flex-direction:column;align-items:center;gap:3px;
-    font-size:10px;font-weight:600;
+    font-size:9.5px;font-weight:600;
     color:#71717a;
     background:transparent;border-radius:14px;
     transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position:relative;
     letter-spacing:0;
+    min-width:0;
   }
-  .tab .tab-icon{font-size:22px;line-height:1;transition:transform 0.2s}
+  .tab .tab-icon{font-size:20px;line-height:1;transition:transform 0.2s}
   .tab:active .tab-icon{transform:scale(0.9)}
   .tab.active{color:#fafafa}
   .tab.active .tab-icon{transform:scale(1.05)}
@@ -163,19 +164,42 @@
   .item.done{opacity:0.45}
   .item.done .item-title{text-decoration:line-through;color:#71717a}
   .check{
-    flex-shrink:0;width:24px;height:24px;
+    flex-shrink:0;width:32px;height:32px;
     border-radius:50%;
-    border:1.5px solid rgba(255,255,255,0.2);
-    background:transparent;
+    border:2px solid rgba(255,255,255,0.18);
+    background:rgba(255,255,255,0.02);
     display:flex;align-items:center;justify-content:center;
-    transition:all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    margin-top:1px;
+    transition:all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+    color:transparent;font-size:15px;
+    margin-top:2px;
   }
+  .check:active{transform:scale(0.92)}
   .check.checked{
     background:linear-gradient(135deg, #22c55e, #16a34a);
     border-color:transparent;
-    color:#fff;font-size:13px;
-    box-shadow:0 2px 8px rgba(34,197,94,0.4);
+    color:#fff;
+    box-shadow:0 4px 12px rgba(34,197,94,0.5);
+    animation:checkPop 0.34s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes checkPop {
+    0%{transform:scale(0.6)}
+    50%{transform:scale(1.18)}
+    100%{transform:scale(1)}
+  }
+  /* Item-Komplett tappable für Toggle (außer Title-Bereich) */
+  .item.task-item{position:relative}
+  .item.task-item.done .item-title{text-decoration:line-through;color:#71717a}
+  .item.task-item.done .item-body{color:#52525b}
+  .item.completing{
+    animation:itemFadeOut 0.5s ease forwards;
+    pointer-events:none;
+  }
+  @keyframes itemFadeOut{
+    0%{opacity:1;transform:translateX(0)}
+    50%{opacity:0.6;background:rgba(34,197,94,0.1)}
+    100%{opacity:0.4;transform:translateX(0)}
   }
   .item-content{flex:1;min-width:0;cursor:pointer}
   .item-title{
@@ -604,10 +628,14 @@
     <span class="tab-icon">📝</span><span>Notes</span>
   </button>
   <button class="tab" data-tab="ideas">
-    <span class="tab-icon">💡</span><span>Ideen</span>
+    <span class="tab-icon">💡</span><span>Ideas</span>
+  </button>
+  <button class="tab" data-tab="journal">
+    <span class="tab-icon">📖</span><span>Journal</span>
+    <span class="badge" id="badgeJournal" style="display:none">0</span>
   </button>
   <button class="tab" data-tab="briefing">
-    <span class="tab-icon">☀️</span><span>Briefing</span>
+    <span class="tab-icon">☀️</span><span>Today</span>
   </button>
 </div>
 
@@ -942,18 +970,23 @@ function render() {
     tasksBadge.style.display = 'none';
   }
   
+  // Journal-Badge + Notifications
+  updateJournalBadge();
+  checkAndNotifyNewPushes();
+  
   const fab = document.getElementById('fab');
   fab.className = 'fab';
   if (_currentTab === 'tasks') fab.classList.add('task');
   else if (_currentTab === 'notes') fab.classList.add('note');
   else if (_currentTab === 'ideas') fab.classList.add('idea');
-  fab.style.display = (_currentTab === 'briefing') ? 'none' : 'flex';
+  fab.style.display = (_currentTab === 'briefing' || _currentTab === 'journal') ? 'none' : 'flex';
   
   const c = document.getElementById('content');
   if (_currentTab === 'tasks') c.innerHTML = renderTasks();
   else if (_currentTab === 'notes') c.innerHTML = renderNotes();
   else if (_currentTab === 'ideas') c.innerHTML = renderIdeas();
   else if (_currentTab === 'briefing') c.innerHTML = renderBriefing();
+  else if (_currentTab === 'journal') c.innerHTML = renderJournalPushes();
 }
 
 function renderTasks() {
@@ -1015,14 +1048,14 @@ function renderTasks() {
     if (dueYmd) meta.push(`<span class="item-tag due ${overdue?'overdue':''}">📅 ${formatDateYmd(dueYmd)}</span>`);
     if (t.priority) meta.push(`<span class="item-tag">⚡ ${escHTML(t.priority)}</span>`);
     if (Array.isArray(t.files) && t.files.length) meta.push(`<span class="item-tag" style="background:rgba(99,102,241,0.15);color:#a5b4fc">📎 ${t.files.length}</span>`);
-    return `<div class="item ${done?'done':''}" data-id="${t.id}">
-      <button class="check ${done?'checked':''}" onclick="toggleTask('${t.id}')">${done?'✓':''}</button>
+    return `<div class="item task-item ${done?'done':''}" data-id="${t.id}">
+      <button class="check ${done?'checked':''}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="${done?'Mark as open':'Mark as done'}">${done?'✓':''}</button>
       <div class="item-content" onclick="editTask('${t.id}')">
         <div class="item-title">${escHTML(t.title || 'Ohne Titel')}</div>
         ${t.description ? `<div class="item-body">${escHTML(t.description)}</div>` : ''}
         ${meta.length ? `<div class="item-meta">${meta.join('')}</div>` : ''}
       </div>
-      <button class="item-delete" onclick="deleteTask('${t.id}')">×</button>
+      <button class="item-delete" onclick="event.stopPropagation();deleteTask('${t.id}')">×</button>
     </div>`;
   }).join('');
   
@@ -1035,10 +1068,30 @@ window.toggleTask = async function(id) {
   const t = _data?.entities?.tasks?.[id];
   if (!t) return;
   const newStatus = t.status === 'done' ? 'todo' : 'done';
+  
+  // Haptic feedback
+  if (navigator.vibrate) navigator.vibrate(newStatus === 'done' ? [20] : [12]);
+  
+  // Optimistic UI: sofort animieren
+  const itemEl = document.querySelector(`.item[data-id="${id}"]`);
+  if (itemEl && newStatus === 'done' && _currentFilter === 'open') {
+    itemEl.classList.add('completing');
+    setTimeout(() => {
+      // Update real state nach Animation
+      performOp({
+        type: 'update-task',
+        payload: { id, status: newStatus, completedAt: new Date().toISOString() }
+      });
+    }, 350);
+    return;
+  }
+  
   await performOp({
     type: 'update-task',
     payload: { id, status: newStatus, completedAt: newStatus === 'done' ? new Date().toISOString() : null }
   });
+  
+  if (newStatus === 'done') toast('✓ Erledigt', 'ok');
 };
 
 window.editTask = function(id) {
@@ -1206,6 +1259,106 @@ function setBriefingDate(ymd) {
   render();
 }
 window.setBriefingDate = setBriefingDate;
+
+// ─────────────────────────────────────────────────────
+// JOURNAL PUSHES — Empfangene Journal-Einträge von Quantus
+// ─────────────────────────────────────────────────────
+const JOURNAL_LAST_SEEN_KEY = 'mobileJournalLastSeen';
+
+function getJournalPushes() {
+  const arr = Array.isArray(_data?.mobilePushes) ? _data.mobilePushes : [];
+  return arr.slice().sort((a, b) => (b.sentAt || '').localeCompare(a.sentAt || ''));
+}
+
+function renderJournalPushes() {
+  if (!_data) return '<div class="empty">Lade…</div>';
+  const pushes = getJournalPushes();
+  
+  let html = `<div class="section-title">📖 Journal</div>`;
+  
+  if (pushes.length === 0) {
+    html += `<div class="empty">
+      <div class="empty-icon">📖</div>
+      <div class="empty-title">Noch keine Einträge</div>
+      <div class="empty-sub">Schreibe in deinem Journal Booklet auf Quantus und sende den Eintrag an Mobile.</div>
+    </div>`;
+    return html;
+  }
+  
+  html += pushes.map(p => {
+    const date = new Date(p.sentAt || Date.now());
+    const dateStr = date.toLocaleString('de-CH', { 
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+    const preview = (p.content || '').replace(/<[^>]+>/g, '').slice(0, 280);
+    return `<div class="item" style="flex-direction:column;align-items:stretch;background:rgba(168,85,247,0.04);border-color:rgba(168,85,247,0.18)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:700;color:#d8b4fe">${escHTML(p.title || 'Journal-Eintrag')}</span>
+        <span style="font-size:10px;color:#71717a;margin-left:auto">${escHTML(dateStr)}</span>
+      </div>
+      ${preview ? `<div class="item-body" style="-webkit-line-clamp:6;color:#d4d4d8;font-size:13.5px;line-height:1.55;white-space:pre-wrap">${escHTML(preview)}${p.content && p.content.length > 280 ? '…' : ''}</div>` : ''}
+      ${p.font ? `<div style="font-size:10px;color:#52525b;margin-top:8px">Schriftart: ${escHTML(p.font)}</div>` : ''}
+    </div>`;
+  }).join('');
+  
+  // Mark all as seen
+  try {
+    localStorage.setItem(JOURNAL_LAST_SEEN_KEY, String(pushes[0].sentAt || Date.now()));
+  } catch(e) {}
+  
+  return html;
+}
+
+// Update Journal-Badge nach Sync
+function updateJournalBadge() {
+  const pushes = getJournalPushes();
+  const lastSeen = localStorage.getItem(JOURNAL_LAST_SEEN_KEY) || '';
+  const newCount = pushes.filter(p => (p.sentAt || '') > lastSeen).length;
+  const badge = document.getElementById('badgeJournal');
+  if (badge) {
+    if (newCount > 0) {
+      badge.textContent = newCount;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+// Notification API: bei neuen Einträgen Push zeigen
+async function checkAndNotifyNewPushes() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission !== 'granted') return;
+  
+  const pushes = getJournalPushes();
+  const lastNotified = localStorage.getItem('mobileJournalLastNotified') || '';
+  const newOnes = pushes.filter(p => (p.sentAt || '') > lastNotified);
+  
+  if (newOnes.length > 0) {
+    const latest = newOnes[0];
+    try {
+      new Notification('📖 Neuer Tagebucheintrag', {
+        body: latest.title || 'Du hast einen Eintrag aus deinem Journal gesendet.',
+        icon: '/favicon.ico',
+        tag: 'journal-' + latest.id,
+        silent: false,
+      });
+    } catch(e) { console.warn('Notification:', e); }
+    localStorage.setItem('mobileJournalLastNotified', String(latest.sentAt || Date.now()));
+  }
+}
+
+// Notification permission anfragen wenn auf Journal-Tab
+async function ensureNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  try {
+    const r = await Notification.requestPermission();
+    return r === 'granted';
+  } catch(e) { return false; }
+}
 
 function renderBriefing() {
   if (!_data) return '<div class="empty">Lade…</div>';
@@ -1689,6 +1842,11 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     _currentTab = tab.dataset.tab;
     if (_currentTab === 'notes') _selectedNotebook = null;
+    if (_currentTab === 'journal') {
+      ensureNotificationPermission();
+      // Badge auf 0 setzen weil User die Tab gerade öffnet
+      setTimeout(() => updateJournalBadge(), 200);
+    }
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     render();
