@@ -3135,6 +3135,18 @@ function renderAppsHub() {
     <div class="apps-hero-sub">${_data ? 'Wähle eine App. Alle Daten synchronisieren live mit Quantus auf deinem Computer.' : 'Lade Daten vom Server… Du kannst trotzdem schon navigieren.'}</div>
   </div>`;
 
+  // Diagnose-Warnung: Sync OK aber 0 Tasks → Quantus pusht offenbar auf andere URL
+  if (_initialPullStatus === 'ok' && openTasks === 0 && getNotes().length === 0 && getIdeas().length === 0) {
+    html += `<div class="pull-warning" style="border-color:rgba(255,159,10,0.3);background:rgba(255,159,10,0.08);margin:14px 0">
+      <div class="pull-warning-icon">⚠️</div>
+      <div class="pull-warning-text">
+        <div class="pull-warning-title" style="color:#fbbf24">Server antwortet, aber keine Daten</div>
+        <div class="pull-warning-sub">Verbindung steht (${HARDCODED_BASE_URL.replace('https://','')}), aber 0 Tasks/Notizen/Ideen geladen. Mögliche Ursachen:<br>• Quantus pusht auf eine andere URL<br>• Auto-Sync in Quantus deaktiviert<br>• Du hast noch keine Aufgaben in Quantus erstellt</div>
+      </div>
+      <button class="pull-warning-retry" onclick="navigateView('more')">Diagnose</button>
+    </div>`;
+  }
+
   html += '<div class="apps-grid">';
   apps.forEach(a => {
     const countBadge = a.count ? `<div class="apps-tile-count">${typeof a.count === 'string' ? a.count : (a.count > 99 ? '99+' : a.count)}</div>` : '';
@@ -3196,6 +3208,35 @@ function renderMore() {
         <span class="more-row-label">Server</span>
         <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${HARDCODED_BASE_URL.replace('https://', '')}</span>
       </div>
+    </div>
+
+    <div class="section-title">Diagnose</div>
+    <div class="more-section">
+      <div class="more-row">
+        <span class="more-row-icon">📥</span>
+        <span class="more-row-label">Vom Server geladen</span>
+        <span class="more-row-meta">${(Object.keys(_data?.entities?.tasks || {}).length)} Tasks · ${(Object.keys(_data?.entities?.notes || {}).length)} Notes · ${(Object.keys(_data?.entities?.ideas || {}).length)} Ideen</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">🕒</span>
+        <span class="more-row-label">Letzter Quantus-Push</span>
+        <span class="more-row-meta">${_data?.meta?.updatedAt ? new Date(_data.meta.updatedAt).toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">💾</span>
+        <span class="more-row-label">Quantus-Gerät</span>
+        <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHTML(_data?.meta?.lastSavedBy || '—')}</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">🆔</span>
+        <span class="more-row-label">ETag</span>
+        <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHTML(_etag || '—')}</span>
+      </div>
+      <button class="more-row" onclick="navigator.clipboard?.writeText(JSON.stringify({base:HARDCODED_BASE_URL,key:BLOB_KEY,etag:_etag,pullStatus:_initialPullStatus,counts:{tasks:Object.keys(_data?.entities?.tasks||{}).length,notes:Object.keys(_data?.entities?.notes||{}).length,ideas:Object.keys(_data?.entities?.ideas||{}).length},meta:_data?.meta,pending:_pendingChanges.length},null,2));toast('Diagnose kopiert','ok');">
+        <span class="more-row-icon">📋</span>
+        <span class="more-row-label">Diagnose-Report kopieren</span>
+        <span class="more-row-arrow">›</span>
+      </button>
     </div>
 
     <div class="section-title">Statistik</div>
