@@ -1235,11 +1235,17 @@
 <script>
 'use strict';
 
-const HARDCODED_BASE_URL = 'https://management-xo2-pro.netlify.app';
-const BLOB_KEY = 'app-data.json';
+const DEFAULT_BASE_URL = 'https://management-xo2-pro.netlify.app';
+const DEFAULT_BLOB_KEY = 'app-data.json';
 const PENDING_STORAGE_KEY = 'qc-mobile-pending-changes';
 const LAST_DATA_KEY = 'qc-mobile-last-data';
 const LAST_ETAG_KEY = 'qc-mobile-last-etag';
+const BASE_URL_OVERRIDE_KEY = 'qc-mobile-base-url';
+const BLOB_KEY_OVERRIDE_KEY = 'qc-mobile-blob-key';
+
+// Live-Konfiguration: liefert immer den aktuellen Wert aus localStorage oder Default
+function getBaseUrl() { return localStorage.getItem(BASE_URL_OVERRIDE_KEY) || DEFAULT_BASE_URL; }
+function getBlobKey() { return localStorage.getItem(BLOB_KEY_OVERRIDE_KEY) || DEFAULT_BLOB_KEY; }
 
 // Firebase config (matches main app)
 const FIREBASE_CONFIG = {
@@ -1384,7 +1390,7 @@ async function pullData(silent = false) {
   if (!silent) setSyncStatus('syncing', 'Lade…');
 
   try {
-    const url = HARDCODED_BASE_URL + '/.netlify/functions/blob-get?key=' + encodeURIComponent(BLOB_KEY) + '&_ts=' + Date.now();
+    const url = getBaseUrl() + '/.netlify/functions/blob-get?key=' + encodeURIComponent(getBlobKey()) + '&_ts=' + Date.now();
     const r = await fetch(url, { method: 'GET', cache: 'no-store' });
 
     if (r.status === 404) {
@@ -1458,7 +1464,7 @@ async function pushData() {
     _data.updatedAt = new Date().toISOString();
     if (_data.meta) _data.meta.updatedAt = _data.updatedAt;
     
-    const url = HARDCODED_BASE_URL + '/.netlify/functions/blob-put?key=' + encodeURIComponent(BLOB_KEY);
+    const url = getBaseUrl() + '/.netlify/functions/blob-put?key=' + encodeURIComponent(getBlobKey());
     const headers = { 'Content-Type': 'application/json' };
     if (_etag) headers['If-Match'] = _etag;
     
@@ -3085,6 +3091,103 @@ function subHeader(title, icon) {
   </div>`;
 }
 
+window.editBaseUrl = function() {
+  const current = getBaseUrl();
+  const newUrl = prompt('Server-URL (https://... — die Domain auf der dein Quantus läuft):', current);
+  if (newUrl === null) return;
+  const cleaned = newUrl.trim().replace(/\/+$/, '');
+  if (!cleaned) {
+    localStorage.removeItem(BASE_URL_OVERRIDE_KEY);
+    toast('Auf Standard zurückgesetzt', 'ok');
+  } else if (!cleaned.startsWith('http://') && !cleaned.startsWith('https://')) {
+    toast('URL muss mit https:// beginnen', 'error');
+    return;
+  } else {
+    localStorage.setItem(BASE_URL_OVERRIDE_KEY, cleaned);
+    toast('Server-URL gespeichert · Neuer Pull läuft', 'ok');
+  }
+  _initialPullDone = false;
+  _initialPullStatus = 'pending';
+  pullData(false);
+};
+
+window.editBlobKey = function() {
+  const current = getBlobKey();
+  const newKey = prompt('Blob-Key (der Dateiname im Storage, normalerweise "app-data.json"):', current);
+  if (newKey === null) return;
+  const cleaned = newKey.trim();
+  if (!cleaned || cleaned === DEFAULT_BLOB_KEY) {
+    localStorage.removeItem(BLOB_KEY_OVERRIDE_KEY);
+    toast('Auf Standard zurückgesetzt', 'ok');
+  } else {
+    localStorage.setItem(BLOB_KEY_OVERRIDE_KEY, cleaned);
+    toast('Blob-Key gespeichert', 'ok');
+  }
+  _initialPullDone = false;
+  _initialPullStatus = 'pending';
+  pullData(false);
+};
+
+window.resetSyncConfig = function() {
+  if (!confirm('Server-URL und Blob-Key auf Standard zurücksetzen?')) return;
+  localStorage.removeItem(BASE_URL_OVERRIDE_KEY);
+  localStorage.removeItem(BLOB_KEY_OVERRIDE_KEY);
+  _initialPullDone = false;
+  _initialPullStatus = 'pending';
+  pullData(false);
+  toast('Zurückgesetzt', 'ok');
+};
+
+window.runSyncTest = async function() {
+  const out = document.getElementById('syncTestOutput');
+  if (!out) return;
+  const base = getBaseUrl();
+  const key = getBlobKey();
+  const url = base + '/.netlify/functions/blob-get?key=' + encodeURIComponent(key) + '&_ts=' + Date.now();
+
+  out.innerHTML = `<div class="more-section" style="margin-top:16px;padding:14px">
+    <div style="font-size:13px;font-weight:700;color:#a5b4fc;margin-bottom:8px">🧪 Verbindungstest läuft…</div>
+    <div style="font-size:11px;color:#71717a;font-family:'SF Mono',Menlo,monospace;word-break:break-all">${escHTML(url)}</div>
+  </div>`;
+
+  try {
+    const t0 = Date.now();
+    const r = await fetch(url, { method: 'GET', cache: 'no-store' });
+    const dt = Date.now() - t0;
+    const text = await r.text();
+    let parsedInfo = '';
+    let counts = { tasks: 0, notes: 0, ideas: 0 };
+    let metaInfo = '';
+    if (r.ok) {
+      try {
+        const obj = JSON.parse(text);
+        counts.tasks = Object.keys(obj?.entities?.tasks || {}).length;
+        counts.notes = Object.keys(obj?.entities?.notes || {}).length;
+        counts.ideas = Object.keys(obj?.entities?.ideas || {}).length;
+        metaInfo = obj?.meta ? `<div>updatedAt: <strong>${escHTML(obj.meta.updatedAt || '—')}</strong></div><div>lastSavedBy: <strong>${escHTML(obj.meta.lastSavedBy || '—')}</strong></div>` : '<div style="color:#fbbf24">⚠ Kein meta-Objekt im Response</div>';
+        parsedInfo = `<div style="margin-top:8px"><strong>Inhalt:</strong> ${counts.tasks} Tasks · ${counts.notes} Notes · ${counts.ideas} Ideen</div>${metaInfo}`;
+        if (counts.tasks === 0 && counts.notes === 0 && counts.ideas === 0) {
+          parsedInfo += '<div style="margin-top:10px;padding:10px;background:rgba(245,158,11,0.10);border-left:3px solid #fbbf24;border-radius:6px;font-size:11.5px;line-height:1.5;color:#fbbf24"><strong>⚠ Server liefert leere Daten.</strong><br>Quantus pusht offenbar an eine andere URL/einen anderen Blob-Key. Geh in Quantus → Einstellungen → Sync und setze GET/PUT URL auf:<br><code style="display:block;margin-top:6px;padding:6px;background:rgba(0,0,0,0.3);border-radius:4px;font-size:10.5px;word-break:break-all">' + escHTML(base) + '/.netlify/functions/blob-get?key={key}</code><div style="margin-top:4px">Blob-Key: <strong>' + escHTML(key) + '</strong></div></div>';
+        }
+      } catch(e) {
+        parsedInfo = '<div style="color:#f87171">⚠ Antwort ist kein gültiges JSON: ' + escHTML(e.message) + '</div>';
+      }
+    }
+    const statusColor = r.ok ? '#4ade80' : (r.status === 404 ? '#fbbf24' : '#f87171');
+    out.innerHTML = `<div class="more-section" style="margin-top:16px;padding:14px;font-size:12px;color:#e4e4e7;line-height:1.6">
+      <div style="font-size:13px;font-weight:700;color:${statusColor};margin-bottom:10px">${r.ok ? '✓' : (r.status === 404 ? '⚠' : '✗')} HTTP ${r.status} · ${dt} ms · ${(text.length/1024).toFixed(1)} KB</div>
+      <div style="font-family:'SF Mono',Menlo,monospace;font-size:10px;color:#71717a;word-break:break-all;margin-bottom:10px">${escHTML(url)}</div>
+      ${parsedInfo || `<div style="font-family:'SF Mono',Menlo,monospace;font-size:10px;color:#a1a1aa;max-height:140px;overflow:auto;background:rgba(0,0,0,0.3);padding:8px;border-radius:6px;white-space:pre-wrap">${escHTML(text.slice(0, 600))}</div>`}
+    </div>`;
+  } catch(err) {
+    out.innerHTML = `<div class="more-section" style="margin-top:16px;padding:14px;color:#f87171">
+      <div style="font-weight:700;margin-bottom:6px">✗ Netzwerk-Fehler</div>
+      <div style="font-size:12px;color:#fca5a5">${escHTML(err.message || String(err))}</div>
+      <div style="font-size:11px;color:#a1a1aa;margin-top:8px">Mögliche Ursachen: Server offline · CORS · Domain falsch · keine Internet-Verbindung</div>
+    </div>`;
+  }
+};
+
 function greetingTitle() {
   const h = new Date().getHours();
   if (h < 5) return 'Späte Stunde';
@@ -3141,7 +3244,7 @@ function renderAppsHub() {
       <div class="pull-warning-icon">⚠️</div>
       <div class="pull-warning-text">
         <div class="pull-warning-title" style="color:#fbbf24">Server antwortet, aber keine Daten</div>
-        <div class="pull-warning-sub">Verbindung steht (${HARDCODED_BASE_URL.replace('https://','')}), aber 0 Tasks/Notizen/Ideen geladen. Mögliche Ursachen:<br>• Quantus pusht auf eine andere URL<br>• Auto-Sync in Quantus deaktiviert<br>• Du hast noch keine Aufgaben in Quantus erstellt</div>
+        <div class="pull-warning-sub">Verbindung steht (${getBaseUrl().replace('https://','')}), aber 0 Tasks/Notizen/Ideen geladen. Mögliche Ursachen:<br>• Quantus pusht auf eine andere URL<br>• Auto-Sync in Quantus deaktiviert<br>• Du hast noch keine Aufgaben in Quantus erstellt</div>
       </div>
       <button class="pull-warning-retry" onclick="navigateView('more')">Diagnose</button>
     </div>`;
@@ -3206,7 +3309,7 @@ function renderMore() {
       <div class="more-row">
         <span class="more-row-icon">🔗</span>
         <span class="more-row-label">Server</span>
-        <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${HARDCODED_BASE_URL.replace('https://', '')}</span>
+        <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getBaseUrl().replace('https://', '')}</span>
       </div>
     </div>
 
@@ -3232,12 +3335,38 @@ function renderMore() {
         <span class="more-row-label">ETag</span>
         <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHTML(_etag || '—')}</span>
       </div>
-      <button class="more-row" onclick="navigator.clipboard?.writeText(JSON.stringify({base:HARDCODED_BASE_URL,key:BLOB_KEY,etag:_etag,pullStatus:_initialPullStatus,counts:{tasks:Object.keys(_data?.entities?.tasks||{}).length,notes:Object.keys(_data?.entities?.notes||{}).length,ideas:Object.keys(_data?.entities?.ideas||{}).length},meta:_data?.meta,pending:_pendingChanges.length},null,2));toast('Diagnose kopiert','ok');">
+      <button class="more-row" onclick="runSyncTest()">
+        <span class="more-row-icon">🧪</span>
+        <span class="more-row-label">Server-Verbindung testen</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+      <button class="more-row" onclick="navigator.clipboard?.writeText(JSON.stringify({base:getBaseUrl(),key:getBlobKey(),etag:_etag,pullStatus:_initialPullStatus,counts:{tasks:Object.keys(_data?.entities?.tasks||{}).length,notes:Object.keys(_data?.entities?.notes||{}).length,ideas:Object.keys(_data?.entities?.ideas||{}).length},meta:_data?.meta,pending:_pendingChanges.length},null,2));toast('Diagnose kopiert','ok');">
         <span class="more-row-icon">📋</span>
         <span class="more-row-label">Diagnose-Report kopieren</span>
         <span class="more-row-arrow">›</span>
       </button>
     </div>
+
+    <div class="section-title">Server-Konfiguration</div>
+    <div class="more-section">
+      <button class="more-row" onclick="editBaseUrl()">
+        <span class="more-row-icon">🌐</span>
+        <span class="more-row-label">Server-URL ändern</span>
+        <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${getBaseUrl().replace('https://','')}</span>
+      </button>
+      <button class="more-row" onclick="editBlobKey()">
+        <span class="more-row-icon">🔑</span>
+        <span class="more-row-label">Blob-Key ändern</span>
+        <span class="more-row-meta" style="font-size:10px">${escHTML(getBlobKey())}</span>
+      </button>
+      ${(localStorage.getItem(BASE_URL_OVERRIDE_KEY) || localStorage.getItem(BLOB_KEY_OVERRIDE_KEY)) ? `<button class="more-row" onclick="resetSyncConfig()">
+        <span class="more-row-icon">↻</span>
+        <span class="more-row-label" style="color:#f87171">Auf Standard zurücksetzen</span>
+        <span class="more-row-arrow">›</span>
+      </button>` : ''}
+    </div>
+
+    <div id="syncTestOutput"></div>
 
     <div class="section-title">Statistik</div>
     <div class="more-section">
