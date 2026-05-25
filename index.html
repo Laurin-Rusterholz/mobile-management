@@ -1229,11 +1229,11 @@ async function applyPendingChanges() {
 
 function applyOp(op) {
   if (!_data.entities) _data.entities = {};
-  ['tasks','notes','ideas','notebooks'].forEach(k => {
+  ['tasks','notes','ideas','notebooks','timeEntries'].forEach(k => {
     if (!_data.entities[k]) _data.entities[k] = {};
   });
   const E = _data.entities;
-  
+
   if (op.type === 'add-task') E.tasks[op.payload.id] = op.payload;
   else if (op.type === 'update-task') {
     const t = E.tasks[op.payload.id];
@@ -1252,6 +1252,7 @@ function applyOp(op) {
     if (i) Object.assign(i, op.payload, { updatedAt: new Date().toISOString() });
   }
   else if (op.type === 'delete-idea') delete E.ideas[op.payload.id];
+  else if (op.type === 'add-time-entry') E.timeEntries[op.payload.id] = op.payload;
 }
 
 async function manualSync() { await pullData(); }
@@ -2466,7 +2467,7 @@ function renderWorkmode() {
     <div class="wm-hero">
       <div class="wm-hero-title">⚡ Workmode</div>
       <div class="wm-hero-h1">Deep Work starten</div>
-      <div class="wm-hero-sub">Wähle eine Dauer, optional einen Task, und tauche in fokussierte Arbeit ein. Bildschirm bleibt aktiv.</div>
+      <div class="wm-hero-sub">Wähle eine Dauer, optional einen Task, und tauche in fokussierte Arbeit ein. Die Zeit wird automatisch im Quantus-Zeit-Tracker als "Deep Work" erfasst.</div>
     </div>
 
     <div class="wm-history-stat">
@@ -2636,6 +2637,34 @@ window.wmStopFocus = function(completed) {
   sessions.push(session);
   wmSaveSessions(sessions);
 
+  // ─── In Quantus Zeit-Tracker schreiben ───────────────────────────
+  // Mind. 10s Netto-Arbeitszeit, damit versehentliche Starts nicht zu
+  // Müll-Einträgen führen.
+  if (actualMs >= 10000 && typeof performOp === 'function' && _data) {
+    try {
+      const sessionLabel = _wmActive.sessionName && _wmActive.sessionName !== 'Deep Work'
+        ? 'Deep Work · ' + _wmActive.sessionName
+        : 'Deep Work';
+      const teId = 'te_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const nowIso = new Date(now).toISOString();
+      performOp({
+        type: 'add-time-entry',
+        payload: {
+          id: teId,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          taskId: _wmActive.taskId || null,
+          startTs: new Date(_wmActive.startedAt).toISOString(),
+          endTs: nowIso,
+          durationSec: Math.floor(actualMs / 1000),
+          note: sessionLabel,
+          billable: false,
+          source: 'mobile-workmode',
+        },
+      });
+    } catch(e) { console.warn('Time-entry sync failed:', e); }
+  }
+
   if (_wmTicker) { clearInterval(_wmTicker); _wmTicker = null; }
   wmReleaseWakeLock();
 
@@ -2653,9 +2682,13 @@ window.wmStopFocus = function(completed) {
       : 'Starke Arbeit. Gönn dir kurz Pause.';
     if (comp) comp.classList.add('active');
     try { if (navigator.vibrate) navigator.vibrate([120, 60, 120, 60, 240]); } catch(e) {}
-    if (typeof toast === 'function') toast('Session abgeschlossen ⚡', 'ok');
+    if (typeof toast === 'function') toast('Session abgeschlossen ⚡ — in Quantus erfasst', 'ok');
   } else {
-    if (typeof toast === 'function') toast(actualMs > 60000 ? 'Session gestoppt' : 'Abgebrochen', actualMs > 60000 ? 'ok' : 'warn');
+    if (typeof toast === 'function') {
+      if (actualMs < 10000) toast('Abgebrochen — zu kurz für Erfassung', 'warn');
+      else if (actualMs > 60000) toast('Session gestoppt — in Quantus erfasst', 'ok');
+      else toast('Session gestoppt', 'ok');
+    }
   }
 
   _wmActive = null;
