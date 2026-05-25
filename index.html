@@ -886,6 +886,266 @@
     padding:6px 12px;background:rgba(168,85,247,0.18);
     border-radius:999px;letter-spacing:0.02em;
   }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     APPS-HUB, SUB-VIEWS, neue Views (Goals/Vision/Budget/Passwords/AI)
+     ═══════════════════════════════════════════════════════════════════ */
+  .pull-warning{
+    display:flex;align-items:center;gap:12px;
+    margin:14px 0 4px;padding:14px;
+    background:rgba(239,68,68,0.10);border:0.5px solid rgba(239,68,68,0.25);
+    border-radius:14px;
+  }
+  .pull-warning-icon{font-size:22px;flex-shrink:0}
+  .pull-warning-text{flex:1;min-width:0}
+  .pull-warning-title{font-size:13px;font-weight:700;color:#fca5a5}
+  .pull-warning-sub{font-size:11.5px;color:#a1a1aa;line-height:1.5;margin-top:2px}
+  .pull-warning-retry{
+    padding:8px 14px;background:rgba(239,68,68,0.18);
+    border:0.5px solid rgba(239,68,68,0.35);color:#fca5a5;
+    border-radius:10px;font-size:12px;font-weight:700;flex-shrink:0;
+  }
+
+  /* Sub-View Header (mit Back-Button) */
+  .sv-header{
+    display:flex;align-items:center;gap:10px;
+    padding:16px 0 14px;margin-bottom:6px;
+  }
+  .sv-back{
+    width:36px;height:36px;flex-shrink:0;
+    background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);
+    border-radius:11px;color:#fafafa;font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .sv-back:active{background:rgba(255,255,255,0.12);transform:scale(0.96)}
+  .sv-title{font-size:22px;font-weight:800;letter-spacing:-0.02em;flex:1;min-width:0;display:flex;align-items:center;gap:10px}
+  .sv-title-icon{font-size:22px}
+  .sv-action{
+    padding:8px 14px;background:linear-gradient(135deg,#6366f1,#a855f7);
+    color:#fff;border-radius:10px;font-size:13px;font-weight:700;flex-shrink:0;
+    box-shadow:0 4px 12px rgba(99,102,241,0.3);
+  }
+  .sv-action:active{transform:scale(0.97)}
+
+  /* Apps-Hub Grid */
+  .apps-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+    margin:18px 0 24px;
+  }
+  .apps-tile{
+    aspect-ratio:1;
+    background:rgba(255,255,255,0.03);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:18px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    padding:10px;text-align:center;
+    transition:all 0.15s;position:relative;
+  }
+  .apps-tile:active{transform:scale(0.95);background:rgba(255,255,255,0.06)}
+  .apps-tile-icon{font-size:30px;line-height:1}
+  .apps-tile-label{font-size:11.5px;font-weight:700;color:#fafafa;line-height:1.2;letter-spacing:-0.01em}
+  .apps-tile-count{
+    position:absolute;top:8px;right:8px;
+    background:rgba(168,85,247,0.25);color:#d8b4fe;
+    padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;
+    min-width:20px;text-align:center;
+  }
+  .apps-tile.featured{
+    background:linear-gradient(135deg,rgba(168,85,247,0.18),rgba(99,102,241,0.10));
+    border-color:rgba(168,85,247,0.3);
+  }
+  .apps-hero-card{
+    margin:18px 0 8px;padding:18px 20px;
+    background:linear-gradient(135deg,rgba(168,85,247,0.16),rgba(99,102,241,0.08));
+    border:0.5px solid rgba(168,85,247,0.3);
+    border-radius:16px;
+  }
+  .apps-hero-greeting{font-size:13px;color:#c4b5fd;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px}
+  .apps-hero-title{font-size:20px;font-weight:800;letter-spacing:-0.025em;margin-bottom:4px}
+  .apps-hero-sub{font-size:13px;color:#a1a1aa;line-height:1.5}
+
+  /* Home Quick-Tiles */
+  .home-quick-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;
+  }
+  .home-quick-tile{
+    padding:16px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:14px;text-align:left;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .home-quick-tile:active{transform:scale(0.97);background:rgba(255,255,255,0.07)}
+  .home-quick-tile-icon{font-size:22px;line-height:1}
+  .home-quick-tile-val{font-size:22px;font-weight:800;letter-spacing:-0.02em;line-height:1}
+  .home-quick-tile-lab{font-size:11px;color:#a1a1aa;font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
+
+  /* ─── Goals ─── */
+  .goal-card{
+    margin-bottom:10px;padding:14px 16px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+  }
+  .goal-card-row{display:flex;align-items:center;gap:12px}
+  .goal-card-emoji{
+    width:44px;height:44px;flex-shrink:0;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:20px;
+  }
+  .goal-card-body{flex:1;min-width:0}
+  .goal-card-title{font-size:14px;font-weight:700;color:#fafafa;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .goal-card-meta{font-size:11.5px;color:#a1a1aa;margin-top:4px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .goal-progress-track{height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden;margin-top:10px}
+  .goal-progress-fill{height:100%;background:linear-gradient(90deg,#6366f1,#a855f7);border-radius:3px;transition:width .3s}
+  .goal-status-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,0.06);color:#a1a1aa}
+  .goal-status-chip.active{background:rgba(99,102,241,0.2);color:#a5b4fc}
+  .goal-status-chip.done{background:rgba(34,197,94,0.2);color:#4ade80}
+
+  /* ─── Vision ─── */
+  .vision-card{
+    margin-bottom:12px;padding:16px 18px;
+    background:linear-gradient(135deg,rgba(99,102,241,0.10),rgba(168,85,247,0.06));
+    border:0.5px solid rgba(99,102,241,0.2);
+    border-radius:16px;
+  }
+  .vision-card-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .vision-card-emoji{font-size:22px}
+  .vision-card-title{font-size:15px;font-weight:700;color:#fafafa;letter-spacing:-0.015em;flex:1}
+  .vision-card-text{font-size:13px;color:#a1a1aa;line-height:1.6;white-space:pre-wrap}
+  .vision-card-meta{font-size:11px;color:#71717a;margin-top:8px;letter-spacing:0.04em;text-transform:uppercase;font-weight:600}
+
+  /* ─── Budget ─── */
+  .bud-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 6px}
+  .bud-stat{
+    padding:14px;background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+  }
+  .bud-stat.warn{background:rgba(245,158,11,0.10);border-color:rgba(245,158,11,0.25)}
+  .bud-stat.ok{background:rgba(34,197,94,0.10);border-color:rgba(34,197,94,0.25)}
+  .bud-stat-lab{font-size:10px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.08em}
+  .bud-stat-val{font-size:22px;font-weight:800;color:#fafafa;letter-spacing:-0.02em;margin-top:6px;line-height:1}
+  .bud-stat-sub{font-size:11px;color:#a1a1aa;margin-top:4px}
+
+  .bud-section-tabs{
+    display:flex;gap:6px;margin:18px 0 12px;
+    background:rgba(255,255,255,0.04);padding:4px;border-radius:14px;
+    border:0.5px solid rgba(255,255,255,0.06);
+  }
+  .bud-section-tab{
+    flex:1;padding:10px 8px;border-radius:10px;
+    font-size:12px;font-weight:700;color:#a1a1aa;
+    letter-spacing:-0.005em;text-align:center;
+  }
+  .bud-section-tab.active{
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    color:#fff;box-shadow:0 4px 10px rgba(99,102,241,0.3);
+  }
+
+  .pd-card{
+    margin-bottom:10px;padding:14px 16px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);border-radius:14px;
+    border-left:3px solid #6366f1;
+  }
+  .pd-card.pending{border-left-color:#fbbf24}
+  .pd-card.approved{border-left-color:#22c55e}
+  .pd-card.rejected{border-left-color:#ef4444;opacity:0.6}
+  .pd-card.purchased{border-left-color:#a855f7;opacity:0.75}
+  .pd-card-h{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .pd-card-title{font-size:14px;font-weight:700;color:#fafafa;flex:1;letter-spacing:-0.01em}
+  .pd-card-price{font-size:15px;font-weight:800;color:#d8b4fe;letter-spacing:-0.02em}
+  .pd-card-meta{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:#a1a1aa;margin-bottom:8px}
+  .pd-card-tag{padding:2px 8px;border-radius:6px;background:rgba(255,255,255,0.05);font-weight:600}
+  .pd-card-status{padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase}
+  .pd-card-status.pending{background:rgba(245,158,11,0.18);color:#fbbf24}
+  .pd-card-status.approved{background:rgba(34,197,94,0.18);color:#4ade80}
+  .pd-card-status.rejected{background:rgba(239,68,68,0.18);color:#f87171}
+  .pd-card-status.purchased{background:rgba(168,85,247,0.18);color:#d8b4fe}
+  .pd-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .pd-btn{padding:7px 12px;border-radius:9px;font-size:11.5px;font-weight:700;letter-spacing:-0.005em}
+  .pd-btn.approve{background:rgba(34,197,94,0.18);color:#4ade80;border:0.5px solid rgba(34,197,94,0.3)}
+  .pd-btn.reject{background:rgba(239,68,68,0.18);color:#f87171;border:0.5px solid rgba(239,68,68,0.3)}
+  .pd-btn.purchase{background:rgba(168,85,247,0.2);color:#d8b4fe;border:0.5px solid rgba(168,85,247,0.3)}
+  .pd-btn.edit{background:rgba(255,255,255,0.06);color:#a1a1aa;border:0.5px solid rgba(255,255,255,0.08)}
+  .pd-procon{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .pd-procon-col{padding:8px 10px;border-radius:10px;font-size:11px;line-height:1.4}
+  .pd-procon-col.pros{background:rgba(34,197,94,0.06);border:0.5px solid rgba(34,197,94,0.15);color:#86efac}
+  .pd-procon-col.cons{background:rgba(239,68,68,0.06);border:0.5px solid rgba(239,68,68,0.15);color:#fca5a5}
+  .pd-procon-col strong{display:block;text-transform:uppercase;font-size:9.5px;letter-spacing:0.08em;margin-bottom:4px;opacity:0.7}
+
+  /* ─── Passwords ─── */
+  .pwd-card{
+    margin-bottom:8px;padding:12px 14px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.06);border-radius:13px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .pwd-card-emoji{
+    width:40px;height:40px;flex-shrink:0;
+    background:linear-gradient(135deg,#6366f1,#a855f7);
+    border-radius:11px;display:flex;align-items:center;justify-content:center;
+    font-size:16px;font-weight:800;color:#fff;text-transform:uppercase;
+  }
+  .pwd-card-body{flex:1;min-width:0}
+  .pwd-card-title{font-size:14px;font-weight:700;color:#fafafa;letter-spacing:-0.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pwd-card-user{font-size:12px;color:#a1a1aa;margin-top:2px;font-family:'SF Mono',Menlo,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pwd-card-actions{display:flex;gap:4px;flex-shrink:0}
+  .pwd-mini-btn{
+    width:34px;height:34px;border-radius:9px;
+    background:rgba(255,255,255,0.05);border:0.5px solid rgba(255,255,255,0.08);
+    color:#a1a1aa;font-size:14px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .pwd-mini-btn:active{background:rgba(168,85,247,0.2);color:#d8b4fe}
+  .pwd-search-bar{
+    margin:14px 0;padding:10px 14px;
+    background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.08);
+    border-radius:12px;color:#fafafa;
+    font-size:14px;width:100%;
+  }
+
+  /* ─── AI Chat ─── */
+  .ai-chat-list{display:flex;flex-direction:column;gap:10px;padding:14px 0 90px}
+  .ai-msg{padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.55;max-width:88%;white-space:pre-wrap;word-break:break-word}
+  .ai-msg.user{align-self:flex-end;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border-bottom-right-radius:4px}
+  .ai-msg.assistant{align-self:flex-start;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.08);color:#fafafa;border-bottom-left-radius:4px}
+  .ai-msg-meta{font-size:10px;color:#71717a;margin-top:4px;letter-spacing:0.02em}
+  .ai-input-bar{
+    position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 70px);
+    padding:8px 12px;background:rgba(0,0,0,0.85);backdrop-filter:blur(20px);
+    border-top:0.5px solid rgba(255,255,255,0.08);
+    display:flex;gap:8px;z-index:8;
+  }
+  .ai-input{
+    flex:1;padding:11px 14px;
+    background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.08);
+    color:#fafafa;border-radius:14px;font-size:14px;outline:none;
+  }
+  .ai-send-btn{
+    padding:0 18px;background:linear-gradient(135deg,#6366f1,#a855f7);
+    color:#fff;border-radius:14px;font-size:14px;font-weight:700;
+    box-shadow:0 4px 12px rgba(99,102,241,0.35);
+  }
+
+  /* ─── More-Tab ─── */
+  .more-section{
+    margin-top:14px;padding:0;
+    background:rgba(255,255,255,0.04);border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:14px;overflow:hidden;
+  }
+  .more-row{
+    display:flex;align-items:center;gap:12px;padding:14px 16px;
+    border-bottom:0.5px solid rgba(255,255,255,0.05);
+  }
+  .more-row:last-child{border-bottom:0}
+  .more-row:active{background:rgba(255,255,255,0.04)}
+  .more-row-icon{font-size:18px;width:28px;text-align:center}
+  .more-row-label{flex:1;font-size:14px;color:#fafafa;font-weight:500}
+  .more-row-meta{font-size:12px;color:#71717a}
+  .more-row-arrow{color:#52525b;font-size:18px}
 </style>
 
 <!-- Firebase SDK -->
@@ -913,26 +1173,20 @@
 <button class="fab task" id="fab" onclick="openSheet()">+</button>
 
 <div class="tab-bar">
-  <button class="tab active" data-tab="tasks">
-    <span class="tab-icon">✓</span><span>Tasks</span>
+  <button class="tab active" data-tab="home">
+    <span class="tab-icon">🏠</span><span>Home</span>
+  </button>
+  <button class="tab" data-tab="apps">
+    <span class="tab-icon">📱</span><span>Apps</span>
     <span class="badge" id="badgeTasks" style="display:none">0</span>
   </button>
   <button class="tab" data-tab="workmode">
     <span class="tab-icon">⚡</span><span>Work</span>
     <span class="badge" id="badgeWorkmode" style="display:none;background:linear-gradient(135deg,#a855f7,#6366f1);box-shadow:0 2px 6px rgba(168,85,247,0.5)">0</span>
   </button>
-  <button class="tab" data-tab="notes">
-    <span class="tab-icon">📝</span><span>Notes</span>
-  </button>
-  <button class="tab" data-tab="ideas">
-    <span class="tab-icon">💡</span><span>Ideas</span>
-  </button>
-  <button class="tab" data-tab="journal">
-    <span class="tab-icon">📖</span><span>Journal</span>
+  <button class="tab" data-tab="more">
+    <span class="tab-icon">⋯</span><span>Mehr</span>
     <span class="badge" id="badgeJournal" style="display:none">0</span>
-  </button>
-  <button class="tab" data-tab="briefing">
-    <span class="tab-icon">☀️</span><span>Today</span>
   </button>
 </div>
 
@@ -1007,10 +1261,13 @@ try {
 let _data = null;
 let _etag = null;
 let _pendingChanges = [];
-let _currentTab = 'tasks';
+let _currentTab = 'home';
+let _currentView = 'home';     // home | apps | work | more | tasks | notes | ideas | journal | goals | vision | budget | passwords | aichat
 let _currentFilter = 'open';
 let _selectedNotebook = null;
 let _syncing = false;
+let _initialPullDone = false;   // Schutz: pushData darf nie feuern, bevor wir Daten vom Server gesehen haben
+let _initialPullStatus = 'pending'; // pending | ok | empty | failed
 let _sheetMode = null;
 let _sheetCtx = {};
 let _sheetSize = 'half'; // 'half' | 'full'
@@ -1129,23 +1386,29 @@ async function pullData(silent = false) {
   try {
     const url = HARDCODED_BASE_URL + '/.netlify/functions/blob-get?key=' + encodeURIComponent(BLOB_KEY) + '&_ts=' + Date.now();
     const r = await fetch(url, { method: 'GET', cache: 'no-store' });
-    
+
     if (r.status === 404) {
+      // Leer ist OK — Server existiert, hat nur noch keine Daten
       _data = { entities: { tasks: {}, notes: {}, ideas: {}, notebooks: {} } };
       _etag = null;
+      _initialPullDone = true;
+      _initialPullStatus = 'empty';
       setSyncStatus('warn', 'Leer');
       render();
       return;
     }
     if (!r.ok) throw new Error('HTTP ' + r.status);
-    
+
     const text = await r.text();
     _data = JSON.parse(text);
     _etag = r.headers.get('ETag') || r.headers.get('etag');
-    
+
     localStorage.setItem(LAST_DATA_KEY, text);
     if (_etag) localStorage.setItem(LAST_ETAG_KEY, _etag);
-    
+
+    _initialPullDone = true;
+    _initialPullStatus = 'ok';
+
     await applyPendingChanges();
     setSyncStatus('ok', 'Synced');
     render();
@@ -1154,13 +1417,19 @@ async function pullData(silent = false) {
     setSyncStatus('error', 'Offline');
     const cached = localStorage.getItem(LAST_DATA_KEY);
     if (cached) {
-      try { 
-        _data = JSON.parse(cached); 
+      try {
+        _data = JSON.parse(cached);
         _etag = localStorage.getItem(LAST_ETAG_KEY);
+        // WICHTIG: Cache laden, aber initialPullDone bleibt false —
+        // so kann pushData NICHT feuern und Server-Daten überschreiben
+        _initialPullStatus = 'failed';
         render();
-        toast('Offline — letzte Version', 'warn');
-      } catch(_) {}
+        toast('Offline — letzte gespeicherte Version. Schreibschutz aktiv.', 'warn');
+      } catch(_) {
+        _initialPullStatus = 'failed';
+      }
     } else {
+      _initialPullStatus = 'failed';
       toast('Verbindung fehlgeschlagen', 'error');
     }
   } finally { _syncing = false; }
@@ -1168,6 +1437,14 @@ async function pullData(silent = false) {
 
 async function pushData() {
   if (!_data || _syncing) return false;
+  // KRITISCH: Niemals pushen, wenn wir nicht erfolgreich vom Server geladen haben.
+  // Sonst überschreibt ein leerer/unvollständiger Mobile-Stand die Quantus-Daten.
+  if (!_initialPullDone) {
+    console.warn('[push] blocked — initial pull not done. Queueing change.');
+    savePending();
+    setSyncStatus('warn', 'Pull fehlt');
+    return false;
+  }
   _syncing = true;
   setSyncStatus('syncing', 'Speichern…');
   
@@ -1309,27 +1586,32 @@ function getNotebooks() {
 }
 
 function render() {
+  // Tasks-Badge zeigt offene Aufgaben — egal welcher View
   const openTasks = getTasks().filter(t => t.status !== 'done').length;
   const tasksBadge = document.getElementById('badgeTasks');
-  if (openTasks > 0) {
+  if (openTasks > 0 && tasksBadge) {
     tasksBadge.textContent = openTasks > 99 ? '99' : openTasks;
     tasksBadge.style.display = 'inline-block';
-  } else {
+  } else if (tasksBadge) {
     tasksBadge.style.display = 'none';
   }
-  
+
   // Journal-Badge + Notifications
   updateJournalBadge();
   checkAndNotifyNewPushes();
-  
+
+  // FAB nur in bestimmten Views einblenden
   const fab = document.getElementById('fab');
   fab.className = 'fab';
-  if (_currentTab === 'tasks') fab.classList.add('task');
-  else if (_currentTab === 'notes') fab.classList.add('note');
-  else if (_currentTab === 'ideas') fab.classList.add('idea');
-  fab.style.display = (_currentTab === 'briefing' || _currentTab === 'journal' || _currentTab === 'workmode') ? 'none' : 'flex';
+  if (_currentView === 'tasks') fab.classList.add('task');
+  else if (_currentView === 'notes') fab.classList.add('note');
+  else if (_currentView === 'ideas') fab.classList.add('idea');
+  else if (_currentView === 'passwords') fab.classList.add('task'); // gleicher Stil
+  else if (_currentView === 'budget') fab.classList.add('task');
+  const fabViews = ['tasks', 'notes', 'ideas', 'passwords', 'budget', 'aichat'];
+  fab.style.display = fabViews.includes(_currentView) ? 'flex' : 'none';
 
-  // Workmode-Badge: aktive Session anzeigen
+  // Workmode-Badge
   const wmBadge = document.getElementById('badgeWorkmode');
   if (wmBadge) {
     if (_wmActive) {
@@ -1347,12 +1629,40 @@ function render() {
   }
 
   const c = document.getElementById('content');
-  if (_currentTab === 'tasks') c.innerHTML = renderTasks();
-  else if (_currentTab === 'notes') c.innerHTML = renderNotes();
-  else if (_currentTab === 'ideas') c.innerHTML = renderIdeas();
-  else if (_currentTab === 'briefing') c.innerHTML = renderBriefing();
-  else if (_currentTab === 'journal') c.innerHTML = renderJournalPushes();
-  else if (_currentTab === 'workmode') c.innerHTML = renderWorkmode();
+  if (!c) return;
+
+  // Banner wenn pull failed (kein Server-Kontakt)
+  let banner = '';
+  if (_initialPullStatus === 'failed') {
+    banner = `<div class="pull-warning">
+      <div class="pull-warning-icon">⚠️</div>
+      <div class="pull-warning-text">
+        <div class="pull-warning-title">Server nicht erreichbar</div>
+        <div class="pull-warning-sub">Du siehst gecachte Daten. Änderungen werden lokal gespeichert und beim nächsten erfolgreichen Sync übertragen.</div>
+      </div>
+      <button class="pull-warning-retry" onclick="pullData(false)">Neu laden</button>
+    </div>`;
+  }
+
+  let body = '';
+  switch (_currentView) {
+    case 'home':       body = renderHome(); break;
+    case 'apps':       body = renderAppsHub(); break;
+    case 'workmode':   body = renderWorkmode(); break;
+    case 'more':       body = renderMore(); break;
+    case 'tasks':      body = renderTasks(); break;
+    case 'notes':      body = renderNotes(); break;
+    case 'ideas':      body = renderIdeas(); break;
+    case 'journal':    body = renderJournalPushes(); break;
+    case 'goals':      body = renderGoals(); break;
+    case 'vision':     body = renderVision(); break;
+    case 'budget':     body = renderBudget(); break;
+    case 'passwords':  body = renderPasswords(); break;
+    case 'aichat':     body = renderAiChat(); break;
+    default:           body = renderHome();
+  }
+
+  c.innerHTML = banner + body;
 }
 
 function renderTasks() {
@@ -2119,9 +2429,12 @@ function greeting() {
 }
 
 function openSheet() {
-  if (_currentTab === 'tasks') _sheetMode = 'task';
-  else if (_currentTab === 'notes') _sheetMode = 'note';
-  else if (_currentTab === 'ideas') _sheetMode = 'idea';
+  if (_currentView === 'tasks') _sheetMode = 'task';
+  else if (_currentView === 'notes') _sheetMode = 'note';
+  else if (_currentView === 'ideas') _sheetMode = 'idea';
+  else if (_currentView === 'passwords') { pwdOpenSheet(); return; }
+  else if (_currentView === 'budget') { budOpenSheet(); return; }
+  else if (_currentView === 'aichat') { aiChatFocusInput(); return; }
   else return;
   _sheetCtx = {};
   openSheetForm(null);
@@ -2255,6 +2568,12 @@ function closeSheet() {
 }
 
 async function submitSheet() {
+  // Custom-Sheet (Passwords, Purchase Decisions) hat eigenen Submit-Handler
+  if (typeof _customSheetSubmit === 'function') {
+    const ok = _customSheetSubmit();
+    if (ok !== false) closeSheet();
+    return;
+  }
   if (!_sheetMode) return;
   const editId = _sheetCtx.editId;
   
@@ -2326,17 +2645,34 @@ async function submitSheet() {
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     _currentTab = tab.dataset.tab;
-    if (_currentTab === 'notes') _selectedNotebook = null;
-    if (_currentTab === 'journal') {
-      ensureNotificationPermission();
-      // Badge auf 0 setzen weil User die Tab gerade öffnet
-      setTimeout(() => updateJournalBadge(), 200);
-    }
+    _currentView = _currentTab;  // Top-Level: View = Tab
+    if (_currentView === 'notes' || _currentView === 'apps') _selectedNotebook = null;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     render();
   });
 });
+
+// Sub-View Navigation (vom Apps-Hub aus)
+window.navigateView = function(view) {
+  _currentView = view;
+  if (view === 'journal') {
+    ensureNotificationPermission();
+    setTimeout(() => updateJournalBadge(), 200);
+  }
+  // Tab-Highlighting bleibt auf 'apps' für Sub-Views, sonst auf passendem Top-Tab
+  const topLevel = ['home', 'apps', 'workmode', 'more'];
+  const tabKey = topLevel.includes(view) ? view : 'apps';
+  _currentTab = tabKey;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabKey));
+  window.scrollTo(0, 0);
+  const main = document.getElementById('main'); if (main) main.scrollTop = 0;
+  render();
+};
+
+window.backToApps = function() {
+  navigateView('apps');
+};
 
 let _toastTimer = null;
 function toast(msg, kind = '') {
@@ -2725,6 +3061,659 @@ document.addEventListener('visibilitychange', () => {
     wmRequestWakeLock();
   }
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NEUE APPS — Home, Apps-Hub, More, Goals, Vision, Budget, Passwords, AI Chat
+// ═══════════════════════════════════════════════════════════════════════════
+
+let _customSheetSubmit = null;
+let _budgetTab = 'decisions';
+let _pwdSearch = '';
+let _pwdRevealed = new Set();
+let _currentChatId = null;
+
+function subHeader(title, icon) {
+  return `<div class="sv-header">
+    <button class="sv-back" onclick="backToApps()">‹</button>
+    <div class="sv-title"><span class="sv-title-icon">${icon}</span>${escHTML(title)}</div>
+  </div>`;
+}
+
+function greetingTitle() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Späte Stunde';
+  if (h < 11) return 'Guten Morgen';
+  if (h < 14) return 'Guten Mittag';
+  if (h < 18) return 'Guten Nachmittag';
+  if (h < 22) return 'Guten Abend';
+  return 'Späten Abend';
+}
+
+function getJournalUnreadCount() {
+  if (!_data?.mobilePushes) return 0;
+  const pushes = Array.isArray(_data.mobilePushes) ? _data.mobilePushes : [];
+  const lastRead = parseInt(localStorage.getItem('qc-mobile-journal-lastread') || '0', 10);
+  return pushes.filter(p => new Date(p.timestamp || 0).getTime() > lastRead).length;
+}
+
+// ── Home ──────────────────────────────────────────────────────────────
+function renderHome() {
+  if (!_data) return '<div class="empty">Lade…</div>';
+  return renderBriefing();
+}
+
+// ── Apps-Hub ──────────────────────────────────────────────────────────
+function renderAppsHub() {
+  if (!_data) return '<div class="empty">Lade…</div>';
+  const openTasks = getTasks().filter(t => t.status !== 'done').length;
+  const pendingPd = getPurchaseDecisions().filter(d => d.status === 'pending').length;
+  const journalUnread = getJournalUnreadCount();
+
+  const apps = [
+    { view: 'tasks',     icon: '✓',  label: 'Tasks',     count: openTasks,    featured: openTasks > 0 },
+    { view: 'notes',     icon: '📝', label: 'Notes',     count: getNotes().length },
+    { view: 'ideas',     icon: '💡', label: 'Ideen',     count: getIdeas().length },
+    { view: 'goals',     icon: '🎯', label: 'Ziele',     count: getGoals().length },
+    { view: 'vision',    icon: '🌳', label: 'Vision',    count: 0 },
+    { view: 'budget',    icon: '💰', label: 'Budget',    count: pendingPd,    featured: pendingPd > 0 },
+    { view: 'passwords', icon: '🔐', label: 'Passwords', count: getPasswords().length },
+    { view: 'aichat',    icon: '💬', label: 'KI Chat',   count: getChats().length },
+    { view: 'journal',   icon: '📖', label: 'Journal',   count: journalUnread, featured: journalUnread > 0 },
+  ];
+
+  let html = `<div class="apps-hero-card">
+    <div class="apps-hero-greeting">${greetingTitle()}</div>
+    <div class="apps-hero-title">Was möchtest du tun?</div>
+    <div class="apps-hero-sub">Wähle eine App. Alle Daten synchronisieren live mit Quantus auf deinem Computer.</div>
+  </div>`;
+
+  html += '<div class="apps-grid">';
+  apps.forEach(a => {
+    const countBadge = a.count > 0 ? `<div class="apps-tile-count">${a.count > 99 ? '99+' : a.count}</div>` : '';
+    html += `<button class="apps-tile ${a.featured ? 'featured' : ''}" onclick="navigateView('${a.view}')">
+      ${countBadge}
+      <div class="apps-tile-icon">${a.icon}</div>
+      <div class="apps-tile-label">${a.label}</div>
+    </button>`;
+  });
+  html += '</div>';
+
+  return html;
+}
+
+// ── More-Tab ──────────────────────────────────────────────────────────
+function renderMore() {
+  const wmToday = wmTodayStats();
+  const wmWeek = wmWeekStats();
+  const statusLabel = _initialPullStatus === 'ok' ? '✓ OK' : _initialPullStatus === 'empty' ? 'Leer' : _initialPullStatus === 'failed' ? '⚠ Fehler' : '…';
+  const statusColor = _initialPullStatus === 'ok' ? '#4ade80' : _initialPullStatus === 'failed' ? '#f87171' : '#a1a1aa';
+  return `
+    <div class="sv-header"><div class="sv-title"><span class="sv-title-icon">⋯</span>Mehr</div></div>
+
+    <div class="section-title">Inhalte</div>
+    <div class="more-section">
+      <button class="more-row" onclick="navigateView('journal')">
+        <span class="more-row-icon">📖</span>
+        <span class="more-row-label">Journal</span>
+        <span class="more-row-meta">${getJournalUnreadCount() || ''}</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+      <button class="more-row" onclick="navigateView('goals')">
+        <span class="more-row-icon">🎯</span>
+        <span class="more-row-label">Ziele</span>
+        <span class="more-row-meta">${getGoals().length}</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+      <button class="more-row" onclick="navigateView('vision')">
+        <span class="more-row-icon">🌳</span>
+        <span class="more-row-label">Vision 2026</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+    </div>
+
+    <div class="section-title">Synchronisation</div>
+    <div class="more-section">
+      <button class="more-row" onclick="pullData(false)">
+        <span class="more-row-icon">🔄</span>
+        <span class="more-row-label">Jetzt synchronisieren</span>
+        <span class="more-row-meta" style="color:${statusColor}">${statusLabel}</span>
+      </button>
+      <div class="more-row">
+        <span class="more-row-icon">📦</span>
+        <span class="more-row-label">Ausstehende Änderungen</span>
+        <span class="more-row-meta">${_pendingChanges.length}</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">🔗</span>
+        <span class="more-row-label">Server</span>
+        <span class="more-row-meta" style="font-size:10px;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${HARDCODED_BASE_URL.replace('https://', '')}</span>
+      </div>
+    </div>
+
+    <div class="section-title">Statistik</div>
+    <div class="more-section">
+      <div class="more-row">
+        <span class="more-row-icon">✓</span>
+        <span class="more-row-label">Offene Aufgaben</span>
+        <span class="more-row-meta">${getTasks().filter(t => t.status !== 'done').length}</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">⚡</span>
+        <span class="more-row-label">Workmode heute</span>
+        <span class="more-row-meta">${wmToday.count}× · ${wmFormatHumanMin(wmToday.totalMin)}</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">📅</span>
+        <span class="more-row-label">Workmode 7 Tage</span>
+        <span class="more-row-meta">${wmWeek.count}× · ${wmFormatHumanMin(wmWeek.totalMin)}</span>
+      </div>
+      <div class="more-row">
+        <span class="more-row-icon">🔐</span>
+        <span class="more-row-label">Passwörter</span>
+        <span class="more-row-meta">${getPasswords().length}</span>
+      </div>
+    </div>
+  `;
+}
+
+// ── Goals (Ziele) ─────────────────────────────────────────────────────
+function getGoals() {
+  if (!_data?.entities?.goals) return [];
+  return Object.values(_data.entities.goals).filter(g => !g.deleted && g.status !== 'archived');
+}
+function renderGoals() {
+  const goals = getGoals().sort((a, b) => (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || ''));
+  let html = subHeader('Ziele', '🎯');
+  if (goals.length === 0) {
+    html += `<div class="empty"><div class="empty-icon">🎯</div><div class="empty-title">Keine Ziele</div><div class="empty-sub">Erstelle deine Ziele in Quantus — sie erscheinen hier.</div></div>`;
+    return html;
+  }
+  html += goals.map(g => {
+    const progress = g.progress != null ? Math.round((parseFloat(g.progress) || 0) * (g.progress > 1 ? 1 : 100)) : null;
+    const status = g.status || 'active';
+    const statusClass = status === 'done' ? 'done' : status === 'active' ? 'active' : '';
+    return `<div class="goal-card">
+      <div class="goal-card-row">
+        <div class="goal-card-emoji">${g.icon || '🎯'}</div>
+        <div class="goal-card-body">
+          <div class="goal-card-title">${escHTML(g.title || 'Unbenannt')}</div>
+          <div class="goal-card-meta">
+            <span class="goal-status-chip ${statusClass}">${escHTML(status)}</span>
+            ${g.deadline ? `<span>📅 ${escHTML(g.deadline)}</span>` : ''}
+            ${progress != null ? `<span>${progress}%</span>` : ''}
+          </div>
+          ${g.description ? `<div style="font-size:12px;color:#a1a1aa;line-height:1.5;margin-top:6px">${escHTML(g.description.slice(0, 200))}</div>` : ''}
+        </div>
+      </div>
+      ${progress != null ? `<div class="goal-progress-track"><div class="goal-progress-fill" style="width:${progress}%"></div></div>` : ''}
+    </div>`;
+  }).join('');
+  return html;
+}
+
+// ── Vision (Vision 2026) ───────────────────────────────────────────────
+const VISIONS_HARDCODED = [
+  { icon: '📹', title: 'Story & Content Creator', goals: ['YouTube-Kanal mit 1000+ Abonnenten', 'Newsletter mit 200+ Lesern', 'Reichweite auf Social Media', 'Geopolitik-Inhalte, die inspirieren'], belief: 'Meine einzigartige Perspektive hat Wert. Ich bin mutig genug, sie zu teilen und zu wachsen.' },
+  { icon: '📚', title: 'Bildung', goals: ['BMS-Aufnahme geschafft', 'Englisch auf C1-Niveau', 'Geopolitik-Wissen vertieft', 'The Economist als Nordstern'], belief: 'Ich lerne mit Leichtigkeit und Freude. Bildung ist der Schlüssel zu meinen Träumen.' },
+  { icon: '🧘', title: 'Innere Arbeit', goals: ['Achtsam leben, Stille genießen', 'Selbstbewusstsein unabhängig von Leistung', 'Fokus klar und präsent', 'Story-Arbeit mit Therapeut'], belief: 'Ich bin wertvoll, genau so wie ich bin. Mein Wert ist unabhängig von meinen Erfolgen.' },
+];
+function renderVision() {
+  let html = subHeader('Vision 2026', '🌳');
+  html += `<div style="font-size:12.5px;color:#71717a;margin-bottom:12px;padding:0 4px">Deine Lebensvision für 2026. In Quantus interaktiv bearbeitbar.</div>`;
+  html += VISIONS_HARDCODED.map(v => `
+    <div class="vision-card">
+      <div class="vision-card-h">
+        <span class="vision-card-emoji">${v.icon}</span>
+        <span class="vision-card-title">${escHTML(v.title)}</span>
+      </div>
+      <div class="vision-card-text">${v.goals.map(g => '✦ ' + escHTML(g)).join('\n')}</div>
+      <div class="vision-card-meta">Glaubenssatz</div>
+      <div class="vision-card-text" style="margin-top:4px;color:#c4b5fd;font-style:italic">${escHTML(v.belief)}</div>
+    </div>
+  `).join('');
+  return html;
+}
+
+// ── Budget (mit Kaufentscheiden) ───────────────────────────────────────
+function getPurchaseDecisions() {
+  if (!_data?.entities?.purchaseDecisions) return [];
+  return Object.values(_data.entities.purchaseDecisions).filter(d => !d.deleted);
+}
+function getTransactions() {
+  if (!_data?.entities?.transactions) return [];
+  return Object.values(_data.entities.transactions).filter(t => !t.deleted);
+}
+window.setBudgetTab = function(t) { _budgetTab = t; render(); };
+
+function renderBudget() {
+  let html = subHeader('Budget', '💰');
+  const pending = getPurchaseDecisions().filter(d => d.status === 'pending');
+  const approved = getPurchaseDecisions().filter(d => d.status === 'approved');
+  const txAll = getTransactions();
+  const monthYmd = new Date().toISOString().slice(0, 7);
+  const monthSpending = txAll.filter(t => (t.date || t.createdAt || '').slice(0, 7) === monthYmd)
+    .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount) || 0), 0);
+
+  html += `<div class="bud-stats">
+    <div class="bud-stat ${pending.length > 0 ? 'warn' : ''}">
+      <div class="bud-stat-lab">Offene Entscheide</div>
+      <div class="bud-stat-val">${pending.length}</div>
+      <div class="bud-stat-sub">${approved.length} genehmigt</div>
+    </div>
+    <div class="bud-stat">
+      <div class="bud-stat-lab">Diesen Monat</div>
+      <div class="bud-stat-val">${Math.round(monthSpending)}</div>
+      <div class="bud-stat-sub">CHF · ${txAll.length} Buchungen</div>
+    </div>
+  </div>`;
+
+  html += `<div class="bud-section-tabs">
+    <button class="bud-section-tab ${_budgetTab === 'decisions' ? 'active' : ''}" onclick="setBudgetTab('decisions')">Kaufentscheide</button>
+    <button class="bud-section-tab ${_budgetTab === 'overview' ? 'active' : ''}" onclick="setBudgetTab('overview')">Übersicht</button>
+  </div>`;
+
+  html += _budgetTab === 'decisions' ? renderPurchaseDecisions() : renderBudgetOverview();
+  return html;
+}
+
+function renderPurchaseDecisions() {
+  const all = getPurchaseDecisions().sort((a, b) => {
+    const order = { pending: 0, approved: 1, purchased: 2, rejected: 3 };
+    const ao = order[a.status] ?? 9, bo = order[b.status] ?? 9;
+    if (ao !== bo) return ao - bo;
+    return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+  });
+  if (all.length === 0) {
+    return `<div class="empty"><div class="empty-icon">🛒</div>
+      <div class="empty-title">Keine Kaufentscheide</div>
+      <div class="empty-sub">Tippe + um etwas zu prüfen, bevor du es kaufst. Pros, Cons, Preis — alles auf einen Blick.</div></div>`;
+  }
+  return all.map(d => {
+    const pros = Array.isArray(d.pros) ? d.pros : [];
+    const cons = Array.isArray(d.cons) ? d.cons : [];
+    const statusLabels = { pending: 'Offen', approved: 'Genehmigt', rejected: 'Abgelehnt', purchased: 'Gekauft' };
+    const price = (parseFloat(d.price) || 0).toFixed(0);
+    return `<div class="pd-card ${d.status || 'pending'}">
+      <div class="pd-card-h">
+        <div class="pd-card-title">${escHTML(d.title || 'Artikel')}</div>
+        <div class="pd-card-price">${price} ${escHTML(d.currency || 'CHF')}</div>
+      </div>
+      <div class="pd-card-meta">
+        <span class="pd-card-status ${d.status || 'pending'}">${statusLabels[d.status] || 'Offen'}</span>
+        ${d.category ? `<span class="pd-card-tag">${escHTML(d.category)}</span>` : ''}
+        ${d.rating ? `<span class="pd-card-tag">⭐ ${d.rating}/10</span>` : ''}
+      </div>
+      ${d.notes ? `<div style="font-size:12px;color:#a1a1aa;line-height:1.5;margin:2px 0 4px">${escHTML(d.notes)}</div>` : ''}
+      ${(pros.length || cons.length) ? `<div class="pd-procon">
+        <div class="pd-procon-col pros"><strong>Pro</strong>${pros.map(p => '✓ ' + escHTML(p)).join('<br>') || '—'}</div>
+        <div class="pd-procon-col cons"><strong>Contra</strong>${cons.map(c => '✗ ' + escHTML(c)).join('<br>') || '—'}</div>
+      </div>` : ''}
+      <div class="pd-actions">
+        ${d.status === 'pending' ? `
+          <button class="pd-btn approve" onclick="pdSetStatus('${d.id}', 'approved')">✓ Ja, kaufen</button>
+          <button class="pd-btn reject" onclick="pdSetStatus('${d.id}', 'rejected')">✗ Nein</button>
+        ` : ''}
+        ${d.status === 'approved' ? `<button class="pd-btn purchase" onclick="pdSetStatus('${d.id}', 'purchased')">💳 Als gekauft markieren</button>` : ''}
+        <button class="pd-btn edit" onclick="budOpenSheet('${d.id}')">Bearbeiten</button>
+        <button class="pd-btn edit" onclick="pdDelete('${d.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderBudgetOverview() {
+  const transactions = getTransactions().sort((a, b) => (b.date || b.createdAt || '').localeCompare(a.date || a.createdAt || ''));
+  if (transactions.length === 0) {
+    return `<div class="empty"><div class="empty-icon">💰</div>
+      <div class="empty-title">Keine Buchungen</div>
+      <div class="empty-sub">Buchungen werden in Quantus erfasst und erscheinen hier.</div></div>`;
+  }
+  return transactions.slice(0, 30).map(t => {
+    const amt = parseFloat(t.amount) || 0;
+    return `<div class="goal-card" style="border-left:3px solid ${amt > 0 ? '#22c55e' : '#ef4444'}">
+      <div class="goal-card-row">
+        <div class="goal-card-body">
+          <div class="goal-card-title">${escHTML(t.description || t.title || 'Buchung')}</div>
+          <div class="goal-card-meta">
+            <span>📅 ${escHTML((t.date || t.createdAt || '').slice(0, 10))}</span>
+            ${t.category ? `<span>${escHTML(t.category)}</span>` : ''}
+          </div>
+        </div>
+        <div style="font-size:15px;font-weight:800;color:${amt > 0 ? '#22c55e' : '#fafafa'};letter-spacing:-0.01em">${amt.toFixed(0)} ${escHTML(t.currency || 'CHF')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.budOpenSheet = function(editId) {
+  if (!_initialPullDone) { toast('Bitte erst synchronisieren', 'warn'); return; }
+  const existing = editId ? getPurchaseDecisions().find(d => d.id === editId) : null;
+  const isEdit = !!existing;
+  const inp = (id, ph, val, type='text') => `<input id="${id}" type="${type}" placeholder="${ph}" value="${escHTML(val)}" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:11px;color:#fafafa;font-size:15px;outline:none;margin-top:6px" autocomplete="off" />`;
+  const ta  = (id, ph, val, rows=3) => `<textarea id="${id}" rows="${rows}" placeholder="${ph}" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:11px;color:#fafafa;font-size:14px;margin-top:6px;outline:none;resize:vertical;font-family:inherit">${escHTML(val)}</textarea>`;
+  const lab = (txt, html) => `<label style="font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;display:block">${txt}${html}</label>`;
+  const fields = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${lab('Artikel', inp('pdTitle', 'z.B. Neue Kopfhörer', existing?.title || ''))}
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px">
+        ${lab('Preis', inp('pdPrice', '0', existing?.price ?? '', 'number'))}
+        ${lab('Währung', `<select id="pdCurrency" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:11px;color:#fafafa;font-size:15px;margin-top:6px">
+          <option ${(existing?.currency||'CHF')==='CHF'?'selected':''}>CHF</option>
+          <option ${existing?.currency==='EUR'?'selected':''}>EUR</option>
+          <option ${existing?.currency==='USD'?'selected':''}>USD</option>
+        </select>`)}
+      </div>
+      ${lab('Kategorie', inp('pdCategory', 'z.B. Tech, Kleidung', existing?.category || ''))}
+      ${lab('Pro (eine pro Zeile)', ta('pdPros', 'Brauche ich für die Arbeit\nSpart langfristig Geld', (existing?.pros || []).join('\n')))}
+      ${lab('Contra', ta('pdCons', 'Teuer\nBrauche es nicht wirklich', (existing?.cons || []).join('\n')))}
+      ${lab('Bewertung (1-10)', inp('pdRating', '', existing?.rating ?? '', 'number'))}
+      ${lab('Notizen', ta('pdNotes', '', existing?.notes || '', 2))}
+      ${isEdit ? `<button type="button" onclick="pdDelete('${existing.id}');closeSheet()" style="padding:12px;background:rgba(239,68,68,0.15);border:0.5px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:11px;font-weight:700;margin-top:6px">🗑 Löschen</button>` : ''}
+    </div>
+  `;
+  openCustomSheet(isEdit ? 'Kaufentscheid bearbeiten' : 'Neuer Kaufentscheid', fields, () => {
+    const title = (document.getElementById('pdTitle').value || '').trim();
+    if (!title) { toast('Titel erforderlich', 'warn'); return false; }
+    const payload = {
+      id: existing?.id || ('pd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6)),
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      title,
+      price: parseFloat(document.getElementById('pdPrice').value) || 0,
+      currency: document.getElementById('pdCurrency').value || 'CHF',
+      category: (document.getElementById('pdCategory').value || '').trim(),
+      pros: (document.getElementById('pdPros').value || '').split('\n').map(s => s.trim()).filter(Boolean),
+      cons: (document.getElementById('pdCons').value || '').split('\n').map(s => s.trim()).filter(Boolean),
+      rating: parseInt(document.getElementById('pdRating').value) || null,
+      notes: (document.getElementById('pdNotes').value || '').trim(),
+      status: existing?.status || 'pending',
+      decidedAt: existing?.decidedAt || null,
+      purchasedAt: existing?.purchasedAt || null,
+    };
+    performOp({ type: isEdit ? 'update-purchase-decision' : 'add-purchase-decision', payload });
+    return true;
+  });
+};
+
+window.pdSetStatus = function(id, status) {
+  const pd = getPurchaseDecisions().find(d => d.id === id);
+  if (!pd) return;
+  const updated = { ...pd, status, updatedAt: new Date().toISOString() };
+  if (status === 'purchased') updated.purchasedAt = new Date().toISOString();
+  if (status === 'approved' || status === 'rejected') updated.decidedAt = new Date().toISOString();
+  performOp({ type: 'update-purchase-decision', payload: updated });
+  toast(status === 'approved' ? 'Genehmigt ✓' : status === 'rejected' ? 'Abgelehnt' : status === 'purchased' ? 'Als gekauft markiert' : 'Aktualisiert', 'ok');
+};
+
+window.pdDelete = function(id) {
+  if (!confirm('Diesen Kaufentscheid löschen?')) return;
+  performOp({ type: 'delete-purchase-decision', payload: { id } });
+  toast('Gelöscht', 'ok');
+};
+
+// ── Passwords ─────────────────────────────────────────────────────────
+function getPasswords() {
+  if (!_data?.entities?.passwords) return [];
+  return Object.values(_data.entities.passwords).filter(p => !p.deleted);
+}
+
+window.pwdToggleReveal = function(id) {
+  if (_pwdRevealed.has(id)) _pwdRevealed.delete(id);
+  else _pwdRevealed.add(id);
+  render();
+};
+
+window.pwdCopy = async function(text, label) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast((label || 'Kopiert') + ' · in 30s gelöscht', 'ok');
+    setTimeout(async () => {
+      try { const cur = await navigator.clipboard.readText(); if (cur === text) await navigator.clipboard.writeText(''); } catch(e) {}
+    }, 30000);
+  } catch(e) { toast('Kopieren fehlgeschlagen', 'error'); }
+};
+
+window.pwdSetSearch = function(v) {
+  _pwdSearch = (v || '').toLowerCase();
+  const list = document.getElementById('pwdList');
+  if (list) list.innerHTML = renderPasswordsList();
+};
+
+function renderPasswordsList() {
+  const all = getPasswords()
+    .filter(p => !_pwdSearch || (p.title || '').toLowerCase().includes(_pwdSearch) || (p.username || '').toLowerCase().includes(_pwdSearch))
+    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  if (all.length === 0) {
+    return `<div class="empty"><div class="empty-icon">🔐</div>
+      <div class="empty-title">${_pwdSearch ? 'Nichts gefunden' : 'Keine Einträge'}</div>
+      <div class="empty-sub">${_pwdSearch ? 'Anderen Suchbegriff versuchen.' : 'Tippe + um einen Eintrag hinzuzufügen.'}</div></div>`;
+  }
+  return all.map(p => {
+    const initial = (p.title || '?').charAt(0).toUpperCase();
+    const revealed = _pwdRevealed.has(p.id);
+    const escPwd = JSON.stringify(p.password || '');
+    const escUser = JSON.stringify(p.username || '');
+    return `<div class="pwd-card">
+      <div class="pwd-card-emoji">${escHTML(initial)}</div>
+      <div class="pwd-card-body" onclick="pwdOpenSheet('${p.id}')">
+        <div class="pwd-card-title">${escHTML(p.title || 'Unbenannt')}</div>
+        <div class="pwd-card-user">${revealed && p.password ? escHTML(p.password) : '•••••••• ' + escHTML(p.username || '')}</div>
+      </div>
+      <div class="pwd-card-actions">
+        ${p.username ? `<button class="pwd-mini-btn" onclick='pwdCopy(${escUser}, "Benutzername")'>👤</button>` : ''}
+        <button class="pwd-mini-btn" onclick='pwdCopy(${escPwd}, "Passwort")'>📋</button>
+        <button class="pwd-mini-btn" onclick="pwdToggleReveal('${p.id}')">${revealed ? '🙈' : '👁'}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPasswords() {
+  let html = subHeader('Passwords', '🔐');
+  html += `<input type="search" class="pwd-search-bar" id="pwdSearch" placeholder="🔍 Suchen…" value="${escHTML(_pwdSearch)}" oninput="pwdSetSearch(this.value)" autocapitalize="off" autocomplete="off" />`;
+  html += `<div id="pwdList">${renderPasswordsList()}</div>`;
+  return html;
+}
+
+window.pwdOpenSheet = function(editId) {
+  if (!_initialPullDone) { toast('Bitte erst synchronisieren', 'warn'); return; }
+  const existing = editId ? getPasswords().find(p => p.id === editId) : null;
+  const isEdit = !!existing;
+  const inp = (id, ph, val, type='text', extra='') => `<input id="${id}" type="${type}" placeholder="${ph}" value="${escHTML(val)}" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:11px;color:#fafafa;font-size:15px;outline:none;margin-top:6px${extra}" autocomplete="off" autocapitalize="off" />`;
+  const ta  = (id, val, rows=3) => `<textarea id="${id}" rows="${rows}" style="width:100%;padding:12px 14px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:11px;color:#fafafa;font-size:14px;margin-top:6px;outline:none;resize:vertical;font-family:inherit">${escHTML(val)}</textarea>`;
+  const lab = (txt, html) => `<label style="font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;display:block">${txt}${html}</label>`;
+  const fields = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${lab('Titel', inp('pwdTitle', 'z.B. GitHub, Gmail', existing?.title || ''))}
+      ${lab('Benutzername', inp('pwdUsername', 'name@example.com', existing?.username || ''))}
+      ${lab('Passwort', `<div style="display:flex;gap:6px;margin-top:6px">
+        <input id="pwdPassword" type="text" value="${escHTML(existing?.password || '')}" style="flex:1;padding:12px 14px;background:rgba(255,255,255,0.06);border:0.5px solid rgba(255,255,255,0.1);border-radius:11px;color:#fafafa;font-size:14px;font-family:'SF Mono',Menlo,monospace;outline:none" autocomplete="off" autocapitalize="off" />
+        <button type="button" onclick="document.getElementById('pwdPassword').value=pwdGenerateMobile()" style="padding:0 14px;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border-radius:11px;font-size:16px;font-weight:700">🎲</button>
+      </div>`)}
+      ${lab('URL', inp('pwdUrl', 'https://...', existing?.url || '', 'url'))}
+      ${lab('Notizen', ta('pwdNotes', existing?.notes || ''))}
+      ${isEdit ? `<button type="button" onclick="pwdDelete('${existing.id}');closeSheet()" style="padding:12px;background:rgba(239,68,68,0.15);border:0.5px solid rgba(239,68,68,0.3);color:#fca5a5;border-radius:11px;font-weight:700;margin-top:6px">🗑 Löschen</button>` : ''}
+    </div>
+  `;
+  openCustomSheet(isEdit ? 'Passwort bearbeiten' : 'Neues Passwort', fields, () => {
+    const title = (document.getElementById('pwdTitle').value || '').trim();
+    const password = document.getElementById('pwdPassword').value || '';
+    if (!title) { toast('Titel erforderlich', 'warn'); return false; }
+    if (!password) { toast('Passwort erforderlich', 'warn'); return false; }
+    const payload = {
+      id: existing?.id || ('pwd_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6)),
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      title,
+      username: (document.getElementById('pwdUsername').value || '').trim(),
+      password,
+      url: (document.getElementById('pwdUrl').value || '').trim(),
+      notes: (document.getElementById('pwdNotes').value || '').trim(),
+      category: existing?.category || 'login',
+    };
+    performOp({ type: isEdit ? 'update-password' : 'add-password', payload });
+    return true;
+  });
+};
+
+window.pwdDelete = function(id) {
+  if (!confirm('Wirklich löschen?')) return;
+  performOp({ type: 'delete-password', payload: { id } });
+  toast('Gelöscht', 'ok');
+};
+
+window.pwdGenerateMobile = function() {
+  const length = 20;
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*-_=+';
+  const buf = new Uint32Array(length);
+  crypto.getRandomValues(buf);
+  let out = '';
+  for (let i = 0; i < length; i++) out += chars[buf[i] % chars.length];
+  return out;
+};
+
+// ── AI Chat ───────────────────────────────────────────────────────────
+function getChats() {
+  if (!_data?.aiChats || !Array.isArray(_data.aiChats)) return [];
+  return _data.aiChats.filter(c => !c.deleted).sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+}
+
+function renderAiChat() {
+  let html = subHeader('KI Chat', '💬');
+
+  const chats = getChats();
+  if (!_currentChatId && chats.length > 0) _currentChatId = chats[0].id;
+  const currentChat = chats.find(c => c.id === _currentChatId) || chats[0];
+
+  if (chats.length === 0) {
+    html += `<div class="empty"><div class="empty-icon">💬</div>
+      <div class="empty-title">Noch kein Chat</div>
+      <div class="empty-sub">Erstelle einen Chat in Quantus — oder schreibe unten deine erste Nachricht.</div></div>`;
+    html += `<div class="ai-input-bar">
+      <input type="text" class="ai-input" id="aiInput" placeholder="Schreibe eine Nachricht…" onkeydown="if(event.key==='Enter')aiChatSend()" />
+      <button class="ai-send-btn" onclick="aiChatSend()">Senden</button>
+    </div>`;
+    return html;
+  }
+
+  html += `<div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -16px 8px;padding:0 16px">`;
+  chats.slice(0, 10).forEach(c => {
+    const active = c.id === _currentChatId;
+    const title = (c.title || 'Chat').slice(0, 20);
+    html += `<button class="filter-chip ${active?'active':''}" onclick="aiSelectChat('${c.id}')">${escHTML(title)}</button>`;
+  });
+  html += `</div>`;
+
+  const messages = currentChat?.messages || [];
+  html += '<div class="ai-chat-list" style="display:flex;flex-direction:column">';
+  if (messages.length === 0) {
+    html += '<div style="text-align:center;color:#52525b;font-size:13px;padding:30px">Noch keine Nachrichten in diesem Chat.</div>';
+  } else {
+    messages.slice(-50).forEach(m => {
+      const ts = m.timestamp ? new Date(m.timestamp).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '';
+      html += `<div class="ai-msg ${m.role === 'user' ? 'user' : 'assistant'}">${escHTML(m.content || '')}<div class="ai-msg-meta">${ts}</div></div>`;
+    });
+  }
+  html += '</div>';
+
+  html += `<div class="ai-input-bar">
+    <input type="text" class="ai-input" id="aiInput" placeholder="Schreibe eine Nachricht…" onkeydown="if(event.key==='Enter')aiChatSend()" />
+    <button class="ai-send-btn" onclick="aiChatSend()">Senden</button>
+  </div>`;
+  return html;
+}
+
+window.aiSelectChat = function(id) { _currentChatId = id; render(); };
+
+window.aiChatFocusInput = function() {
+  setTimeout(() => { const el = document.getElementById('aiInput'); if (el) el.focus(); }, 60);
+};
+
+window.aiChatSend = function() {
+  const input = document.getElementById('aiInput');
+  if (!input || !input.value.trim()) return;
+  const text = input.value.trim();
+  input.value = '';
+  if (!_currentChatId) {
+    // Erstelle neuen Chat
+    const newId = 'chat_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    _currentChatId = newId;
+    performOp({
+      type: 'add-chat',
+      payload: {
+        id: newId,
+        title: text.slice(0, 40),
+        messages: [{ role: 'user', content: text, timestamp: new Date().toISOString() }],
+        pinned: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    });
+  } else {
+    performOp({
+      type: 'add-chat-message',
+      payload: {
+        chatId: _currentChatId,
+        message: { role: 'user', content: text, timestamp: new Date().toISOString() }
+      }
+    });
+  }
+};
+
+// ── Custom Sheet Helpers ──────────────────────────────────────────────
+function openCustomSheet(title, fieldsHtml, onSubmit) {
+  const sheet = document.getElementById('sheet');
+  const overlay = document.getElementById('sheetOverlay');
+  const body = document.getElementById('sheetBody');
+  const titleEl = document.getElementById('sheetTitle');
+  if (!sheet || !body) return;
+  if (titleEl) titleEl.textContent = title;
+  body.innerHTML = fieldsHtml;
+  _customSheetSubmit = onSubmit;
+  _sheetMode = 'custom';
+  overlay.classList.add('show');
+  sheet.classList.add('show');
+}
+
+// ── applyOp Erweiterungen (für neue op-types) ────────────────────────
+const _origApplyOp = applyOp;
+applyOp = function(op) {
+  if (!_data.entities) _data.entities = {};
+  ['passwords','purchaseDecisions','transactions','goals'].forEach(k => {
+    if (!_data.entities[k]) _data.entities[k] = {};
+  });
+  if (!_data.aiChats) _data.aiChats = [];
+  const E = _data.entities;
+
+  if (op.type === 'add-password' || op.type === 'update-password') {
+    E.passwords[op.payload.id] = op.payload;
+    return;
+  }
+  if (op.type === 'delete-password') { delete E.passwords[op.payload.id]; return; }
+
+  if (op.type === 'add-purchase-decision' || op.type === 'update-purchase-decision') {
+    E.purchaseDecisions[op.payload.id] = op.payload;
+    return;
+  }
+  if (op.type === 'delete-purchase-decision') { delete E.purchaseDecisions[op.payload.id]; return; }
+
+  if (op.type === 'add-chat') {
+    _data.aiChats.unshift(op.payload);
+    return;
+  }
+  if (op.type === 'add-chat-message') {
+    const chat = _data.aiChats.find(c => c.id === op.payload.chatId);
+    if (chat) {
+      chat.messages = chat.messages || [];
+      chat.messages.push(op.payload.message);
+      chat.updatedAt = new Date().toISOString();
+    }
+    return;
+  }
+
+  // Fallback an existierende Logik (tasks, notes, ideas, time-entry)
+  _origApplyOp(op);
+};
 
 init();
 </script>
