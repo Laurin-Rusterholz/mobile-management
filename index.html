@@ -1426,10 +1426,16 @@ async function pullData(silent = false) {
         render();
         toast('Offline — letzte gespeicherte Version. Schreibschutz aktiv.', 'warn');
       } catch(_) {
+        // Cache ist korrupt — leeres Skelett, damit UI rendert
+        _data = { entities: { tasks: {}, notes: {}, ideas: {}, notebooks: {} } };
         _initialPullStatus = 'failed';
+        render();
       }
     } else {
+      // Kein Cache UND kein Server — leeres Skelett damit UI navigierbar bleibt
+      _data = { entities: { tasks: {}, notes: {}, ideas: {}, notebooks: {} } };
       _initialPullStatus = 'failed';
+      render();
       toast('Verbindung fehlgeschlagen', 'error');
     }
   } finally { _syncing = false; }
@@ -3098,19 +3104,21 @@ function getJournalUnreadCount() {
 
 // ── Home ──────────────────────────────────────────────────────────────
 function renderHome() {
-  if (!_data) return '<div class="empty">Lade…</div>';
   return renderBriefing();
 }
 
 // ── Apps-Hub ──────────────────────────────────────────────────────────
 function renderAppsHub() {
-  if (!_data) return '<div class="empty">Lade…</div>';
   const openTasks = getTasks().filter(t => t.status !== 'done').length;
   const pendingPd = getPurchaseDecisions().filter(d => d.status === 'pending').length;
   const journalUnread = getJournalUnreadCount();
+  const wmActive = !!_wmActive;
+  const wmTodayCount = (typeof wmGetSessions === 'function')
+    ? wmGetSessions().filter(s => s.dateYmd === todayYmd()).length : 0;
 
   const apps = [
     { view: 'tasks',     icon: '✓',  label: 'Tasks',     count: openTasks,    featured: openTasks > 0 },
+    { view: 'workmode',  icon: '⚡', label: 'Workmode',  count: wmActive ? '⚡' : wmTodayCount, featured: wmActive },
     { view: 'notes',     icon: '📝', label: 'Notes',     count: getNotes().length },
     { view: 'ideas',     icon: '💡', label: 'Ideen',     count: getIdeas().length },
     { view: 'goals',     icon: '🎯', label: 'Ziele',     count: getGoals().length },
@@ -3124,12 +3132,12 @@ function renderAppsHub() {
   let html = `<div class="apps-hero-card">
     <div class="apps-hero-greeting">${greetingTitle()}</div>
     <div class="apps-hero-title">Was möchtest du tun?</div>
-    <div class="apps-hero-sub">Wähle eine App. Alle Daten synchronisieren live mit Quantus auf deinem Computer.</div>
+    <div class="apps-hero-sub">${_data ? 'Wähle eine App. Alle Daten synchronisieren live mit Quantus auf deinem Computer.' : 'Lade Daten vom Server… Du kannst trotzdem schon navigieren.'}</div>
   </div>`;
 
   html += '<div class="apps-grid">';
   apps.forEach(a => {
-    const countBadge = a.count > 0 ? `<div class="apps-tile-count">${a.count > 99 ? '99+' : a.count}</div>` : '';
+    const countBadge = a.count ? `<div class="apps-tile-count">${typeof a.count === 'string' ? a.count : (a.count > 99 ? '99+' : a.count)}</div>` : '';
     html += `<button class="apps-tile ${a.featured ? 'featured' : ''}" onclick="navigateView('${a.view}')">
       ${countBadge}
       <div class="apps-tile-icon">${a.icon}</div>
@@ -3671,8 +3679,8 @@ function openCustomSheet(title, fieldsHtml, onSubmit) {
   body.innerHTML = fieldsHtml;
   _customSheetSubmit = onSubmit;
   _sheetMode = 'custom';
-  overlay.classList.add('show');
-  sheet.classList.add('show');
+  overlay.classList.add('open');
+  sheet.classList.add('open');
 }
 
 // ── applyOp Erweiterungen (für neue op-types) ────────────────────────
