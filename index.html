@@ -630,6 +630,262 @@
     border-radius:10px;
     color:#52525b;font-size:12px;
   }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     WORKMODE — Konfiguration + Fullscreen-Fokus
+     ═══════════════════════════════════════════════════════════════════ */
+  .wm-hero{
+    margin:18px 0 22px;padding:24px 22px;
+    background:linear-gradient(135deg, rgba(168,85,247,0.18) 0%, rgba(99,102,241,0.10) 100%);
+    border:0.5px solid rgba(168,85,247,0.3);
+    border-radius:20px;
+    position:relative;overflow:hidden;
+  }
+  .wm-hero::before{
+    content:"";position:absolute;inset:-50%;
+    background:radial-gradient(circle, rgba(168,85,247,0.25) 0%, transparent 60%);
+    animation:wmBreathe 6s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes wmBreathe{
+    0%,100%{transform:scale(0.85);opacity:0.5}
+    50%{transform:scale(1.05);opacity:0.9}
+  }
+  .wm-hero-title{
+    font-size:13px;font-weight:700;color:#c4b5fd;
+    letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;
+    position:relative;z-index:1;
+  }
+  .wm-hero-h1{
+    font-size:28px;font-weight:800;color:#fafafa;line-height:1.15;
+    letter-spacing:-0.025em;margin-bottom:6px;position:relative;z-index:1;
+  }
+  .wm-hero-sub{
+    font-size:13.5px;color:#a1a1aa;line-height:1.55;
+    position:relative;z-index:1;
+  }
+
+  .wm-section-label{
+    font-size:11px;font-weight:700;color:#71717a;
+    text-transform:uppercase;letter-spacing:0.1em;
+    margin:18px 4px 10px;
+  }
+
+  .wm-duration-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;
+  }
+  .wm-duration-chip{
+    padding:14px 8px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.08);
+    border-radius:14px;
+    text-align:center;
+    transition:all 0.18s;
+  }
+  .wm-duration-chip-mins{font-size:22px;font-weight:800;color:#fafafa;line-height:1;letter-spacing:-0.02em}
+  .wm-duration-chip-label{font-size:11px;color:#71717a;font-weight:600;margin-top:4px;letter-spacing:0.02em}
+  .wm-duration-chip.active{
+    background:linear-gradient(135deg, rgba(168,85,247,0.25), rgba(99,102,241,0.18));
+    border-color:rgba(168,85,247,0.5);
+    box-shadow:0 4px 16px rgba(168,85,247,0.25);
+  }
+  .wm-duration-chip.active .wm-duration-chip-mins{color:#d8b4fe}
+  .wm-duration-chip.active .wm-duration-chip-label{color:#c4b5fd}
+
+  .wm-custom-row{
+    display:flex;gap:8px;align-items:center;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.08);
+    border-radius:12px;padding:4px 4px 4px 14px;
+  }
+  .wm-custom-row label{font-size:12px;color:#a1a1aa;font-weight:600}
+  .wm-custom-row input{
+    flex:1;background:transparent;border:0;color:#fafafa;
+    padding:10px 8px;font-size:15px;font-weight:600;text-align:right;outline:none;
+  }
+  .wm-custom-row .wm-custom-unit{font-size:13px;color:#71717a;padding-right:12px}
+
+  .wm-task-select{
+    width:100%;padding:13px 14px;
+    background:rgba(255,255,255,0.04);
+    border:0.5px solid rgba(255,255,255,0.08);
+    color:#fafafa;border-radius:12px;
+    font-size:14px;font-weight:500;
+    appearance:none;-webkit-appearance:none;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%2371717a' d='M1 1l5 5 5-5'/></svg>");
+    background-repeat:no-repeat;background-position:right 14px center;
+    padding-right:36px;
+  }
+
+  .wm-start-btn{
+    width:100%;margin-top:24px;padding:18px;
+    background:linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+    color:#fff;border-radius:18px;
+    font-size:16px;font-weight:800;
+    letter-spacing:0.02em;
+    box-shadow:0 8px 28px rgba(168,85,247,0.45);
+    transition:all 0.18s;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .wm-start-btn:active{transform:scale(0.98);box-shadow:0 4px 16px rgba(168,85,247,0.35)}
+  .wm-start-btn-icon{font-size:20px}
+
+  /* History list */
+  .wm-history-stat{
+    display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;
+  }
+  .wm-stat-card{
+    background:rgba(255,255,255,0.03);
+    border:0.5px solid rgba(255,255,255,0.06);
+    border-radius:12px;padding:12px;text-align:center;
+  }
+  .wm-stat-num{font-size:22px;font-weight:800;color:#d8b4fe;line-height:1;letter-spacing:-0.02em}
+  .wm-stat-label{font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;font-weight:600}
+  .wm-history-row{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 14px;margin-bottom:6px;
+    background:rgba(255,255,255,0.03);
+    border-radius:12px;
+    border-left:3px solid #a855f7;
+  }
+  .wm-history-time{font-size:13px;font-weight:700;color:#d8b4fe;min-width:54px}
+  .wm-history-meta{flex:1;min-width:0}
+  .wm-history-name{font-size:13px;font-weight:600;color:#fafafa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wm-history-sub{font-size:11px;color:#71717a;margin-top:2px}
+  .wm-history-completed{font-size:18px}
+
+  /* Fullscreen-Fokus-Overlay */
+  .wm-focus{
+    position:fixed;inset:0;z-index:9999;
+    background:radial-gradient(circle at 50% 35%, #1a0b2e 0%, #06010f 70%);
+    display:none;flex-direction:column;
+    align-items:center;justify-content:space-between;
+    padding:env(safe-area-inset-top) 24px calc(env(safe-area-inset-bottom) + 24px);
+    overflow:hidden;
+  }
+  .wm-focus.active{display:flex;animation:wmFocusIn 0.4s ease-out}
+  @keyframes wmFocusIn{from{opacity:0;transform:scale(1.04)}to{opacity:1;transform:none}}
+  .wm-focus::before{
+    content:"";position:absolute;inset:-50%;
+    background:radial-gradient(circle, rgba(168,85,247,0.4) 0%, transparent 50%);
+    animation:wmFocusBreathe 5s ease-in-out infinite;
+    pointer-events:none;z-index:0;
+  }
+  @keyframes wmFocusBreathe{
+    0%,100%{transform:scale(0.6);opacity:0.5}
+    50%{transform:scale(0.85);opacity:0.85}
+  }
+  .wm-focus-top{
+    margin-top:54px;text-align:center;position:relative;z-index:1;
+    width:100%;
+  }
+  .wm-focus-headline{
+    font-size:48px;font-weight:900;
+    color:#c084fc;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    text-shadow:
+      0 0 12px rgba(192,132,252,0.85),
+      0 0 32px rgba(168,85,247,0.65),
+      0 0 60px rgba(168,85,247,0.45),
+      0 0 100px rgba(99,102,241,0.35);
+    animation:wmGlow 3.5s ease-in-out infinite;
+    line-height:1.05;
+  }
+  @keyframes wmGlow{
+    0%,100%{text-shadow:0 0 12px rgba(192,132,252,0.85),0 0 32px rgba(168,85,247,0.65),0 0 60px rgba(168,85,247,0.45),0 0 100px rgba(99,102,241,0.35)}
+    50%{text-shadow:0 0 18px rgba(192,132,252,1),0 0 48px rgba(168,85,247,0.85),0 0 88px rgba(168,85,247,0.6),0 0 140px rgba(99,102,241,0.5)}
+  }
+  .wm-focus-sub{
+    font-size:12.5px;color:#a78bfa;font-weight:600;
+    letter-spacing:0.18em;text-transform:uppercase;
+    margin-top:14px;opacity:0.7;
+  }
+  .wm-focus-center{
+    flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;position:relative;z-index:1;width:100%;
+  }
+  .wm-focus-timer{
+    font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;
+    font-size:124px;font-weight:200;color:#fafafa;
+    letter-spacing:-0.04em;line-height:1;
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 4px 30px rgba(168,85,247,0.4);
+  }
+  .wm-focus-timer.paused{color:#a1a1aa;animation:wmPaused 1.4s ease-in-out infinite}
+  @keyframes wmPaused{0%,100%{opacity:0.6}50%{opacity:1}}
+  .wm-focus-task{
+    margin-top:24px;padding:10px 22px;
+    background:rgba(168,85,247,0.12);
+    border:0.5px solid rgba(168,85,247,0.3);
+    border-radius:999px;
+    font-size:14px;color:#e9d5ff;font-weight:600;
+    max-width:84%;text-align:center;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .wm-focus-elapsed{
+    margin-top:18px;font-size:12px;color:#71717a;
+    letter-spacing:0.08em;text-transform:uppercase;font-weight:600;
+  }
+  .wm-focus-actions{
+    display:flex;gap:14px;width:100%;justify-content:center;
+    position:relative;z-index:1;padding-bottom:8px;
+  }
+  .wm-focus-btn{
+    min-width:96px;padding:14px 22px;
+    background:rgba(255,255,255,0.06);
+    border:0.5px solid rgba(255,255,255,0.12);
+    color:#fafafa;border-radius:14px;
+    font-size:14px;font-weight:700;letter-spacing:0.02em;
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    transition:all 0.15s;
+  }
+  .wm-focus-btn:active{transform:scale(0.97);background:rgba(255,255,255,0.1)}
+  .wm-focus-btn.primary{
+    background:linear-gradient(135deg,#a855f7,#6366f1);
+    border-color:transparent;
+    box-shadow:0 6px 22px rgba(168,85,247,0.5);
+  }
+  .wm-focus-btn.danger{
+    background:rgba(239,68,68,0.12);
+    border-color:rgba(239,68,68,0.3);
+    color:#fca5a5;
+  }
+  .wm-focus-btn.danger:active{background:rgba(239,68,68,0.22)}
+
+  /* Completion overlay */
+  .wm-complete{
+    position:fixed;inset:0;z-index:10000;
+    background:rgba(6,1,15,0.96);
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    padding:32px;
+  }
+  .wm-complete.active{display:flex;animation:wmFocusIn 0.4s ease-out}
+  .wm-complete-emoji{font-size:88px;margin-bottom:18px;animation:wmBreathe 2s ease-in-out infinite}
+  .wm-complete-title{
+    font-size:32px;font-weight:900;color:#c084fc;letter-spacing:0.02em;
+    text-shadow:0 0 24px rgba(168,85,247,0.6);margin-bottom:8px;text-align:center;
+  }
+  .wm-complete-sub{font-size:15px;color:#a1a1aa;margin-bottom:32px;text-align:center;line-height:1.5}
+  .wm-complete-stat{font-size:50px;font-weight:200;color:#fafafa;letter-spacing:-0.03em;margin-bottom:32px}
+
+  /* Briefing — Workmode-Statistik-Section */
+  .wm-briefing-card{
+    margin-top:16px;padding:18px;
+    background:linear-gradient(135deg, rgba(168,85,247,0.12), rgba(99,102,241,0.06));
+    border:0.5px solid rgba(168,85,247,0.2);
+    border-radius:16px;
+  }
+  .wm-briefing-card-header{
+    display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;
+  }
+  .wm-briefing-card-title{font-size:14px;font-weight:700;color:#fafafa;display:flex;align-items:center;gap:8px;letter-spacing:-0.01em}
+  .wm-briefing-card-cta{
+    font-size:11.5px;font-weight:700;color:#c084fc;
+    padding:6px 12px;background:rgba(168,85,247,0.18);
+    border-radius:999px;letter-spacing:0.02em;
+  }
 </style>
 
 <!-- Firebase SDK -->
@@ -661,6 +917,10 @@
     <span class="tab-icon">✓</span><span>Tasks</span>
     <span class="badge" id="badgeTasks" style="display:none">0</span>
   </button>
+  <button class="tab" data-tab="workmode">
+    <span class="tab-icon">⚡</span><span>Work</span>
+    <span class="badge" id="badgeWorkmode" style="display:none;background:linear-gradient(135deg,#a855f7,#6366f1);box-shadow:0 2px 6px rgba(168,85,247,0.5)">0</span>
+  </button>
   <button class="tab" data-tab="notes">
     <span class="tab-icon">📝</span><span>Notes</span>
   </button>
@@ -674,6 +934,32 @@
   <button class="tab" data-tab="briefing">
     <span class="tab-icon">☀️</span><span>Today</span>
   </button>
+</div>
+
+<!-- Workmode Fullscreen-Fokus -->
+<div class="wm-focus" id="wmFocus">
+  <div class="wm-focus-top">
+    <div class="wm-focus-headline">Deep Work</div>
+    <div class="wm-focus-sub" id="wmFocusSub">Fokussiere dich</div>
+  </div>
+  <div class="wm-focus-center">
+    <div class="wm-focus-timer" id="wmFocusTimer">25:00</div>
+    <div class="wm-focus-task" id="wmFocusTask" style="display:none"></div>
+    <div class="wm-focus-elapsed" id="wmFocusElapsed"></div>
+  </div>
+  <div class="wm-focus-actions">
+    <button class="wm-focus-btn" id="wmFocusPause" onclick="wmTogglePause()">⏸ Pause</button>
+    <button class="wm-focus-btn danger" onclick="wmStopFocus(false)">✕ Stoppen</button>
+  </div>
+</div>
+
+<!-- Workmode Completion -->
+<div class="wm-complete" id="wmComplete">
+  <div class="wm-complete-emoji">🎉</div>
+  <div class="wm-complete-title">Session abgeschlossen</div>
+  <div class="wm-complete-sub" id="wmCompleteSub">Starke Arbeit. Gönn dir kurz Pause.</div>
+  <div class="wm-complete-stat" id="wmCompleteStat">25:00</div>
+  <button class="wm-start-btn" style="max-width:280px" onclick="wmCloseComplete()">✓ Fertig</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -729,6 +1015,30 @@ let _sheetMode = null;
 let _sheetCtx = {};
 let _sheetSize = 'half'; // 'half' | 'full'
 let _briefingDate = null; // null = today
+
+// ─── Workmode State ───
+const WM_SESSIONS_KEY = 'qc-mobile-workmode-sessions';
+const WM_PREFS_KEY    = 'qc-mobile-workmode-prefs';
+let _wmTicker = null;
+let _wmWakeLock = null;
+let _wmActive = null;          // { startedAt, durationMs, taskId, taskTitle, sessionName, pausedAt, pausedTotalMs }
+let _wmConfig = (() => {
+  try {
+    const raw = localStorage.getItem(WM_PREFS_KEY);
+    if (raw) return { durationMin: 25, taskId: '', sessionName: '', ...JSON.parse(raw) };
+  } catch(e) {}
+  return { durationMin: 25, taskId: '', sessionName: '' };
+})();
+function wmSavePrefs() {
+  try { localStorage.setItem(WM_PREFS_KEY, JSON.stringify(_wmConfig)); } catch(e) {}
+}
+function wmGetSessions() {
+  try { return JSON.parse(localStorage.getItem(WM_SESSIONS_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function wmSaveSessions(arr) {
+  try { localStorage.setItem(WM_SESSIONS_KEY, JSON.stringify(arr.slice(-200))); } catch(e) {}
+}
 
 // ─────────────────────────────────────────────────
 // File helpers (Firebase + direct URL)
@@ -1016,14 +1326,32 @@ function render() {
   if (_currentTab === 'tasks') fab.classList.add('task');
   else if (_currentTab === 'notes') fab.classList.add('note');
   else if (_currentTab === 'ideas') fab.classList.add('idea');
-  fab.style.display = (_currentTab === 'briefing' || _currentTab === 'journal') ? 'none' : 'flex';
-  
+  fab.style.display = (_currentTab === 'briefing' || _currentTab === 'journal' || _currentTab === 'workmode') ? 'none' : 'flex';
+
+  // Workmode-Badge: aktive Session anzeigen
+  const wmBadge = document.getElementById('badgeWorkmode');
+  if (wmBadge) {
+    if (_wmActive) {
+      wmBadge.textContent = '⚡';
+      wmBadge.style.display = 'inline-block';
+    } else {
+      const todayCount = wmGetSessions().filter(s => s.dateYmd === todayYmd()).length;
+      if (todayCount > 0) {
+        wmBadge.textContent = todayCount > 9 ? '9+' : todayCount;
+        wmBadge.style.display = 'inline-block';
+      } else {
+        wmBadge.style.display = 'none';
+      }
+    }
+  }
+
   const c = document.getElementById('content');
   if (_currentTab === 'tasks') c.innerHTML = renderTasks();
   else if (_currentTab === 'notes') c.innerHTML = renderNotes();
   else if (_currentTab === 'ideas') c.innerHTML = renderIdeas();
   else if (_currentTab === 'briefing') c.innerHTML = renderBriefing();
   else if (_currentTab === 'journal') c.innerHTML = renderJournalPushes();
+  else if (_currentTab === 'workmode') c.innerHTML = renderWorkmode();
 }
 
 function renderTasks() {
@@ -1582,7 +1910,25 @@ function renderBriefing() {
         <div class="br-stat-lab">Überfällig</div>
       </div>
     </div>`;
-  
+
+  // ─ Workmode-Statistik & Quick-Start ─
+  if (isToday) {
+    const wmStats = wmTodayStats();
+    const wmSub = _wmActive
+      ? '⚡ Session läuft gerade — tippe für Fokus'
+      : (wmStats.count === 0
+          ? 'Noch keine Deep-Work-Session heute. Lass eine starten.'
+          : `${wmStats.count} Session${wmStats.count===1?'':'s'} · ${wmFormatHumanMin(wmStats.totalMin)} fokussiert${wmStats.completed?` · ${wmStats.completed} ✓`:''}`);
+    html += `
+      <div class="wm-briefing-card" onclick="_currentTab='workmode';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='workmode'));render();" style="cursor:pointer">
+        <div class="wm-briefing-card-header">
+          <div class="wm-briefing-card-title">⚡ Deep Work</div>
+          <div class="wm-briefing-card-cta">${_wmActive ? 'Fokus →' : 'Starten →'}</div>
+        </div>
+        <div style="font-size:13px;color:#a1a1aa;line-height:1.5">${wmSub}</div>
+      </div>`;
+  }
+
   // ─ Tagesziele ─
   if (dailyGoals.length > 0) {
     html += '<div class="br-card"><h3>🎯 Tagesziele</h3>';
@@ -2034,6 +2380,318 @@ async function init() {
   
   await pullData();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WORKMODE — Konfiguration, Timer, Sessions
+// ═══════════════════════════════════════════════════════════════════════════
+
+function wmFormatMs(ms) {
+  if (ms < 0) ms = 0;
+  const total = Math.ceil(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+function wmFormatHumanMin(min) {
+  if (min < 60) return min + ' Min';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? (h + 'h ' + m + 'min') : (h + 'h');
+}
+
+function wmTodayStats() {
+  const today = todayYmd();
+  const sessions = wmGetSessions().filter(s => s.dateYmd === today);
+  const totalMin = Math.round(sessions.reduce((sum, s) => sum + (s.actualMs || 0), 0) / 60000);
+  const completed = sessions.filter(s => s.completed).length;
+  return { count: sessions.length, completed, totalMin, sessions };
+}
+
+function wmWeekStats() {
+  const sessions = wmGetSessions();
+  const cutoff = Date.now() - 7 * 86400000;
+  const recent = sessions.filter(s => s.endedAt && new Date(s.endedAt).getTime() > cutoff);
+  const totalMin = Math.round(recent.reduce((sum, s) => sum + (s.actualMs || 0), 0) / 60000);
+  return { count: recent.length, totalMin };
+}
+
+function renderWorkmode() {
+  // Wenn gerade eine Session läuft → Fokus direkt zeigen + Konfig sperren
+  if (_wmActive) {
+    setTimeout(() => wmShowFocus(), 50);
+  }
+
+  const today = wmTodayStats();
+  const week = wmWeekStats();
+  const tasks = getTasks().filter(t => t.status !== 'done').slice(0, 50);
+
+  const durations = [15, 25, 45, 60, 90, 120];
+  const isCustom = !durations.includes(_wmConfig.durationMin);
+
+  const durHtml = durations.map(d => {
+    const label = d === 25 ? 'Pomodoro' : d === 45 ? 'Tiefe Arbeit' : d === 60 ? 'Stunde' : d === 90 ? 'Flow' : d === 120 ? 'Marathon' : 'Kurz';
+    const active = !isCustom && _wmConfig.durationMin === d;
+    return `<button class="wm-duration-chip ${active ? 'active' : ''}" onclick="wmSetDuration(${d})">
+      <div class="wm-duration-chip-mins">${d}</div>
+      <div class="wm-duration-chip-label">${label}</div>
+    </button>`;
+  }).join('');
+
+  const taskOpts = ['<option value="">— Kein spezifischer Task —</option>'].concat(
+    tasks.map(t => {
+      const sel = _wmConfig.taskId === t.id ? 'selected' : '';
+      return `<option value="${escHTML(t.id)}" ${sel}>${escHTML((t.title || 'Unbenannt').slice(0, 60))}</option>`;
+    })
+  ).join('');
+
+  const historyHtml = today.sessions.length === 0
+    ? `<div class="empty" style="padding:30px 16px"><div class="empty-sub">Noch keine Sessions heute.</div></div>`
+    : today.sessions.slice().reverse().map(s => {
+        const startTime = s.startedAt ? new Date(s.startedAt).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }) : '—';
+        const actualMin = Math.round((s.actualMs || 0) / 60000);
+        const targetMin = Math.round((s.plannedMs || 0) / 60000);
+        const sub = `${actualMin} / ${targetMin} Min${s.taskTitle ? ' · ' + escHTML(s.taskTitle.slice(0, 40)) : ''}`;
+        return `<div class="wm-history-row">
+          <div class="wm-history-time">${startTime}</div>
+          <div class="wm-history-meta">
+            <div class="wm-history-name">${escHTML(s.sessionName || 'Deep Work')}</div>
+            <div class="wm-history-sub">${sub}</div>
+          </div>
+          <div class="wm-history-completed">${s.completed ? '✓' : '⏸'}</div>
+        </div>`;
+      }).join('');
+
+  return `
+    <div class="wm-hero">
+      <div class="wm-hero-title">⚡ Workmode</div>
+      <div class="wm-hero-h1">Deep Work starten</div>
+      <div class="wm-hero-sub">Wähle eine Dauer, optional einen Task, und tauche in fokussierte Arbeit ein. Bildschirm bleibt aktiv.</div>
+    </div>
+
+    <div class="wm-history-stat">
+      <div class="wm-stat-card">
+        <div class="wm-stat-num">${today.count}</div>
+        <div class="wm-stat-label">Heute</div>
+      </div>
+      <div class="wm-stat-card">
+        <div class="wm-stat-num">${wmFormatHumanMin(today.totalMin)}</div>
+        <div class="wm-stat-label">Fokus heute</div>
+      </div>
+      <div class="wm-stat-card">
+        <div class="wm-stat-num">${week.count}</div>
+        <div class="wm-stat-label">7 Tage</div>
+      </div>
+    </div>
+
+    <div class="wm-section-label">Dauer</div>
+    <div class="wm-duration-grid">${durHtml}</div>
+    <div class="wm-custom-row">
+      <label>Eigene</label>
+      <input type="number" min="1" max="240" id="wmCustomInput" value="${isCustom ? _wmConfig.durationMin : ''}" placeholder="${_wmConfig.durationMin}" onchange="wmSetCustomDuration(this.value)" />
+      <span class="wm-custom-unit">Min</span>
+    </div>
+
+    <div class="wm-section-label">Was bearbeitest du?</div>
+    <select class="wm-task-select" onchange="wmSetTask(this.value)">${taskOpts}</select>
+
+    <div class="wm-section-label">Session-Name (optional)</div>
+    <input type="text" class="wm-task-select" id="wmNameInput" placeholder="z.B. Bachelorarbeit Kapitel 3" value="${escHTML(_wmConfig.sessionName || '')}" oninput="_wmConfig.sessionName = this.value; wmSavePrefs()" style="padding:13px 14px;background-image:none" />
+
+    <button class="wm-start-btn" onclick="wmStart()">
+      <span class="wm-start-btn-icon">▶</span> Deep Work starten
+    </button>
+
+    <div class="wm-section-label">Heute · ${today.completed} ✓ abgeschlossen</div>
+    ${historyHtml}
+  `;
+}
+
+window.wmSetDuration = function(min) {
+  _wmConfig.durationMin = min;
+  wmSavePrefs();
+  render();
+};
+
+window.wmSetCustomDuration = function(val) {
+  const n = parseInt(val, 10);
+  if (isNaN(n) || n < 1) return;
+  _wmConfig.durationMin = Math.min(240, n);
+  wmSavePrefs();
+  render();
+};
+
+window.wmSetTask = function(id) {
+  _wmConfig.taskId = id || '';
+  wmSavePrefs();
+};
+
+window.wmStart = function() {
+  if (_wmActive) return;
+  const task = _wmConfig.taskId ? getTasks().find(t => t.id === _wmConfig.taskId) : null;
+  _wmActive = {
+    startedAt: Date.now(),
+    durationMs: _wmConfig.durationMin * 60 * 1000,
+    taskId: _wmConfig.taskId || '',
+    taskTitle: task ? (task.title || '') : '',
+    sessionName: _wmConfig.sessionName || 'Deep Work',
+    pausedAt: null,
+    pausedTotalMs: 0,
+  };
+  wmRequestWakeLock();
+  wmShowFocus();
+  wmStartTicker();
+};
+
+function wmStartTicker() {
+  if (_wmTicker) clearInterval(_wmTicker);
+  wmTick();
+  _wmTicker = setInterval(wmTick, 250);
+}
+
+function wmTick() {
+  if (!_wmActive) return;
+  const now = Date.now();
+  const isPaused = !!_wmActive.pausedAt;
+  const elapsed = (isPaused ? _wmActive.pausedAt : now) - _wmActive.startedAt - _wmActive.pausedTotalMs;
+  const remaining = _wmActive.durationMs - elapsed;
+
+  const timerEl = document.getElementById('wmFocusTimer');
+  if (timerEl) {
+    timerEl.textContent = wmFormatMs(remaining);
+    timerEl.classList.toggle('paused', isPaused);
+  }
+
+  const elapsedEl = document.getElementById('wmFocusElapsed');
+  if (elapsedEl) {
+    const elapsedMin = Math.floor(elapsed / 60000);
+    elapsedEl.textContent = (isPaused ? '⏸ Pausiert · ' : '') + elapsedMin + ' Min fokussiert';
+  }
+
+  if (remaining <= 0 && !isPaused) {
+    wmStopFocus(true);
+  }
+}
+
+function wmShowFocus() {
+  const focus = document.getElementById('wmFocus');
+  if (!focus || !_wmActive) return;
+  focus.classList.add('active');
+
+  const sub = document.getElementById('wmFocusSub');
+  if (sub) sub.textContent = _wmActive.sessionName || 'Fokussiere dich';
+
+  const taskEl = document.getElementById('wmFocusTask');
+  if (taskEl) {
+    if (_wmActive.taskTitle) {
+      taskEl.textContent = '📌 ' + _wmActive.taskTitle;
+      taskEl.style.display = 'block';
+    } else {
+      taskEl.style.display = 'none';
+    }
+  }
+
+  const pauseBtn = document.getElementById('wmFocusPause');
+  if (pauseBtn) pauseBtn.textContent = _wmActive.pausedAt ? '▶ Weiter' : '⏸ Pause';
+
+  wmTick();
+}
+
+window.wmTogglePause = function() {
+  if (!_wmActive) return;
+  if (_wmActive.pausedAt) {
+    // Resume
+    _wmActive.pausedTotalMs += Date.now() - _wmActive.pausedAt;
+    _wmActive.pausedAt = null;
+    wmRequestWakeLock();
+  } else {
+    _wmActive.pausedAt = Date.now();
+    wmReleaseWakeLock();
+  }
+  const pauseBtn = document.getElementById('wmFocusPause');
+  if (pauseBtn) pauseBtn.textContent = _wmActive.pausedAt ? '▶ Weiter' : '⏸ Pause';
+  wmTick();
+};
+
+window.wmStopFocus = function(completed) {
+  if (!_wmActive) return;
+  const now = Date.now();
+  const effectivePausedMs = _wmActive.pausedTotalMs + (_wmActive.pausedAt ? (now - _wmActive.pausedAt) : 0);
+  const actualMs = Math.max(0, now - _wmActive.startedAt - effectivePausedMs);
+
+  const session = {
+    id: 'wm_' + Date.now().toString(36),
+    startedAt: new Date(_wmActive.startedAt).toISOString(),
+    endedAt: new Date(now).toISOString(),
+    dateYmd: todayYmd(new Date(_wmActive.startedAt)),
+    plannedMs: _wmActive.durationMs,
+    actualMs,
+    pausedMs: effectivePausedMs,
+    taskId: _wmActive.taskId,
+    taskTitle: _wmActive.taskTitle,
+    sessionName: _wmActive.sessionName,
+    completed: !!completed,
+  };
+  const sessions = wmGetSessions();
+  sessions.push(session);
+  wmSaveSessions(sessions);
+
+  if (_wmTicker) { clearInterval(_wmTicker); _wmTicker = null; }
+  wmReleaseWakeLock();
+
+  const focus = document.getElementById('wmFocus');
+  if (focus) focus.classList.remove('active');
+
+  if (completed) {
+    // Completion-Overlay
+    const comp = document.getElementById('wmComplete');
+    const stat = document.getElementById('wmCompleteStat');
+    const sub = document.getElementById('wmCompleteSub');
+    if (stat) stat.textContent = wmFormatHumanMin(Math.round(actualMs / 60000));
+    if (sub) sub.textContent = _wmActive.taskTitle
+      ? 'Gut gemacht: "' + _wmActive.taskTitle + '"'
+      : 'Starke Arbeit. Gönn dir kurz Pause.';
+    if (comp) comp.classList.add('active');
+    try { if (navigator.vibrate) navigator.vibrate([120, 60, 120, 60, 240]); } catch(e) {}
+    if (typeof toast === 'function') toast('Session abgeschlossen ⚡', 'ok');
+  } else {
+    if (typeof toast === 'function') toast(actualMs > 60000 ? 'Session gestoppt' : 'Abgebrochen', actualMs > 60000 ? 'ok' : 'warn');
+  }
+
+  _wmActive = null;
+  render();
+};
+
+window.wmCloseComplete = function() {
+  const comp = document.getElementById('wmComplete');
+  if (comp) comp.classList.remove('active');
+};
+
+async function wmRequestWakeLock() {
+  try {
+    if (_wmWakeLock) return;
+    if (navigator.wakeLock && navigator.wakeLock.request) {
+      _wmWakeLock = await navigator.wakeLock.request('screen');
+      _wmWakeLock.addEventListener('release', () => { _wmWakeLock = null; });
+    }
+  } catch(e) { console.warn('WakeLock failed:', e); }
+}
+
+function wmReleaseWakeLock() {
+  try {
+    if (_wmWakeLock) {
+      _wmWakeLock.release();
+      _wmWakeLock = null;
+    }
+  } catch(e) {}
+}
+
+// Re-acquire WakeLock wenn Tab wieder sichtbar wird
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && _wmActive && !_wmActive.pausedAt && !_wmWakeLock) {
+    wmRequestWakeLock();
+  }
+});
 
 init();
 </script>
