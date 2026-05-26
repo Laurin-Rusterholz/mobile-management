@@ -3138,6 +3138,93 @@ window.resetSyncConfig = function() {
   toast('Zurückgesetzt', 'ok');
 };
 
+window.exportMobileData = function() {
+  if (!_data) { toast('Keine Daten zum Exportieren', 'warn'); return; }
+  try {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      source: 'mobile-management',
+      baseUrl: getBaseUrl(),
+      blobKey: getBlobKey(),
+      etag: _etag,
+      data: _data,
+      pendingChanges: _pendingChanges,
+    };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const ts = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `quantus-mobile-backup-${ts}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast('Backup heruntergeladen', 'ok');
+  } catch (e) {
+    console.error('Export failed:', e);
+    toast('Export fehlgeschlagen: ' + e.message, 'error');
+  }
+};
+
+window.importMobileData = function(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  if (!confirm('Aktuelle Daten durch die Datei "' + file.name + '" ersetzen?\n\nVorhandene Daten werden überschrieben, aber als ein Backup im localStorage gespeichert.')) {
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Backup-File hat data im "data"-Key, sonst ist die Datei direkt das State-Objekt
+      const newData = parsed.data || parsed;
+      if (!newData.entities) throw new Error('Datei enthält keine entities — kein gültiger Quantus-Stand');
+      // Sicherheits-Backup im localStorage
+      try { localStorage.setItem('qc-mobile-pre-import-backup', JSON.stringify(_data || {})); } catch(_) {}
+      _data = newData;
+      // localStorage cache aktualisieren
+      try { localStorage.setItem(LAST_DATA_KEY, JSON.stringify(_data)); } catch(_) {}
+      const taskCount = Object.keys(_data.entities.tasks || {}).length;
+      const noteCount = Object.keys(_data.entities.notes || {}).length;
+      toast(`Importiert: ${taskCount} Tasks · ${noteCount} Notes`, 'ok');
+      render();
+      // Wenn Sync aktiv, sofort pushen
+      if (_initialPullDone) {
+        setTimeout(() => pushData(), 300);
+      }
+    } catch (err) {
+      console.error('Import failed:', err);
+      toast('Import fehlgeschlagen: ' + err.message, 'error');
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.onerror = () => {
+    toast('Datei konnte nicht gelesen werden', 'error');
+    input.value = '';
+  };
+  reader.readAsText(file);
+};
+
+window.manualPushNow = async function() {
+  if (!_data) { toast('Keine Daten zum Pushen', 'warn'); return; }
+  if (!_initialPullDone) {
+    if (!confirm('Initial-Pull war noch nicht erfolgreich. Trotzdem pushen?\n\nWarnung: Damit kann der Server-Stand überschrieben werden.')) return;
+    // Force-Push: tempor _initialPullDone auf true, push, dann zurück
+    _initialPullDone = true;
+    const ok = await pushData();
+    if (!ok) _initialPullDone = false;
+    toast(ok ? 'Push erfolgreich' : 'Push fehlgeschlagen', ok ? 'ok' : 'error');
+    return;
+  }
+  toast('Push läuft…', '');
+  const ok = await pushData();
+  toast(ok ? 'Daten gepusht' : 'Push fehlgeschlagen', ok ? 'ok' : 'error');
+};
+
 window.runSyncTest = async function() {
   const out = document.getElementById('syncTestOutput');
   if (!out) return;
@@ -3345,6 +3432,26 @@ function renderMore() {
         <span class="more-row-label">Diagnose-Report kopieren</span>
         <span class="more-row-arrow">›</span>
       </button>
+    </div>
+
+    <div class="section-title">Manuelles Backup</div>
+    <div class="more-section">
+      <button class="more-row" onclick="exportMobileData()">
+        <span class="more-row-icon">📥</span>
+        <span class="more-row-label">JSON-Sicherung herunterladen</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+      <button class="more-row" onclick="document.getElementById('mobileImportInput').click()">
+        <span class="more-row-icon">📤</span>
+        <span class="more-row-label">JSON-Datei importieren</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+      <button class="more-row" onclick="manualPushNow()">
+        <span class="more-row-icon">☁️</span>
+        <span class="more-row-label">Jetzt zum Server pushen</span>
+        <span class="more-row-arrow">›</span>
+      </button>
+      <input type="file" id="mobileImportInput" accept=".json,application/json" style="display:none" onchange="importMobileData(this)" />
     </div>
 
     <div class="section-title">Server-Konfiguration</div>
