@@ -1174,9 +1174,6 @@
   <div class="header-actions">
     <button class="header-btn" title="Manueller Push zum Server" onclick="manualPushNow()">☁️↑</button>
     <button class="header-btn" title="Manueller Pull vom Server" onclick="pullData(false)">☁️↓</button>
-    <button class="header-btn" title="JSON-Sicherung herunterladen" onclick="exportMobileData()">📥</button>
-    <button class="header-btn" title="JSON-Datei importieren" onclick="document.getElementById('headerImportInput').click()">📤</button>
-    <input type="file" id="headerImportInput" accept=".json,application/json" style="display:none" onchange="importMobileData(this)" />
     <button class="sync-chip" id="syncChip" onclick="manualSync()">
       <span class="sync-dot"></span>
       <span id="syncText">…</span>
