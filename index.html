@@ -1235,7 +1235,7 @@
 <script>
 'use strict';
 
-const DEFAULT_BASE_URL = 'https://management-xo2-pro.netlify.app';
+const DEFAULT_BASE_URL = 'https://mobile-management.netlify.app';
 const DEFAULT_BLOB_KEY = 'app-data.json';
 const PENDING_STORAGE_KEY = 'qc-mobile-pending-changes';
 const LAST_DATA_KEY = 'qc-mobile-last-data';
@@ -2577,6 +2577,7 @@ function closeSheet() {
   _sheetMode = null;
   _sheetCtx = {};
   _sheetSize = 'half';
+  _customSheetSubmit = null;
 }
 
 async function submitSheet() {
@@ -3171,29 +3172,44 @@ window.exportMobileData = function() {
 window.importMobileData = function(input) {
   const file = input?.files?.[0];
   if (!file) return;
-  if (!confirm('Aktuelle Daten durch die Datei "' + file.name + '" ersetzen?\n\nVorhandene Daten werden überschrieben, aber als ein Backup im localStorage gespeichert.')) {
+  if (!confirm('Aktuelle Daten durch die Datei "' + file.name + '" ersetzen?\n\nVorhandene Daten werden überschrieben (Sicherheits-Backup wird in localStorage abgelegt).\n\nAnschließend wird der Import zum Server hochgeladen.')) {
     input.value = '';
     return;
   }
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = async function(e) {
     try {
       const parsed = JSON.parse(e.target.result);
-      // Backup-File hat data im "data"-Key, sonst ist die Datei direkt das State-Objekt
       const newData = parsed.data || parsed;
       if (!newData.entities) throw new Error('Datei enthält keine entities — kein gültiger Quantus-Stand');
-      // Sicherheits-Backup im localStorage
+
+      // Sicherheits-Backup
       try { localStorage.setItem('qc-mobile-pre-import-backup', JSON.stringify(_data || {})); } catch(_) {}
+
       _data = newData;
-      // localStorage cache aktualisieren
+      // ETag der importierten Datei verwerfen, damit pushData ohne If-Match-Konflikt
+      // hochlädt (importiertes Backup hat keine Beziehung zum aktuellen Server-ETag)
+      _etag = null;
+      _pendingChanges = [];
+      try { localStorage.removeItem(PENDING_STORAGE_KEY); } catch(_) {}
       try { localStorage.setItem(LAST_DATA_KEY, JSON.stringify(_data)); } catch(_) {}
+      try { localStorage.removeItem(LAST_ETAG_KEY); } catch(_) {}
+
       const taskCount = Object.keys(_data.entities.tasks || {}).length;
       const noteCount = Object.keys(_data.entities.notes || {}).length;
-      toast(`Importiert: ${taskCount} Tasks · ${noteCount} Notes`, 'ok');
       render();
-      // Wenn Sync aktiv, sofort pushen
+
+      // Push: nur wenn der initial pull schon erfolgreich war (sonst könnte
+      // pushData blockiert sein). Importiertes Backup ersetzt explizit den
+      // Server-Stand — User hat das bewusst per Confirm bestätigt.
       if (_initialPullDone) {
-        setTimeout(() => pushData(), 300);
+        const ok = await pushData();
+        toast(ok
+          ? `Importiert: ${taskCount} Tasks · ${noteCount} Notes · zum Server hochgeladen`
+          : `Importiert: ${taskCount} Tasks · ${noteCount} Notes — Server-Upload fehlgeschlagen, lokal gespeichert`,
+          ok ? 'ok' : 'warn');
+      } else {
+        toast(`Importiert: ${taskCount} Tasks · ${noteCount} Notes — Server-Sync läuft beim nächsten Pull`, 'ok');
       }
     } catch (err) {
       console.error('Import failed:', err);
