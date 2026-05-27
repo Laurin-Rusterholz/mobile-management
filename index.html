@@ -1254,7 +1254,11 @@
 <script>
 'use strict';
 
-const DEFAULT_BASE_URL = 'https://mobile-management.netlify.app';
+// Quantus-Domain — Mobile pullt/pusht zum gleichen Blob-Store wie Quantus,
+// damit Tasks/Notes/Ideen synchronisiert sind. management-xo2-pro.netlify.app
+// hostet Quantus (ai-sync repo); mobile-management.netlify.app hostet
+// nur diese Mobile-App ohne eigenen Datenbestand.
+const DEFAULT_BASE_URL = 'https://management-xo2-pro.netlify.app';
 const DEFAULT_BLOB_KEY = 'app-data.json';
 const PENDING_STORAGE_KEY = 'qc-mobile-pending-changes';
 const LAST_DATA_KEY = 'qc-mobile-last-data';
