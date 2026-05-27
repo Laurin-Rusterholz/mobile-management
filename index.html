@@ -49,14 +49,26 @@
     box-shadow:0 4px 12px rgba(99,102,241,0.4);
     font-size:18px;
   }
+  .header-actions{display:flex;align-items:center;gap:4px}
+  .header-btn{
+    width:32px;height:32px;border-radius:9px;
+    background:rgba(255,255,255,0.05);
+    border:0.5px solid rgba(255,255,255,0.08);
+    color:#d4d4d8;font-size:13px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    transition:all 0.15s;
+  }
+  .header-btn:active{background:rgba(168,85,247,0.20);color:#d8b4fe;transform:scale(0.94)}
   .sync-chip{
     display:inline-flex;align-items:center;gap:6px;
-    padding:6px 12px;border-radius:999px;
+    padding:6px 10px;border-radius:999px;
     background:rgba(255,255,255,0.06);
     font-size:11px;font-weight:600;
     color:#a1a1aa;
     border:0.5px solid rgba(255,255,255,0.1);
     letter-spacing:0.01em;
+    margin-left:4px;
     transition:all 0.2s;
   }
   .sync-chip.ok{background:rgba(34,197,94,0.12);color:#4ade80;border-color:rgba(34,197,94,0.25)}
@@ -1159,10 +1171,17 @@
     <div class="app-title-emoji">⚡</div>
     <span>Quantus</span>
   </div>
-  <button class="sync-chip" id="syncChip" onclick="manualSync()">
-    <span class="sync-dot"></span>
-    <span id="syncText">…</span>
-  </button>
+  <div class="header-actions">
+    <button class="header-btn" title="Manueller Push zum Server" onclick="manualPushNow()">☁️↑</button>
+    <button class="header-btn" title="Manueller Pull vom Server" onclick="pullData(false)">☁️↓</button>
+    <button class="header-btn" title="JSON-Sicherung herunterladen" onclick="exportMobileData()">📥</button>
+    <button class="header-btn" title="JSON-Datei importieren" onclick="document.getElementById('headerImportInput').click()">📤</button>
+    <input type="file" id="headerImportInput" accept=".json,application/json" style="display:none" onchange="importMobileData(this)" />
+    <button class="sync-chip" id="syncChip" onclick="manualSync()">
+      <span class="sync-dot"></span>
+      <span id="syncText">…</span>
+    </button>
+  </div>
 </div>
 
 <div class="main" id="main">
