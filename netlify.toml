@@ -1,18 +1,15 @@
-# Netlify Configuration für Quick Capture Mobile
-# Single-Page-App, kein Build-Schritt nötig
+# Netlify-Konfiguration — Quantus Mobile (neue mobile-first PWA)
+# Single-Page-App, buildless (native ES-Module), kein Build-Schritt nötig.
 
 [build]
   publish = "."
 
-# Secrets-Scanning: Firebase API-Keys sind nicht geheim (kommen aus Firebase
-# Security Rules, nicht aus dem Key selbst). Daher diese Werte als bekannt-OK
-# markieren, damit der Build nicht abgebrochen wird.
+# Secrets-Scanning: Firebase Web-API-Key ist kein Geheimnis (Schutz via Firebase
+# Security Rules). Als bekannt-OK markieren, damit der Build nicht abbricht.
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "AIzaSyC6xVo-wmXC4JjG7qMQnOExIJU-UDvBluE"
 
-# Alternativ: Gesamtes Secrets-Scanning deaktivieren (auskommentiert)
-#  SECRETS_SCAN_ENABLED = "false"
-
+# Sicherheits-Header
 [[headers]]
   for = "/*"
   [headers.values]
@@ -20,7 +17,26 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# SPA-Fallback (falls du später Pretty-URLs willst)
+# Service-Worker: nie aggressiv cachen, damit Updates sofort greifen
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+# Manifest korrekt ausliefern
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
+
+# JS-Module & CSS: kein langes Caching (SW aktualisiert im Hintergrund)
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# SPA-Fallback: echte Deep-Links auf index.html leiten (Hash-Routing in der App)
 [[redirects]]
   from = "/*"
   to = "/index.html"

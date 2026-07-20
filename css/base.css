@@ -1,0 +1,128 @@
+/* ============================================================================
+   Base — Reset, Layout, Navigation (Tab-Bar / Sidebar), Safe-Area, App-Bar
+   Mobile-first, große Touch-Flächen, Einhandbedienung.
+   ========================================================================== */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: 16px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+body.no-scroll { overflow: hidden; }
+a { color: var(--accent); text-decoration: none; }
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; font-size: 16px; } /* 16px verhindert iOS-Zoom */
+::selection { background: var(--accent-soft); color: var(--text-primary); }
+h1,h2,h3 { letter-spacing: -.012em; }
+
+/* Safe-Area-Variablen */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --appbar-h: 54px;
+  --tabbar-h: 62px;
+}
+
+/* ── Layout ── */
+.layout { min-height: 100dvh; display: flex; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 100dvh; }
+
+/* App-Bar */
+.appbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 8px;
+  height: calc(var(--appbar-h) + var(--safe-top));
+  padding: var(--safe-top) 10px 0;
+  background: color-mix(in oklab, var(--surface-base) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(14px);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.appbar-title { font-weight: 700; font-size: 17px; flex: 1; }
+.appbar-right { display: flex; align-items: center; gap: 4px; }
+.appbar-btn {
+  border: none; background: transparent; color: var(--text-primary);
+  width: 40px; height: 40px; border-radius: 12px; font-size: 18px;
+  display: grid; place-items: center; position: relative; transition: var(--transition);
+}
+.appbar-btn:active { background: var(--hover); transform: scale(.94); }
+.appbar-btn .dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
+
+/* Content */
+.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px); }
+.pad { padding: 14px 14px 4px; max-width: 900px; margin: 0 auto; }
+
+/* Sync-Chip */
+.sync-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 4px 8px; border-radius: 20px; background: var(--surface-raised); color: var(--text-muted); }
+.sync-led { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+.sync-chip.ok .sync-led { background: var(--success); }
+.sync-chip.syncing .sync-led { background: var(--info); animation: pulse 1s infinite; }
+.sync-chip.warn .sync-led { background: var(--warning); }
+.sync-chip.error .sync-led { background: var(--danger); }
+@keyframes pulse { 50% { opacity: .3; } }
+
+/* ── Bottom Tab-Bar (Smartphone) ── */
+.tabbar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 45;
+  display: flex; height: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: color-mix(in oklab, var(--surface-raised) 92%, transparent);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border);
+}
+.tab {
+  flex: 1; border: none; background: transparent; color: var(--text-muted);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 10px; font-weight: 600; position: relative; transition: var(--transition);
+}
+.tab-icon { font-size: 21px; line-height: 1; }
+.tab.active { color: var(--accent); }
+.tab.active .tab-icon { transform: translateY(-1px); }
+.tab:active { transform: scale(.92); }
+.tab-badge {
+  position: absolute; top: 6px; left: 54%; min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 9px; background: var(--danger); color: #fff; font-size: 10px; font-weight: 700;
+  display: grid; place-items: center;
+}
+.tab-badge.live { background: var(--success); }
+
+/* FAB (zentraler Neu-Button) */
+.fab {
+  position: fixed; z-index: 46; right: 18px; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 14px);
+  width: 58px; height: 58px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep)); color: #fff;
+  font-size: 28px; font-weight: 300; box-shadow: var(--shadow-lg); transition: var(--transition);
+  display: grid; place-items: center;
+}
+.fab:active { transform: scale(.9); }
+
+/* ── Sidebar (Tablet) ── */
+.sidebar { display: none; }
+.layout.tablet .sidebar {
+  display: flex; flex-direction: column; width: 248px; flex-shrink: 0;
+  background: var(--surface-raised); border-right: 1px solid var(--border);
+  padding: calc(var(--safe-top) + 14px) 10px 14px; gap: 2px; overflow-y: auto;
+  position: sticky; top: 0; height: 100dvh;
+}
+.layout.tablet .tabbar, .layout.tablet .fab { display: none; }
+.layout.tablet .content { padding-bottom: 24px; }
+.side-brand { font-weight: 800; font-size: 20px; padding: 6px 10px 12px; display: flex; align-items: center; gap: 8px; }
+.side-brand-orb { color: var(--accent); }
+.side-new { border: none; background: var(--accent); color: var(--on-accent); font-weight: 700; padding: 11px; border-radius: var(--radius); margin-bottom: 10px; }
+.side-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); padding: 12px 10px 4px; }
+.side-item { display: flex; align-items: center; gap: 10px; width: 100%; border: none; background: transparent; color: var(--text-primary); padding: 10px; border-radius: var(--radius-sm); font-size: 15px; text-align: left; transition: var(--transition); }
+.side-item:active, .side-item:hover { background: var(--hover); }
+.side-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.side-item-icon { font-size: 18px; width: 22px; text-align: center; }
+.side-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* Sidebar-Off-Canvas auf Phone (Menü-Button) */
+.layout.phone.sidebar-open .sidebar {
+  display: flex; position: fixed; inset: 0 auto 0 0; width: 260px; z-index: 60;
+  flex-direction: column; background: var(--surface-raised); box-shadow: var(--shadow-lg);
+  padding: calc(var(--safe-top) + 14px) 10px 14px; overflow-y: auto;
+}

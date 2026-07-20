@@ -1,0 +1,91 @@
+// ============================================================================
+//  Einstellungen — Theme, Sync-Konfiguration, Diagnose, Backup, PWA-Install
+// ============================================================================
+import { escHTML, toast, todayYmd } from '../util.js';
+import { LS, DEFAULT_BASE_URL, DEFAULT_BLOB_KEY, getBaseUrl, getBlobKey } from '../config.js';
+import * as store from '../store.js';
+import { getThemeMode, setThemeMode } from '../theme.js';
+import { registerActions } from '../actions.js';
+import { navigate } from '../router.js';
+import { pageHeader } from './common.js';
+import { getInstallPrompt } from '../pwa.js';
+
+registerActions({
+  'set-theme': (d) => { setThemeMode(d.mode); navigate('einstellungen'); },
+  'sync-now': () => store.manualSync(),
+  'edit-baseurl': () => {
+    const v = prompt('Server-URL (Quantus-Domain):', getBaseUrl()); if (v == null) return;
+    const c = v.trim().replace(/\/+$/, '');
+    if (!c) localStorage.removeItem(LS.baseUrl);
+    else if (!/^https?:\/\//.test(c)) { toast('URL muss mit https:// beginnen', 'error'); return; }
+    else localStorage.setItem(LS.baseUrl, c);
+    store.state.initialPullDone = false; store.state.initialPullStatus = 'pending'; store.pullData(false); navigate('einstellungen');
+  },
+  'edit-blobkey': () => {
+    const v = prompt('Blob-Key:', getBlobKey()); if (v == null) return;
+    const c = v.trim();
+    if (!c || c === DEFAULT_BLOB_KEY) localStorage.removeItem(LS.blobKey); else localStorage.setItem(LS.blobKey, c);
+    store.state.initialPullDone = false; store.state.initialPullStatus = 'pending'; store.pullData(false); navigate('einstellungen');
+  },
+  'reset-sync': () => {
+    if (!confirm('Server-URL & Blob-Key zurücksetzen?')) return;
+    localStorage.removeItem(LS.baseUrl); localStorage.removeItem(LS.blobKey);
+    store.state.initialPullDone = false; store.state.initialPullStatus = 'pending'; store.pullData(false); navigate('einstellungen');
+  },
+  'export-data': () => {
+    const backup = { data: store.state.data, etag: store.state.etag, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'quantus-backup-' + todayYmd() + '.json'; a.click();
+    toast('Backup exportiert', 'ok');
+  },
+  'pwa-install': async () => {
+    const p = getInstallPrompt();
+    if (!p) { toast('Installation über das Browser-Menü („Zum Homescreen")', 'warn'); return; }
+    p.prompt(); const res = await p.userChoice; toast(res.outcome === 'accepted' ? 'Installiert ✓' : 'Abgebrochen', 'ok');
+  },
+});
+
+function row(label, value, action) {
+  return `<button class="set-row" ${action ? `data-action="${action}"` : ''}>
+    <span class="set-label">${escHTML(label)}</span><span class="set-value">${escHTML(value)}</span></button>`;
+}
+
+export default {
+  title: 'Einstellungen', icon: '⚙️',
+  render() {
+    const mode = getThemeMode();
+    const counts = {
+      Aufgaben: store.getTasks().length, Notizen: store.getNotes().length, Ideen: store.getIdeas().length,
+      Projekte: store.getProjects().length, Buchungen: store.getTransactions().length, Karten: store.getCards().length,
+    };
+    const meta = (store.state.data && store.state.data.meta) || {};
+    return `<div class="pad">
+      ${pageHeader('Einstellungen', 'App & Sync')}
+
+      <div class="section-title">Darstellung</div>
+      <div class="segmented">
+        ${['dark', 'light', 'auto'].map(m => `<button class="seg ${mode === m ? 'active' : ''}" data-action="set-theme" data-mode="${m}">${m === 'dark' ? '🌙 Dunkel' : m === 'light' ? '☀️ Hell' : '🌓 Auto'}</button>`).join('')}
+      </div>
+
+      <div class="section-title">Installation</div>
+      ${row('Als App installieren (PWA)', 'Installieren', 'pwa-install')}
+
+      <div class="section-title">Sync</div>
+      ${row('Status', store.pullStatus() === 'ok' ? 'Verbunden' : store.pullStatus(), 'sync-now')}
+      ${row('Ausstehende Änderungen', String(store.pendingCount()), 'sync-now')}
+      ${row('Server-URL', getBaseUrl().replace(/^https?:\/\//, ''), 'edit-baseurl')}
+      ${row('Blob-Key', getBlobKey(), 'edit-blobkey')}
+      ${row('Auf Standard zurücksetzen', DEFAULT_BASE_URL.replace(/^https?:\/\//, ''), 'reset-sync')}
+
+      <div class="section-title">Diagnose</div>
+      <div class="card"><div class="diag">
+        ${Object.entries(counts).map(([k, v]) => `<div class="diag-row"><span>${k}</span><b>${v}</b></div>`).join('')}
+        <div class="diag-row"><span>Zuletzt gespeichert von</span><b>${escHTML(meta.lastSavedBy || '—')}</b></div>
+        <div class="diag-row"><span>ETag</span><b>${escHTML((store.state.etag || '—').slice(0, 16))}</b></div>
+      </div></div>
+
+      <div class="section-title">Backup</div>
+      ${row('Datensatz exportieren (JSON)', 'Export', 'export-data')}
+    </div>`;
+  },
+};

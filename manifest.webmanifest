@@ -1,0 +1,24 @@
+{
+  "name": "Quantus",
+  "short_name": "Quantus",
+  "description": "Persönliche Super-App: Aufgaben, Projekte, Fokus, Notizen, Gewohnheiten, Flashcards, Budget, Meetings, Gmail, Polaris.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#171c20",
+  "theme_color": "#171c20",
+  "lang": "de-CH",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Neue Aufgabe", "url": "./index.html#/planen", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Fokus starten", "url": "./index.html#/fokus", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Polaris", "url": "./index.html#/polaris", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
