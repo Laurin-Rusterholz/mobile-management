@@ -42,6 +42,7 @@ export function buildSkeleton() {
             <div class="sync-chip ok" id="syncChip" title="Sync-Status"><span class="sync-led"></span><span id="syncText">…</span></div>
           </div>
         </header>
+        <div class="ptr" id="ptr"><span class="ptr-spin">↻</span></div>
         <main class="content" id="content" tabindex="-1"></main>
       </div>
       <button class="fab" id="fab" data-action="open-new" aria-label="Neu erstellen">＋</button>
@@ -187,6 +188,27 @@ function openNotifications() {
   });
 }
 
+// ── Pull-to-Refresh (mobile Mikro-Interaktion, übernommen) ──
+function attachPullToRefresh() {
+  const content = $('#content'); const ptr = $('#ptr');
+  if (!content || !ptr) return;
+  let startY = 0, pulling = false, dist = 0;
+  const THRESHOLD = 70;
+  content.addEventListener('touchstart', (e) => {
+    if (content.scrollTop <= 0 && !store.state.syncing) { startY = e.touches[0].clientY; pulling = true; }
+  }, { passive: true });
+  content.addEventListener('touchmove', (e) => {
+    if (!pulling) return;
+    dist = e.touches[0].clientY - startY;
+    if (dist > 0) { ptr.style.height = Math.min(dist * 0.5, 60) + 'px'; ptr.classList.toggle('ready', dist > THRESHOLD); }
+  }, { passive: true });
+  content.addEventListener('touchend', async () => {
+    if (!pulling) return; pulling = false;
+    if (dist > THRESHOLD) { ptr.classList.add('spinning'); haptic(16); await store.pullData(false); ptr.classList.remove('spinning'); }
+    ptr.style.height = '0px'; ptr.classList.remove('ready'); dist = 0;
+  });
+}
+
 // ── Responsives Umschalten ──
 function onResize() {
   const layout = $('#layout'); if (!layout) return;
@@ -207,6 +229,7 @@ export async function boot(viewModules) {
   migrateLegacyKeys();
   applyTheme();
   buildSkeleton();
+  attachPullToRefresh();
   initActions();
   focus.reconcileOnBoot();      // hängengebliebene Sitzung als „unterbrochen" abschließen
   // Views registrieren

@@ -73,10 +73,27 @@ function taskDetailHtml(t) {
     ${t.description ? `<div class="detail-text">${escHTML(t.description)}</div>` : ''}
     <div class="detail-actions">
       <button class="btn ${done ? 'ghost' : 'primary'}" data-action="toggle-task" data-id="${t.id}">${done ? '↩︎ Wieder öffnen' : '✓ Erledigt'}</button>
+      <button class="btn" data-action="edit-task" data-id="${t.id}">✎ Bearbeiten</button>
       <button class="btn" data-action="focus-from-task" data-id="${t.id}">🎯 Fokus starten</button>
       <button class="btn danger ghost" data-action="delete-task" data-id="${t.id}">🗑 Löschen</button>
     </div>
   </div>`;
+}
+
+function taskEditForm(t) {
+  const projects = store.getProjects();
+  const f = (label, inner) => `<label class="f"><span class="f-label">${label}</span>${inner}</label>`;
+  return `<form data-action="save-task" data-id="${t.id}" class="form">
+    ${f('Titel', `<input name="title" class="input" required value="${escHTML(t.title || '')}">`)}
+    ${f('Beschreibung', `<textarea name="description" class="input" rows="3">${escHTML(t.description || '')}</textarea>`)}
+    <div class="f-row">
+      ${f('Fällig', `<input name="dueDate" type="date" class="input" value="${escHTML((t.dueDate || '').slice(0, 10))}">`)}
+      ${f('Priorität', `<select name="priority" class="input">${[['1', 'Hoch'], ['2', 'Mittel'], ['3', 'Normal'], ['4', 'Niedrig']].map(([v, l]) => `<option value="${v}" ${String(t.priority || 3) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+    </div>
+    ${f('Status', `<select name="status" class="input">${[['todo', 'To-Do'], ['in_progress', 'Läuft'], ['done', 'Erledigt']].map(([v, l]) => `<option value="${v}" ${(t.status || 'todo') === v ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+    ${f('Projekt', `<select name="projectId" class="input"><option value="">— keins —</option>${projects.map(p => `<option value="${p.id}" ${t.projectId === p.id ? 'selected' : ''}>${escHTML(p.title || 'Projekt')}</option>`).join('')}</select>`)}
+    <button class="btn primary block" type="submit">Speichern</button>
+  </form>`;
 }
 
 registerActions({
@@ -115,6 +132,17 @@ registerActions({
     closeSheet();
     focus.start({ taskId: t.id, taskTitle: t.title, projectId: t.projectId || '', durationMin: 25, sessionName: 'Deep Work' });
     navigate('fokus');
+  },
+  'edit-task': (d) => {
+    const t = store.getById('task', d.id); if (!t) return;
+    openSheet({ title: 'Aufgabe bearbeiten', size: 'half', body: taskEditForm(t) });
+  },
+  'save-task': async (d, elTrigger, e) => {
+    const form = e.target.closest('form');
+    const fd = new FormData(form); const v = {};
+    fd.forEach((val, k) => { v[k] = typeof val === 'string' ? val.trim() : val; });
+    await store.performOp({ type: 'update-task', payload: { id: d.id, title: v.title, description: v.description || '', dueDate: v.dueDate || '', priority: Number(v.priority || 3), status: v.status || 'todo', projectId: v.projectId || '' } });
+    closeSheet(); toast('Gespeichert ✓', 'ok'); navigate('planen', { sub: current().sub || 'inbox' });
   },
   'seg': (d) => navigate('planen', { sub: d.seg }),
 });

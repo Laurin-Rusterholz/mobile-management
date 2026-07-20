@@ -239,8 +239,12 @@ textarea.input { resize: vertical; }
 .diag { padding: 4px; } .diag-row { display: flex; justify-content: space-between; padding: 7px 10px; font-size: 14px; border-bottom: 1px solid var(--border); }
 .diag-row:last-child { border-bottom: none; }
 .cfg-list { display: flex; flex-direction: column; }
-.cfg-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-bottom: 1px solid var(--border); font-size: 15px; }
+.cfg-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--border); font-size: 15px; }
 .cfg-row input { width: 22px; height: 22px; accent-color: var(--accent); }
+.cfg-move { display: flex; flex-direction: column; gap: 2px; }
+.cfg-move .icon-btn { width: 30px; height: 24px; font-size: 13px; }
+.cfg-move .icon-btn[disabled] { opacity: .3; }
+.cfg-name { flex: 1; min-width: 0; }
 
 /* ── Integrationen ── */
 .istatus { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 20px; }
