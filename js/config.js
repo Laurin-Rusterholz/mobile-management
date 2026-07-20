@@ -66,6 +66,7 @@ export const MORE_MODULES = [
   { key: 'noteflow',     label: 'Noteflow',      icon: '📝', route: 'noteflow',     desc: 'Notizen & Verknüpfungen' },
   { key: 'gewohnheiten', label: 'Gewohnheiten',  icon: '🔁', route: 'gewohnheiten', desc: 'Routinen & Serien' },
   { key: 'flashcards',   label: 'Flashcards',    icon: '🎴', route: 'flashcards',   desc: 'Spaced Repetition' },
+  { key: 'leseplan',     label: 'Leseplan',      icon: '📖', route: 'leseplan',     desc: 'Dokumente aufs Zieldatum verteilt' },
   { key: 'budget',       label: 'Budget',        icon: '💰', route: 'budget',       desc: 'Konten & Ausgaben' },
   { key: 'gmail',        label: 'Gmail',         icon: '📧', route: 'gmail',        desc: 'Posteingang' },
   { key: 'meetings',     label: 'Meetings',      icon: '🤝', route: 'meetings',     desc: 'Termine & Aktionspunkte' },

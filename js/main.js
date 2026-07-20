@@ -13,6 +13,7 @@ import mehr from './views/mehr.js';
 import noteflow from './views/noteflow.js';
 import gewohnheiten from './views/gewohnheiten.js';
 import flashcards from './views/flashcards.js';
+import leseplan from './views/leseplan.js';
 import budget from './views/budget.js';
 import gmail from './views/gmail.js';
 import meetings from './views/meetings.js';
@@ -27,4 +28,5 @@ boot({
   home, planen, fokus, polaris, mehr,
   noteflow, gewohnheiten, flashcards, budget, gmail,
   meetings, ideen, inbox, einstellungen, integrationen,
+  leseplan,
 });
