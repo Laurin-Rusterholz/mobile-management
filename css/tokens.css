@@ -1,0 +1,54 @@
+/* ============================================================================
+   Design-System „Schiefer/Leinen" — übernommen aus Quantus (ai-sync)
+   Dark = Schiefer (Default) · Light = Leinen · umschaltbar via html.theme-*
+   ========================================================================== */
+:root, html.theme-dark {
+  --surface-base:#171c20;
+  --surface-raised:#212830;
+  --surface-overlay:#2d3640;
+  --border:#3b4550;
+  --border2:#4f5a66;
+  --hover:rgba(224,226,232,.08);
+  --text-primary:#eef0f2;
+  --text-muted:#929aa4;
+  --text2:#cccfd5;
+  --accent:#a78bfa;
+  --accent-deep:#8b5cf6;
+  --accent-soft:color-mix(in oklab, var(--accent) 24%, transparent);
+  --on-accent:#160d29;
+  --danger:#e5765a;
+  --warning:#e3b048;
+  --success:#45c198;
+  --info:#6aa3de;
+  --shadow: 0 1px 2px rgba(0,0,0,.35), 0 6px 18px rgba(0,0,0,.26);
+  --shadow-lg: 0 8px 22px rgba(0,0,0,.36), 0 22px 56px rgba(0,0,0,.32);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  --transition: all .16s cubic-bezier(.25,.1,.25,1);
+  /* Aliase */
+  --bg:var(--surface-base); --panel:var(--surface-raised); --panel2:var(--surface-overlay);
+  --text:var(--text-primary); --muted:var(--text-muted); --warn:var(--warning); --ok:var(--success);
+}
+html.theme-light {
+  --surface-base:#cdc6b6;
+  --surface-raised:#e9e3d5;
+  --surface-overlay:#f2ede1;
+  --border:#bcb4a0;
+  --border2:#a89d82;
+  --hover:rgba(48,42,34,.08);
+  --text-primary:#2a2620;
+  --text-muted:#7a7463;
+  --text2:#4d493f;
+  --accent:#6b46c1;
+  --accent-deep:#553c9a;
+  --accent-soft:color-mix(in oklab, var(--accent) 22%, transparent);
+  --on-accent:#f7f4fc;
+  --danger:#b34d2c;
+  --warning:#977211;
+  --success:#1f8a66;
+  --info:#2c6499;
+  --shadow: 0 1px 2px rgba(52,46,38,.14), 0 6px 18px rgba(52,46,38,.10);
+  --shadow-lg: 0 8px 22px rgba(52,46,38,.16), 0 22px 56px rgba(52,46,38,.13);
+}
