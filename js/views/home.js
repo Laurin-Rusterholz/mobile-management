@@ -1,7 +1,7 @@
 // ============================================================================
 //  Home — konfigurierbare Karten (Daily Briefing, Aufgaben, Projekte, …)
 // ============================================================================
-import { escHTML, todayYmd, ymdOf, fmtDurationMin } from '../util.js';
+import { escHTML, todayYmd, ymdOf, fmtDurationMin, openSheet } from '../util.js';
 import * as store from '../store.js';
 import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
@@ -122,42 +122,63 @@ function list(items, kind, route, emptyMsg) {
   }).join('');
 }
 
+// stabile Reihenfolge inkl. später ergänzter Karten
+function orderedKeys(c) {
+  const known = new Set(c.order);
+  return [...c.order.filter(k => CARDS.some(x => x.key === k)), ...CARDS.map(x => x.key).filter(k => !known.has(k))];
+}
+
 registerActions({
   'home-toggle-habit': async (d) => {
     await store.performOp({ type: 'toggle-habit', payload: { id: d.id, date: todayYmd() } });
   },
   'home-configure': () => openConfig(),
+  'home-card-toggle': (d) => {
+    const cur = cfg();
+    cur.hidden = cur.hidden.includes(d.key) ? cur.hidden.filter(k => k !== d.key) : [...new Set([...cur.hidden, d.key])];
+    saveCfg(cur); rerenderConfig();
+  },
+  'home-card-move': (d) => {
+    const cur = cfg(); const keys = orderedKeys(cur);
+    const i = keys.indexOf(d.key); const j = d.dir === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    cur.order = keys; saveCfg(cur); rerenderConfig();
+  },
 });
 
+function configBody() {
+  const c = cfg();
+  const keys = orderedKeys(c);
+  return `<div class="cfg-list">${keys.map((k, idx) => {
+    const card = CARDS.find(x => x.key === k); if (!card) return '';
+    const visible = !c.hidden.includes(k);
+    return `<div class="cfg-row">
+      <div class="cfg-move">
+        <button class="icon-btn" data-action="home-card-move" data-key="${k}" data-dir="up" ${idx === 0 ? 'disabled' : ''}>↑</button>
+        <button class="icon-btn" data-action="home-card-move" data-key="${k}" data-dir="down" ${idx === keys.length - 1 ? 'disabled' : ''}>↓</button>
+      </div>
+      <span class="cfg-name">${escHTML(card.label)}</span>
+      <button class="chip ${visible ? 'accent' : ''}" data-action="home-card-toggle" data-key="${k}">${visible ? 'Sichtbar' : 'Aus'}</button>
+    </div>`;
+  }).join('')}</div>
+  <div class="muted-row" style="margin-top:8px">↑/↓ ordnet, Chip blendet ein/aus. Änderungen sind sofort aktiv.</div>`;
+}
+
+function rerenderConfig() {
+  const body = document.getElementById('sheetBody');
+  if (body) body.innerHTML = configBody();
+}
+
 function openConfig() {
-  import('../util.js').then(({ openSheet, escHTML }) => {
-    const c = cfg();
-    openSheet({
-      title: 'Home anpassen', size: 'half',
-      body: `<div class="cfg-list">${CARDS.map(card => `
-        <label class="cfg-row">
-          <span>${escHTML(card.label)}</span>
-          <input type="checkbox" data-card="${card.key}" ${c.hidden.includes(card.key) ? '' : 'checked'}>
-        </label>`).join('')}</div>
-        <div class="muted-row" style="margin-top:8px">Ein-/ausblenden. Reihenfolge folgt der Liste.</div>`,
-      onMount: (root) => {
-        root.querySelectorAll('input[data-card]').forEach(cb => cb.addEventListener('change', () => {
-          const key = cb.dataset.card;
-          const cur = cfg();
-          cur.hidden = cb.checked ? cur.hidden.filter(k => k !== key) : [...new Set([...cur.hidden, key])];
-          saveCfg(cur);
-        }));
-      },
-      onClose: () => navigate('home'),
-    });
-  });
+  openSheet({ title: 'Home anpassen', size: 'half', body: configBody(), onClose: () => navigate('home') });
 }
 
 export default {
   title: 'Home', icon: '🏠',
   render() {
     const c = cfg();
-    const cards = c.order.filter(k => !c.hidden.includes(k)).map(renderCard).filter(Boolean).join('');
+    const cards = orderedKeys(c).filter(k => !c.hidden.includes(k)).map(renderCard).filter(Boolean).join('');
     return `<div class="pad">
       <div class="home-top">
         <div class="home-greet">Quantus</div>
