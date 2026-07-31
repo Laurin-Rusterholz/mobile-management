@@ -59,6 +59,7 @@ function renderTabbar() {
       <span class="tab-icon">${t.icon}</span><span class="tab-label">${escHTML(t.label)}</span>
       ${t.key === 'planen' ? '<span class="tab-badge" id="tabBadgePlanen" hidden></span>' : ''}
       ${t.key === 'fokus' ? '<span class="tab-badge live" id="tabBadgeFokus" hidden>●</span>' : ''}
+      ${t.key === 'mail' ? '<span class="tab-badge" id="tabBadgeMail" hidden></span>' : ''}
     </button>`).join('');
 }
 
@@ -105,6 +106,9 @@ function renderView(ctx) {
       <div class="empty-sub">${escHTML(e.message || String(e))}</div></div></div>`;
   }
   highlightNav(ctx.route);
+  // Der Homebildschirm hat ein eigenes Dock — der „Neu"-Knopf rückt darüber.
+  const layout = document.getElementById('layout');
+  if (layout) layout.classList.toggle('route-home', ctx.route === 'home');
   content.scrollTop = 0;
   updateBadges();
 }
@@ -116,6 +120,12 @@ export function updateBadges() {
   if (bp) { if (open > 0) { bp.textContent = open > 99 ? '99' : open; bp.hidden = false; } else bp.hidden = true; }
   const bf = $('#tabBadgeFokus');
   if (bf) bf.hidden = !focus.isRunning();
+  // Ungelesene Mails am Mail-Tab (nur wenn das Mail-Programm schon geladen hat)
+  const bm = $('#tabBadgeMail');
+  if (bm) {
+    const n = typeof window.__quantusMailUnread === 'function' ? window.__quantusMailUnread() : 0;
+    if (n > 0) { bm.textContent = n > 99 ? '99' : n; bm.hidden = false; } else bm.hidden = true;
+  }
   // Benachrichtigungs-Punkt: neue Journal-Pushes
   const dot = $('#notifDot');
   if (dot) dot.hidden = unseenPushes().length === 0;

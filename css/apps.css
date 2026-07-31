@@ -1,0 +1,230 @@
+/* ============================================================================
+   Apps — Springboard (Apple-Homebildschirm im Quantus-Design), Mail-Programm,
+   Kalender, Statistiken, FlowerTech und die generische Modul-Ansicht.
+   Nutzt ausschliesslich die Tokens aus tokens.css, damit Hell/Dunkel stimmt.
+   ========================================================================== */
+
+/* ── Springboard ─────────────────────────────────────────────────────────── */
+.springboard {
+  padding: 14px 16px calc(var(--tabbar-h) + var(--safe-bottom) + 96px);
+  min-height: 100%;
+  background:
+    radial-gradient(120% 80% at 12% 0%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 62%),
+    radial-gradient(100% 70% at 92% 10%, color-mix(in oklab, var(--info) 14%, transparent), transparent 58%),
+    var(--surface-base);
+}
+
+.sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.sb-date { color: var(--text-muted); font-size: 12px; text-transform: capitalize; letter-spacing: .02em; }
+.sb-greet { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin-top: 2px; }
+.sb-search {
+  width: 42px; height: 42px; border-radius: 14px; border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface-raised) 70%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  color: var(--text-primary); font-size: 17px; display: grid; place-items: center;
+  transition: var(--transition);
+}
+.sb-search:active { transform: scale(.93); }
+
+/* Widgets */
+.sb-widgets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.sb-widget {
+  text-align: left; border: 1px solid var(--border); border-radius: 20px; padding: 14px;
+  background: color-mix(in oklab, var(--surface-raised) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  color: var(--text-primary); box-shadow: var(--shadow); min-height: 96px;
+  display: flex; flex-direction: column; gap: 2px; transition: var(--transition);
+}
+.sb-widget:active { transform: scale(.97); }
+.sb-widget.wide { grid-column: span 2; }
+.sb-widget-head { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.sb-widget-big { font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.sb-widget-line { font-size: 15px; font-weight: 600; margin-top: 2px; }
+.sb-widget-sub { font-size: 12px; color: var(--text-muted); }
+
+/* Seiten mit App-Symbolen */
+.sb-pages {
+  display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 0;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.sb-pages::-webkit-scrollbar { display: none; }
+.sb-page { flex: 0 0 100%; scroll-snap-align: start; padding-right: 2px; }
+.sb-page-title { font-size: 12px; color: var(--text-muted); margin: 4px 0 10px; letter-spacing: .04em; text-transform: uppercase; }
+.sb-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 8px; }
+
+.sb-app { background: none; border: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sb-icon {
+  position: relative; width: 60px; height: 60px; border-radius: 17px;
+  display: grid; place-items: center; font-size: 27px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .16);
+  transition: transform .14s cubic-bezier(.25,.1,.25,1);
+}
+.sb-app:active .sb-icon { transform: scale(.9); }
+.sb-glyph { filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+.sb-label { font-size: 11px; color: var(--text2); max-width: 72px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
+  display: grid; place-items: center; border: 2px solid var(--surface-base);
+}
+.sb-app.jiggle .sb-icon { animation: sb-jiggle .3s ease-in-out 2; }
+@keyframes sb-jiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-4deg); }
+  75% { transform: rotate(4deg); }
+}
+
+/* Symbolfarben — abgeleitet aus den Quantus-Tokens */
+.tone-violet { background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 92%, white 8%), var(--accent-deep)); }
+.tone-blue   { background: linear-gradient(160deg, #6aa3de, #3d6ea8); }
+.tone-green  { background: linear-gradient(160deg, #45c198, #2b8a6b); }
+.tone-sand   { background: linear-gradient(160deg, #e3b048, #b3831f); }
+.tone-red    { background: linear-gradient(160deg, #e5765a, #b34d2c); }
+.tone-pink   { background: linear-gradient(160deg, #e879a9, #b0497a); }
+.tone-grey   { background: linear-gradient(160deg, var(--surface-overlay), var(--border)); }
+
+/* Seitenpunkte sitzen — wie auf iOS — direkt über dem Dock */
+.sb-dots {
+  position: fixed; left: 0; right: 0; z-index: 31;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 92px);
+  display: flex; justify-content: center; gap: 7px; margin: 0; pointer-events: auto;
+}
+.sb-dot { width: 7px; height: 7px; border-radius: 50%; border: 0; padding: 0;
+  background: color-mix(in oklab, var(--text-muted) 50%, transparent); transition: var(--transition); }
+.sb-dot.on { background: var(--text-primary); transform: scale(1.15); }
+
+.sb-dock {
+  position: fixed; left: 12px; right: 12px; z-index: 30;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 8px);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;
+  padding: 10px 8px; border-radius: 24px; border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface-overlay) 76%, transparent);
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: var(--shadow-lg);
+}
+.sb-dock .sb-label { display: none; }
+.sb-dock .sb-icon { width: 52px; height: 52px; border-radius: 15px; font-size: 24px; }
+
+/* Tablet: mehr Spalten, Seiten nebeneinander lesbar */
+@media (min-width: 820px) {
+  .springboard { padding: 22px 28px 140px; }
+  .sb-widgets { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sb-widget.wide { grid-column: span 2; }
+  .sb-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 22px 10px; }
+  .sb-icon { width: 68px; height: 68px; border-radius: 19px; font-size: 31px; }
+  .sb-label { font-size: 12px; max-width: 92px; }
+  .sb-dock { left: 50%; right: auto; transform: translateX(-50%); width: min(520px, 70vw); bottom: 22px; }
+  .sb-dots { bottom: 108px; }
+}
+
+/* Auf dem Homebildschirm ersetzt der Knopf oben rechts den schwebenden
+   „Neu"-Knopf — sonst würde er ein App-Symbol verdecken. */
+.layout.route-home .fab { display: none; }
+.sb-actions { display: flex; gap: 8px; }
+
+/* ── Mail-Programm ───────────────────────────────────────────────────────── */
+.mail-searchbar { margin-bottom: 8px; }
+.mail-searchbar .input { width: 100%; }
+.mail-folders { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; scrollbar-width: none; }
+.mail-folders::-webkit-scrollbar { display: none; }
+.mail-folders .chip { white-space: nowrap; }
+
+.mail-layout { display: block; }
+.mail-layout.split { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: 14px; align-items: start; }
+.mail-pane-list.hidden-phone { display: none; }
+
+.mail-list { display: flex; flex-direction: column; }
+.mail-row {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 10px;
+  border-bottom: 1px solid var(--border); border-radius: var(--radius-sm);
+  transition: var(--transition);
+}
+.mail-row:active { background: var(--hover); }
+.mail-row.active { background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.mail-row.unread .mail-subject { font-weight: 700; }
+.mail-row.unread::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  margin-top: 15px; flex: 0 0 auto;
+}
+.mail-row-main { flex: 1; min-width: 0; }
+.mail-row-top { display: flex; justify-content: space-between; gap: 8px; }
+.mail-from { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-when { color: var(--text-muted); font-size: 12px; flex: 0 0 auto; }
+.mail-subject { font-size: 14px; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-snippet { color: var(--text-muted); font-size: 13px; margin-top: 2px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mail-star { border: 0; background: none; color: var(--text-muted); font-size: 18px; padding: 2px 4px; }
+.mail-star.on { color: var(--warning); }
+
+.mail-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto;
+  display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff;
+}
+
+.mail-detail { padding: 4px 2px 20px; }
+.mail-detail-head { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.mail-detail-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.mail-detail-subject { font-size: 19px; font-weight: 700; letter-spacing: -.01em; margin-bottom: 10px; }
+.mail-detail-meta { display: flex; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.mail-detail-from { font-weight: 600; }
+.mail-detail-sub { color: var(--text-muted); font-size: 12px; }
+.mail-attachments { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
+.mail-attachment { font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--text2); }
+.mail-body { margin-top: 14px; white-space: pre-wrap; word-break: break-word; line-height: 1.55; font-size: 15px; }
+.mail-preview { font-size: 14px; }
+.mail-preview-body { margin-top: 8px; padding: 10px; border-radius: var(--radius-sm);
+  background: var(--surface-overlay); white-space: pre-wrap; max-height: 220px; overflow: auto; }
+.empty-pane { display: grid; place-items: center; min-height: 240px; }
+
+/* ── Generische Modul-Ansicht ────────────────────────────────────────────── */
+.coll-search { margin-bottom: 8px; }
+.coll-search .input { width: 100%; }
+.chip.mini { font-size: 11px; padding: 2px 8px; }
+.mini-value { margin-left: auto; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* ── Kalender ────────────────────────────────────────────────────────────── */
+.cal-day { margin-bottom: 14px; }
+.cal-day-head { font-size: 12px; color: var(--text-muted); text-transform: capitalize; margin: 10px 0 6px; }
+.cal-monthbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0; font-weight: 600; }
+.cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; color: var(--text-muted); font-size: 11px; text-align: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 4px; }
+.cal-cell { min-height: 62px; border: 1px solid var(--border); border-radius: 10px; padding: 4px;
+  display: flex; flex-direction: column; gap: 2px; background: var(--surface-raised); }
+.cal-cell.empty { background: none; border-color: transparent; }
+.cal-cell.today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-soft) inset; }
+.cal-num { font-size: 11px; color: var(--text-muted); }
+.cal-pill { font-size: 9px; padding: 1px 4px; border-radius: 5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  background: color-mix(in oklab, var(--accent) 26%, transparent); }
+.cal-pill.meeting { background: color-mix(in oklab, var(--info) 28%, transparent); }
+.cal-pill.task { background: color-mix(in oklab, var(--warning) 28%, transparent); }
+.cal-more { font-size: 9px; color: var(--text-muted); }
+
+/* ── Statistiken ─────────────────────────────────────────────────────────── */
+.stat-bars { display: flex; align-items: flex-end; gap: 8px; height: 110px; margin-top: 12px; }
+.stat-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative; }
+.stat-bar-fill { width: 100%; min-height: 3px; border-radius: 7px 7px 3px 3px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep)); }
+.stat-bar-label { font-size: 10px; color: var(--text-muted); margin-top: 5px; }
+.stat-bar-value { font-size: 10px; color: var(--text2); }
+
+/* ── FlowerTech (mobil) ──────────────────────────────────────────────────── */
+.ftm-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.ftm-kpi { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; background: var(--surface-raised); }
+.ftm-kpi span { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.ftm-kpi strong { font-size: 18px; }
+.ftm-item { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 6px; }
+.ftm-item-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; }
+.ftm-totals { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+.ftm-totals div { display: flex; justify-content: space-between; padding: 3px 0; }
+.ftm-totals .sum { border-top: 2px solid var(--border2); margin-top: 6px; padding-top: 8px; font-size: 16px; }
+.ftm-qr { margin: 12px 0; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ftm-qr img { width: 160px; border-radius: 10px; background: #fff; padding: 8px; }
+
+.quick-add { display: flex; gap: 8px; margin-bottom: 10px; }
+.quick-add .input { flex: 1; }
+
+/* ── Journal ─────────────────────────────────────────────────────────────── */
+.row-card.unread { border-left: 3px solid var(--accent); }
+.journal-detail { padding: 4px 2px; }
+.journal-body { white-space: pre-wrap; line-height: 1.55; margin: 10px 0 16px; }

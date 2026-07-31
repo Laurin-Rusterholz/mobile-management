@@ -4,7 +4,7 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v2';
+const VERSION = 'quantus-mobile-v3';
 const SHELL = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const SHELL = [
   './css/tokens.css',
   './css/base.css',
   './css/components.css',
+  './css/apps.css',
   './js/main.js',
   './js/shell.js',
   './js/config.js',
@@ -40,6 +41,14 @@ const SHELL = [
   './js/views/inbox.js',
   './js/views/einstellungen.js',
   './js/views/integrationen.js',
+  './js/views/leseplan.js',
+  './js/views/uebersicht.js',
+  './js/views/mail.js',
+  './js/views/kalender.js',
+  './js/views/statistik.js',
+  './js/views/journal.js',
+  './js/views/flowertech.js',
+  './js/views/collection.js',
   './icons/icon.svg',
 ];
 

@@ -1,190 +1,209 @@
 // ============================================================================
-//  Home — konfigurierbare Karten (Daily Briefing, Aufgaben, Projekte, …)
+//  Home — Springboard im Stil des Apple-Homebildschirms, im Quantus-Design
+//  ---------------------------------------------------------------------------
+//  Aufbau wie auf iPhone/iPad: Statuszeile mit Datum, Widget-Reihe, seitlich
+//  blätterbare Seiten mit App-Symbolen (Squircles), Seitenpunkte und ein Dock,
+//  das auf allen Seiten sichtbar bleibt. Suche öffnet die globale Suche.
+//  Symbole lassen sich per langem Druck ins Dock legen bzw. daraus entfernen.
 // ============================================================================
-import { escHTML, todayYmd, ymdOf, fmtDurationMin, openSheet } from '../util.js';
+import { escHTML, todayYmd, fmtDurationMin, haptic, toast } from '../util.js';
+import { SPRINGBOARD_PAGES, SPRINGBOARD_DOCK, LS } from '../config.js';
 import * as store from '../store.js';
+import * as focus from '../focus.js';
 import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
-import { LS } from '../config.js';
-import * as focus from '../focus.js';
+import { openSearch } from '../search.js';
 
-// verfügbare Karten
-const CARDS = [
-  { key: 'briefing',  label: 'Daily Briefing' },
-  { key: 'today',     label: 'Heute fällig' },
-  { key: 'overdue',   label: 'Überfällig' },
-  { key: 'projects',  label: 'Laufende Projekte' },
-  { key: 'meetings',  label: 'Nächste Meetings' },
-  { key: 'habits',    label: 'Heutige Gewohnheiten' },
-  { key: 'flashcards',label: 'Fällige Flashcards' },
-  { key: 'focus',     label: 'Fokuszeit' },
-  { key: 'budget',    label: 'Budgetstatus' },
-  { key: 'ideas',     label: 'Ideen' },
-  { key: 'notes',     label: 'Zuletzt bearbeitet' },
-];
-
-function cfg() {
-  try { return { order: CARDS.map(c => c.key), hidden: [], ...JSON.parse(localStorage.getItem(LS.homeCards) || '{}') }; }
-  catch (e) { return { order: CARDS.map(c => c.key), hidden: [] }; }
+// ── persistente Anpassung (eigenes Dock, ausgeblendete Symbole) ─────────────
+function prefs() {
+  try {
+    return { dock: null, hidden: [], page: 0, ...JSON.parse(localStorage.getItem(LS.springboard) || '{}') };
+  } catch (e) { return { dock: null, hidden: [], page: 0 }; }
 }
-function saveCfg(c) { try { localStorage.setItem(LS.homeCards, JSON.stringify(c)); } catch (e) {} }
+function savePrefs(p) { try { localStorage.setItem(LS.springboard, JSON.stringify(p)); } catch (e) {} }
 
-function card(title, icon, bodyHtml, route) {
-  return `<section class="hcard">
-    <div class="hcard-head" ${route ? `data-action="go" data-route="${route}"` : ''}>
-      <span class="hcard-icon">${icon}</span><span class="hcard-title">${escHTML(title)}</span>
-      ${route ? '<span class="hcard-more">›</span>' : ''}
-    </div>
-    <div class="hcard-body">${bodyHtml}</div>
-  </section>`;
+const ALL_APPS = (() => {
+  const map = new Map();
+  SPRINGBOARD_PAGES.forEach(page => page.apps.forEach(app => map.set(app.key, app)));
+  SPRINGBOARD_DOCK.forEach(app => map.set(app.key, app));
+  return map;
+})();
+
+function dockApps() {
+  const p = prefs();
+  const keys = Array.isArray(p.dock) && p.dock.length ? p.dock : SPRINGBOARD_DOCK.map(a => a.key);
+  return keys.map(k => ALL_APPS.get(k)).filter(Boolean).slice(0, 4);
 }
 
-function renderCard(key) {
-  const today = todayYmd();
-  if (key === 'briefing') {
-    const b = store.getDailyBriefing();
-    const greeting = new Date().getHours() < 11 ? 'Guten Morgen' : new Date().getHours() < 18 ? 'Hallo' : 'Guten Abend';
-    const openTasks = store.getTasks().filter(t => t.status !== 'done').length;
-    const habits = store.getHabits();
-    const doneHabits = habits.filter(h => store.habitDoneOn(h, today)).length;
-    return card('Daily Briefing', '📋', `
-      <div class="briefing">
-        <div class="briefing-hi">${greeting}. Heute ist ${new Date().toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' })}.</div>
-        <ul class="briefing-list">
-          <li>${openTasks} offene Aufgabe${openTasks === 1 ? '' : 'n'}</li>
-          ${habits.length ? `<li>${doneHabits}/${habits.length} Gewohnheiten erledigt</li>` : ''}
-          ${store.getDueCards().length ? `<li>${store.getDueCards().length} Flashcards fällig</li>` : ''}
-        </ul>
-        <div class="briefing-note">Fakten aus deinen Daten · Einschätzungen liefert Polaris.</div>
-      </div>`, 'planen');
-  }
-  if (key === 'today') {
-    const items = store.getTasks().filter(t => t.status !== 'done' && ymdOf(t.dueDate) === today);
-    return card('Heute fällig', '☀️', list(items, 'task', 'planen', 'Nichts für heute geplant.'), 'planen');
-  }
-  if (key === 'overdue') {
-    const items = store.getTasks().filter(t => t.status !== 'done' && t.dueDate && new Date(t.dueDate) < new Date(new Date().toDateString()));
-    if (!items.length) return '';
-    return card('Überfällig', '⚠️', list(items, 'task', 'planen', ''), 'planen');
-  }
-  if (key === 'projects') {
-    const items = store.getProjects().filter(p => (p.status || 'active') === 'active').slice(0, 5);
-    return card('Laufende Projekte', '📦', list(items, 'project', 'planen', 'Keine aktiven Projekte.'), 'planen');
-  }
+// ── Badges auf den Symbolen (wie ungelesene Mails auf iOS) ──────────────────
+function badgeFor(key) {
+  if (key === 'planen') return store.getTasks().filter(t => t.status !== 'done').length;
+  if (key === 'inbox') return store.getInboxItems().length;
+  if (key === 'flashcards') return store.getDueCards().length;
+  if (key === 'journal') return store.getJournalPushes().length;
   if (key === 'meetings') {
-    const items = store.getMeetings().filter(m => !m.date || new Date(m.date) >= new Date(new Date().toDateString())).slice(0, 4);
-    return card('Nächste Meetings', '🤝', list(items, 'meeting', 'meetings', 'Keine anstehenden Meetings.'), 'meetings');
+    const today = new Date(new Date().toDateString());
+    return store.getMeetings().filter(m => m.date && new Date(m.date) >= today).length;
   }
-  if (key === 'habits') {
-    const habits = store.getHabits();
-    if (!habits.length) return card('Gewohnheiten', '🔁', '<div class="muted-row">Noch keine Gewohnheiten.</div>', 'gewohnheiten');
-    return card('Heutige Gewohnheiten', '🔁', `<div class="habit-dots">${habits.slice(0, 8).map(h => {
-      const done = store.habitDoneOn(h, today);
-      return `<button class="habit-dot ${done ? 'on' : ''}" data-action="home-toggle-habit" data-id="${h.id}" title="${escHTML(h.text || '')}">${h.icon || '✅'}</button>`;
-    }).join('')}</div>`, 'gewohnheiten');
+  if (key === 'projekte') return store.getProjects().filter(p => (p.status || 'active') === 'active').length;
+  if (key === 'flowertech') {
+    const ft = (store.state.data && store.state.data.flowertech) || {};
+    const invoices = Array.isArray(ft.invoices) ? ft.invoices : [];
+    return invoices.filter(i => i.status !== 'paid' && i.status !== 'cancelled').length;
   }
-  if (key === 'flashcards') {
-    const due = store.getDueCards().length;
-    return card('Fällige Flashcards', '🎴', `<div class="big-stat"><span class="big-num">${due}</span><span class="big-lbl">Karten fällig</span></div>`, 'flashcards');
-  }
-  if (key === 'focus') {
-    const d = focus.statsForDay(today), w = focus.statsForWeek();
-    return card('Fokuszeit', '🎯', `<div class="stat-row">
-      <div class="stat"><div class="stat-num">${fmtDurationMin(d.minutes)}</div><div class="stat-lbl">heute</div></div>
-      <div class="stat"><div class="stat-num">${fmtDurationMin(w.minutes)}</div><div class="stat-lbl">7 Tage</div></div>
-      <div class="stat"><div class="stat-num">${d.count}</div><div class="stat-lbl">Sessions</div></div>
-    </div>`, 'fokus');
-  }
-  if (key === 'budget') {
-    const month = today.slice(0, 7);
-    const txns = store.getTransactions().filter(t => (t.date || '').slice(0, 7) === month);
-    const spent = txns.filter(t => Number(t.amount) < 0).reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
-    return card('Budgetstatus', '💰', `<div class="big-stat"><span class="big-num">${spent.toLocaleString('de-CH', { style: 'currency', currency: 'CHF' })}</span><span class="big-lbl">Ausgaben diesen Monat</span></div>`, 'budget');
-  }
-  if (key === 'ideas') {
-    const items = store.getIdeas().slice(-5).reverse();
-    return card('Ideen', '💡', list(items, 'idea', 'ideen', 'Noch keine Ideen.'), 'ideen');
-  }
-  if (key === 'notes') {
-    const items = store.getNotes().slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 4);
-    return card('Zuletzt bearbeitet', '📝', list(items, 'note', 'noteflow', 'Noch keine Notizen.'), 'noteflow');
-  }
-  return '';
+  return 0;
 }
 
-function list(items, kind, route, emptyMsg) {
-  if (!items.length) return emptyMsg ? `<div class="muted-row">${escHTML(emptyMsg)}</div>` : '<div class="muted-row">—</div>';
-  return items.slice(0, 6).map(x => {
-    const label = x.title || x.text || x.content || '(ohne Titel)';
-    return `<button class="mini-row" data-action="go" data-route="${route}">
-      <span class="mini-dot"></span><span class="mini-label">${escHTML(String(label).slice(0, 60))}</span>
-    </button>`;
-  }).join('');
+function iconHtml(app, inDock = false, pinned = false) {
+  const badge = badgeFor(app.key);
+  return `<button class="sb-app ${inDock ? 'in-dock' : ''} ${pinned ? 'pinned' : ''}" data-action="sb-open"
+      data-route="${app.route}" data-key="${app.key}" title="${escHTML(app.label)}">
+    <span class="sb-icon tone-${app.tone || 'violet'}">
+      <span class="sb-glyph">${app.icon}</span>
+      ${badge > 0 ? `<span class="sb-badge">${badge > 99 ? '99+' : badge}</span>` : ''}
+    </span>
+    <span class="sb-label">${escHTML(app.label)}</span>
+  </button>`;
 }
 
-// stabile Reihenfolge inkl. später ergänzter Karten
-function orderedKeys(c) {
-  const known = new Set(c.order);
-  return [...c.order.filter(k => CARDS.some(x => x.key === k)), ...CARDS.map(x => x.key).filter(k => !known.has(k))];
+// ── Widgets (obere Reihe, wie iOS-Widgets) ─────────────────────────────────
+function widgets() {
+  const today = todayYmd();
+  const tasks = store.getTasks().filter(t => t.status !== 'done');
+  const dueToday = tasks.filter(t => (t.dueDate || '').slice(0, 10) === today).length;
+  const overdue = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date(new Date().toDateString())).length;
+  const habits = store.getHabits();
+  const doneHabits = habits.filter(h => store.habitDoneOn(h, today)).length;
+  const day = focus.statsForDay(today);
+  const next = store.getMeetings()
+    .filter(m => m.date && new Date(m.date) >= new Date(new Date().toDateString()))
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+
+  return `<div class="sb-widgets">
+    <button class="sb-widget wide" data-action="sb-open" data-route="uebersicht">
+      <div class="sb-widget-head">📋 Heute</div>
+      <div class="sb-widget-big">${dueToday}</div>
+      <div class="sb-widget-sub">${dueToday === 1 ? 'Aufgabe fällig' : 'Aufgaben fällig'}${overdue ? ` · ${overdue} überfällig` : ''}</div>
+    </button>
+    <button class="sb-widget" data-action="sb-open" data-route="fokus">
+      <div class="sb-widget-head">🎯 Fokus</div>
+      <div class="sb-widget-big">${fmtDurationMin(day.minutes)}</div>
+      <div class="sb-widget-sub">${day.count} Sitzung${day.count === 1 ? '' : 'en'}</div>
+    </button>
+    <button class="sb-widget" data-action="sb-open" data-route="gewohnheiten">
+      <div class="sb-widget-head">🔁 Routinen</div>
+      <div class="sb-widget-big">${doneHabits}/${habits.length}</div>
+      <div class="sb-widget-sub">heute erledigt</div>
+    </button>
+    <button class="sb-widget wide" data-action="sb-open" data-route="kalender">
+      <div class="sb-widget-head">📅 Als Nächstes</div>
+      <div class="sb-widget-line">${next ? escHTML(String(next.title || next.name || 'Termin').slice(0, 42)) : 'Nichts geplant'}</div>
+      <div class="sb-widget-sub">${next && next.date ? new Date(next.date).toLocaleDateString('de-CH', { weekday: 'short', day: '2-digit', month: 'short' }) : 'Freier Kalender'}</div>
+    </button>
+  </div>`;
+}
+
+// ── Aktionen ────────────────────────────────────────────────────────────────
+let pressTimer = null;
+let lastLongPress = 0;
+
+// Symbol ins Dock legen bzw. daraus entfernen (langer Druck, wie auf iOS).
+function toggleDock(key) {
+  const p = prefs();
+  const list = Array.isArray(p.dock) && p.dock.length ? p.dock.slice() : SPRINGBOARD_DOCK.map(a => a.key);
+  const idx = list.indexOf(key);
+  if (idx >= 0) list.splice(idx, 1);
+  else { if (list.length >= 4) list.pop(); list.unshift(key); }
+  p.dock = list;
+  savePrefs(p);
+  haptic(22);
+  toast(idx >= 0 ? 'Aus dem Dock entfernt' : 'Ins Dock gelegt', 'ok');
+  store.notify();
 }
 
 registerActions({
-  'home-toggle-habit': async (d) => {
-    await store.performOp({ type: 'toggle-habit', payload: { id: d.id, date: todayYmd() } });
-  },
-  'home-configure': () => openConfig(),
-  'home-card-toggle': (d) => {
-    const cur = cfg();
-    cur.hidden = cur.hidden.includes(d.key) ? cur.hidden.filter(k => k !== d.key) : [...new Set([...cur.hidden, d.key])];
-    saveCfg(cur); rerenderConfig();
-  },
-  'home-card-move': (d) => {
-    const cur = cfg(); const keys = orderedKeys(cur);
-    const i = keys.indexOf(d.key); const j = d.dir === 'up' ? i - 1 : i + 1;
-    if (i < 0 || j < 0 || j >= keys.length) return;
-    [keys[i], keys[j]] = [keys[j], keys[i]];
-    cur.order = keys; saveCfg(cur); rerenderConfig();
+  // Nach einem langen Druck darf der folgende Klick nicht navigieren.
+  'sb-open': (d) => { if (Date.now() - lastLongPress < 700) return; navigate(d.route); },
+  'sb-search': () => openSearch(),
+  'sb-page': (d) => {
+    const host = document.getElementById('sbPages');
+    if (!host) return;
+    host.scrollTo({ left: host.clientWidth * Number(d.page || 0), behavior: 'smooth' });
   },
 });
 
-function configBody() {
-  const c = cfg();
-  const keys = orderedKeys(c);
-  return `<div class="cfg-list">${keys.map((k, idx) => {
-    const card = CARDS.find(x => x.key === k); if (!card) return '';
-    const visible = !c.hidden.includes(k);
-    return `<div class="cfg-row">
-      <div class="cfg-move">
-        <button class="icon-btn" data-action="home-card-move" data-key="${k}" data-dir="up" ${idx === 0 ? 'disabled' : ''}>↑</button>
-        <button class="icon-btn" data-action="home-card-move" data-key="${k}" data-dir="down" ${idx === keys.length - 1 ? 'disabled' : ''}>↓</button>
-      </div>
-      <span class="cfg-name">${escHTML(card.label)}</span>
-      <button class="chip ${visible ? 'accent' : ''}" data-action="home-card-toggle" data-key="${k}">${visible ? 'Sichtbar' : 'Aus'}</button>
-    </div>`;
-  }).join('')}</div>
-  <div class="muted-row" style="margin-top:8px">↑/↓ ordnet, Chip blendet ein/aus. Änderungen sind sofort aktiv.</div>`;
-}
-
-function rerenderConfig() {
-  const body = document.getElementById('sheetBody');
-  if (body) body.innerHTML = configBody();
-}
-
-function openConfig() {
-  openSheet({ title: 'Home anpassen', size: 'half', body: configBody(), onClose: () => navigate('home') });
-}
-
 export default {
-  title: 'Home', icon: '🏠',
+  title: 'Quantus', icon: '🏠',
   render() {
-    const c = cfg();
-    const cards = orderedKeys(c).filter(k => !c.hidden.includes(k)).map(renderCard).filter(Boolean).join('');
-    return `<div class="pad">
-      <div class="home-top">
-        <div class="home-greet">Quantus</div>
-        <button class="chip" data-action="home-configure">⚙︎ Karten</button>
+    const now = new Date();
+    const greeting = now.getHours() < 11 ? 'Guten Morgen' : now.getHours() < 18 ? 'Hallo' : 'Guten Abend';
+    const dock = dockApps();
+    const dockKeys = new Set(dock.map(a => a.key));
+
+    return `<div class="springboard">
+      <div class="sb-top">
+        <div>
+          <div class="sb-date">${now.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+          <div class="sb-greet">${greeting}, Laurin.</div>
+        </div>
+        <div class="sb-actions">
+          <button class="sb-search" data-action="sb-search" aria-label="Suchen">🔍</button>
+          <button class="sb-search" data-action="open-new" aria-label="Neu erstellen">＋</button>
+        </div>
       </div>
-      ${cards || '<div class="muted-row">Alle Karten ausgeblendet.</div>'}
+
+      ${widgets()}
+
+      <div class="sb-pages" id="sbPages">
+        ${SPRINGBOARD_PAGES.map(page => `
+          <section class="sb-page">
+            <div class="sb-page-title">${escHTML(page.title)}</div>
+            <div class="sb-grid">${page.apps.map(a => iconHtml(a, false, dockKeys.has(a.key))).join('')}</div>
+          </section>`).join('')}
+      </div>
+
+      <div class="sb-dots" id="sbDots">
+        ${SPRINGBOARD_PAGES.map((p, i) => `<button class="sb-dot ${i === 0 ? 'on' : ''}" data-action="sb-page" data-page="${i}" aria-label="Seite ${i + 1}"></button>`).join('')}
+      </div>
+
+      <div class="sb-dock">${dock.map(a => iconHtml(a, true)).join('')}</div>
     </div>`;
+  },
+
+  mount(root) {
+    // Seitenpunkte folgen dem horizontalen Blättern.
+    const pages = root.querySelector('#sbPages');
+    const dots = root.querySelectorAll('.sb-dot');
+    if (pages && dots.length) {
+      const sync = () => {
+        const idx = Math.round(pages.scrollLeft / Math.max(1, pages.clientWidth));
+        dots.forEach((d, i) => d.classList.toggle('on', i === idx));
+        const p = prefs(); p.page = idx; savePrefs(p);
+      };
+      pages.addEventListener('scroll', () => { clearTimeout(pages._t); pages._t = setTimeout(sync, 80); }, { passive: true });
+      const saved = prefs().page || 0;
+      if (saved > 0) requestAnimationFrame(() => { pages.scrollLeft = pages.clientWidth * saved; sync(); });
+    }
+
+    // Langer Druck auf ein Symbol: ins Dock legen bzw. daraus entfernen.
+    root.querySelectorAll('.sb-app').forEach(btn => {
+      const start = () => {
+        clearTimeout(pressTimer);
+        pressTimer = setTimeout(() => {
+          btn.classList.add('jiggle');
+          lastLongPress = Date.now();
+          setTimeout(() => btn.classList.remove('jiggle'), 500);
+          toggleDock(btn.dataset.key);
+        }, 550);
+      };
+      const cancel = () => clearTimeout(pressTimer);
+      btn.addEventListener('touchstart', start, { passive: true });
+      btn.addEventListener('touchend', cancel);
+      btn.addEventListener('touchmove', cancel, { passive: true });
+      btn.addEventListener('mousedown', start);
+      btn.addEventListener('mouseup', cancel);
+      btn.addEventListener('mouseleave', cancel);
+      btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    });
   },
 };

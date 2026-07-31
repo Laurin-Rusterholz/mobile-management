@@ -23,6 +23,9 @@ export const LS = {
   focusPrefs:   'qm-focus-prefs',
   homeCards:    'qm-home-cards',          // Anordnung/Sichtbarkeit der Home-Karten
   seenPushes:   'qm-seen-pushes',
+  mailCache:    'qm-mail-cache',          // zuletzt geladene Nachrichten je Ordner
+  mailDrafts:   'qm-mail-drafts',         // nicht gesendete Entwürfe (offline-sicher)
+  springboard:  'qm-springboard',         // Seiten-/Favoritenanordnung des Homebildschirms
 };
 
 // Migration alter qc-mobile-* Keys → neue qm-* Keys (einmalig, verlustfrei)
@@ -56,24 +59,113 @@ export const FIREBASE_CONFIG = {
 export const TABS = [
   { key: 'home',    label: 'Home',    icon: '🏠', route: 'home' },
   { key: 'planen',  label: 'Planen',  icon: '🗂️', route: 'planen' },
-  { key: 'fokus',   label: 'Fokus',   icon: '🎯', route: 'fokus' },
+  { key: 'mail',    label: 'Mail',    icon: '✉️', route: 'mail' },
   { key: 'polaris', label: 'Polaris', icon: '🛰️', route: 'polaris' },
   { key: 'mehr',    label: 'Mehr',    icon: '⋯',  route: 'mehr' },
 ];
 
 // Sekundärmodule im „Mehr"-Bereich (und in der Tablet-Seitenleiste sichtbar)
 export const MORE_MODULES = [
+  { key: 'uebersicht',   label: 'Übersicht',     icon: '📋', route: 'uebersicht',   desc: 'Karten-Dashboard' },
+  { key: 'mail',         label: 'Mail',          icon: '✉️', route: 'mail',         desc: 'Posteingang, Suche, Senden' },
+  { key: 'projekte',     label: 'Projekte',      icon: '📦', route: 'projekte',     desc: 'Vorhaben & Fortschritt' },
+  { key: 'kalender',     label: 'Kalender',      icon: '📅', route: 'kalender',     desc: 'Agenda & Termine' },
+  { key: 'flowertech',   label: 'FlowerTech',    icon: '🌸', route: 'flowertech',   desc: 'Projekte, Offerten, Rechnungen' },
   { key: 'noteflow',     label: 'Noteflow',      icon: '📝', route: 'noteflow',     desc: 'Notizen & Verknüpfungen' },
   { key: 'gewohnheiten', label: 'Gewohnheiten',  icon: '🔁', route: 'gewohnheiten', desc: 'Routinen & Serien' },
   { key: 'flashcards',   label: 'Flashcards',    icon: '🎴', route: 'flashcards',   desc: 'Spaced Repetition' },
   { key: 'leseplan',     label: 'Leseplan',      icon: '📖', route: 'leseplan',     desc: 'Dokumente aufs Zieldatum verteilt' },
   { key: 'budget',       label: 'Budget',        icon: '💰', route: 'budget',       desc: 'Konten & Ausgaben' },
-  { key: 'gmail',        label: 'Gmail',         icon: '📧', route: 'gmail',        desc: 'Posteingang' },
   { key: 'meetings',     label: 'Meetings',      icon: '🤝', route: 'meetings',     desc: 'Termine & Aktionspunkte' },
   { key: 'ideen',        label: 'Ideen',         icon: '💡', route: 'ideen',        desc: 'Schnell erfassen' },
+  { key: 'ziele',        label: 'Ziele',         icon: '🎯', route: 'ziele',        desc: 'Zielbild & Fortschritt' },
+  { key: 'strategien',   label: 'Strategien',    icon: '🧭', route: 'strategien',   desc: 'Stossrichtungen' },
+  { key: 'konzepte',     label: 'Konzepte',      icon: '🧩', route: 'konzepte',     desc: 'Konzeptor' },
+  { key: 'programme',    label: 'Programme',     icon: '🗃️', route: 'programme',    desc: 'Projektbündel' },
+  { key: 'organisationen', label: 'Organisationen', icon: '🏢', route: 'organisationen', desc: 'Firmen & Partner' },
+  { key: 'personen',     label: 'Personen',      icon: '👤', route: 'personen',     desc: 'Kontakte' },
+  { key: 'entscheidungen', label: 'Entscheidungen', icon: '⚖️', route: 'entscheidungen', desc: 'Beschlüsse & Gründe' },
+  { key: 'protokolle',   label: 'Protokolle',    icon: '📄', route: 'protokolle',   desc: 'Sitzungsprotokolle' },
+  { key: 'workflows',    label: 'Workflows',     icon: '🔄', route: 'workflows',    desc: 'Abläufe' },
+  { key: 'journal',      label: 'Journal',       icon: '📔', route: 'journal',      desc: 'Pushes aus Quantus' },
+  { key: 'statistik',    label: 'Statistiken',   icon: '📊', route: 'statistik',    desc: 'Zahlen & Verläufe' },
   { key: 'inbox',        label: 'Inbox',         icon: '📥', route: 'inbox',        desc: 'Nicht zugeordnet' },
+  { key: 'gmail',        label: 'Gmail (alt)',   icon: '📧', route: 'gmail',        desc: 'Einfache Listenansicht' },
   { key: 'einstellungen',label: 'Einstellungen', icon: '⚙️', route: 'einstellungen',desc: 'App & Sync' },
   { key: 'integrationen',label: 'Integrationen', icon: '🔌', route: 'integrationen',desc: 'Backends & Dienste' },
+];
+
+// ── Generische Entitäts-Module ──────────────────────────────────────────────
+// Jede Sammlung bekommt dieselbe Liste/Suche/Formular-Ansicht. Der Schlüssel
+// ist der Name der Entität im Quantus-Payload (entities.<name>), damit die
+// Operationen exakt dieselben Daten treffen wie Desktop und Tablet.
+export const COLLECTIONS = {
+  projekte:        { entity: 'projects',      kind: 'project',      label: 'Projekt',       plural: 'Projekte',        icon: '📦' },
+  ziele:           { entity: 'goals',         kind: 'goal',         label: 'Ziel',          plural: 'Ziele',           icon: '🎯' },
+  strategien:      { entity: 'strategies',    kind: 'strategy',     label: 'Strategie',     plural: 'Strategien',      icon: '🧭' },
+  konzepte:        { entity: 'concepts',      kind: 'concept',      label: 'Konzept',       plural: 'Konzepte',        icon: '🧩' },
+  programme:       { entity: 'programs',      kind: 'program',      label: 'Programm',      plural: 'Programme',       icon: '🗃️' },
+  organisationen:  { entity: 'organizations', kind: 'organization', label: 'Organisation',  plural: 'Organisationen',  icon: '🏢' },
+  personen:        { entity: 'persons',       kind: 'person',       label: 'Person',        plural: 'Personen',        icon: '👤' },
+  entscheidungen:  { entity: 'decisions',     kind: 'decision',     label: 'Entscheidung',  plural: 'Entscheidungen',  icon: '⚖️' },
+  protokolle:      { entity: 'protocols',     kind: 'protocol',     label: 'Protokoll',     plural: 'Protokolle',      icon: '📄' },
+  workflows:       { entity: 'workflows',     kind: 'workflow',     label: 'Workflow',      plural: 'Workflows',       icon: '🔄' },
+};
+
+// ── Home-Bildschirm (Springboard) ───────────────────────────────────────────
+// Seiten mit App-Symbolen wie auf dem iPhone/iPad-Homebildschirm, Dock unten.
+export const SPRINGBOARD_PAGES = [
+  {
+    title: 'Alltag',
+    apps: [
+      { key: 'uebersicht',   label: 'Übersicht',   icon: '📋', route: 'uebersicht',   tone: 'violet' },
+      { key: 'planen',       label: 'Planen',      icon: '🗂️', route: 'planen',       tone: 'blue' },
+      { key: 'kalender',     label: 'Kalender',    icon: '📅', route: 'kalender',     tone: 'red' },
+      { key: 'fokus',        label: 'Fokus',       icon: '🎯', route: 'fokus',        tone: 'green' },
+      { key: 'projekte',     label: 'Projekte',    icon: '📦', route: 'projekte',     tone: 'sand' },
+      { key: 'meetings',     label: 'Meetings',    icon: '🤝', route: 'meetings',     tone: 'blue' },
+      { key: 'gewohnheiten', label: 'Routinen',    icon: '🔁', route: 'gewohnheiten', tone: 'green' },
+      { key: 'inbox',        label: 'Inbox',       icon: '📥', route: 'inbox',        tone: 'sand' },
+    ],
+  },
+  {
+    title: 'Wissen & Geld',
+    apps: [
+      { key: 'noteflow',   label: 'Noteflow',   icon: '📝', route: 'noteflow',   tone: 'violet' },
+      { key: 'ideen',      label: 'Ideen',      icon: '💡', route: 'ideen',      tone: 'sand' },
+      { key: 'flashcards', label: 'Flashcards', icon: '🎴', route: 'flashcards', tone: 'red' },
+      { key: 'leseplan',   label: 'Leseplan',   icon: '📖', route: 'leseplan',   tone: 'blue' },
+      { key: 'konzepte',   label: 'Konzepte',   icon: '🧩', route: 'konzepte',   tone: 'violet' },
+      { key: 'budget',     label: 'Budget',     icon: '💰', route: 'budget',     tone: 'green' },
+      { key: 'flowertech', label: 'FlowerTech', icon: '🌸', route: 'flowertech', tone: 'pink' },
+      { key: 'statistik',  label: 'Statistik',  icon: '📊', route: 'statistik',  tone: 'blue' },
+    ],
+  },
+  {
+    title: 'Steuern & Kontakte',
+    apps: [
+      { key: 'ziele',           label: 'Ziele',        icon: '🎯', route: 'ziele',           tone: 'green' },
+      { key: 'strategien',      label: 'Strategien',   icon: '🧭', route: 'strategien',      tone: 'blue' },
+      { key: 'programme',       label: 'Programme',    icon: '🗃️', route: 'programme',       tone: 'sand' },
+      { key: 'entscheidungen',  label: 'Entscheide',   icon: '⚖️', route: 'entscheidungen',  tone: 'red' },
+      { key: 'organisationen',  label: 'Firmen',       icon: '🏢', route: 'organisationen',  tone: 'blue' },
+      { key: 'personen',        label: 'Personen',     icon: '👤', route: 'personen',        tone: 'violet' },
+      { key: 'protokolle',      label: 'Protokolle',   icon: '📄', route: 'protokolle',      tone: 'sand' },
+      { key: 'workflows',       label: 'Workflows',    icon: '🔄', route: 'workflows',       tone: 'green' },
+      { key: 'journal',         label: 'Journal',      icon: '📔', route: 'journal',         tone: 'violet' },
+      { key: 'integrationen',   label: 'Dienste',      icon: '🔌', route: 'integrationen',   tone: 'blue' },
+      { key: 'einstellungen',   label: 'Einstellungen',icon: '⚙️', route: 'einstellungen',   tone: 'grey' },
+      { key: 'mehr',            label: 'Alle Apps',    icon: '⋯',  route: 'mehr',            tone: 'grey' },
+    ],
+  },
+];
+
+// Dock (unterste Reihe, auf allen Seiten sichtbar) — wie auf iOS.
+export const SPRINGBOARD_DOCK = [
+  { key: 'mail',    label: 'Mail',    icon: '✉️', route: 'mail',    tone: 'blue' },
+  { key: 'planen',  label: 'Planen',  icon: '🗂️', route: 'planen',  tone: 'violet' },
+  { key: 'polaris', label: 'Polaris', icon: '🛰️', route: 'polaris', tone: 'green' },
+  { key: 'fokus',   label: 'Fokus',   icon: '🎯', route: 'fokus',   tone: 'red' },
 ];
 
 // Inhaltstypen des zentralen „Neu"-Buttons

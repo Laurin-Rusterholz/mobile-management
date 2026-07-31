@@ -189,6 +189,11 @@ const KIND_MAP = {
   task: 'tasks', note: 'notes', idea: 'ideas', notebook: 'notebooks',
   project: 'projects', meeting: 'meetings', transaction: 'transactions',
   account: 'accounts', goal: 'goals', decision: 'decisions',
+  // Funktionsparität mit Desktop und Tablet: alle weiteren Sammlungen
+  strategy: 'strategies', concept: 'concepts', program: 'programs',
+  organization: 'organizations', person: 'persons', protocol: 'protocols',
+  workflow: 'workflows', article: 'articles', thesis: 'theses',
+  event: 'calendarEvents', measure: 'measures', update: 'updates',
 };
 
 function ents() {
@@ -238,6 +243,9 @@ export function applyOp(op) {
     return;
   }
 
+  // ── FlowerTech (Offerten, Rechnungen, Finanzen, Notizen) ──
+  if (t.startsWith('ft-')) { applyFlowerTechOp(t, op.payload); return; }
+
   // ── Polaris-Chatverlauf (aiChats[]) ──
   if (t === 'add-chat') { if (!state.data.aiChats) state.data.aiChats = []; state.data.aiChats.unshift(op.payload); return; }
   if (t === 'add-chat-message') {
@@ -247,6 +255,41 @@ export function applyOp(op) {
   }
 
   console.warn('applyOp: unbekannter op-type', t);
+}
+
+// ── FlowerTech-Sonderpfad (data.flowertech.*) ────────────────────────────────
+// Dieselbe Struktur wie in Quantus: Offerten/Rechnungen sind Arrays von
+// Dokumenten mit Positionen. Es werden ausschliesslich gezielte Mutationen
+// ausgeführt, damit unbekannte Felder erhalten bleiben.
+function flowertech() {
+  if (!state.data.flowertech || typeof state.data.flowertech !== 'object') state.data.flowertech = {};
+  const ft = state.data.flowertech;
+  ['offers', 'invoices', 'finances', 'notes', 'links'].forEach(k => {
+    if (!Array.isArray(ft[k])) ft[k] = [];
+  });
+  if (!ft.counters || typeof ft.counters !== 'object') ft.counters = {};
+  if (!ft.company || typeof ft.company !== 'object') ft.company = {};
+  return ft;
+}
+
+function applyFlowerTechOp(type, payload) {
+  const ft = flowertech();
+  const listName = payload && payload.kind === 'invoice' ? 'invoices' : 'offers';
+  if (type === 'ft-doc-save') {
+    const list = ft[listName];
+    const idx = list.findIndex(d => d && d.id === payload.doc.id);
+    if (idx >= 0) list[idx] = { ...list[idx], ...payload.doc, updatedAt: nowISO() };
+    else list.unshift(payload.doc);
+    if (payload.counterKey) ft.counters[payload.counterKey] = payload.counterValue;
+    return;
+  }
+  if (type === 'ft-doc-delete') {
+    ft[listName] = ft[listName].filter(d => d && d.id !== payload.id);
+    return;
+  }
+  if (type === 'ft-finance-add') { ft.finances.unshift(payload); return; }
+  if (type === 'ft-note-add') { ft.notes.unshift(payload); return; }
+  console.warn('applyOp: unbekannte FlowerTech-Operation', type);
 }
 
 function routines() {
@@ -308,6 +351,27 @@ export const getAccounts    = () => coll('accounts').filter(alive);
 export const getGoals       = () => coll('goals').filter(alive);
 export const getTimeEntries = () => coll('timeEntries').filter(Boolean);
 export const getNotebooks   = () => coll('notebooks').filter(alive).sort((a, b) => (a.order || 0) - (b.order || 0));
+
+// Generischer Zugriff auf beliebige Sammlungen (entities.<name>) — Grundlage
+// der gemeinsamen Modul-Ansicht für Projekte, Ziele, Strategien, Konzepte …
+export const getCollection = (name) => coll(name).filter(alive);
+
+// FlowerTech-Bereich (gleiche Struktur wie in Quantus/ai-sync)
+export function getFlowerTech() {
+  const ft = (state.data && state.data.flowertech) || {};
+  return {
+    offers: Array.isArray(ft.offers) ? ft.offers : [],
+    invoices: Array.isArray(ft.invoices) ? ft.invoices : [],
+    finances: Array.isArray(ft.finances) ? ft.finances : [],
+    notes: Array.isArray(ft.notes) ? ft.notes : [],
+    links: Array.isArray(ft.links) ? ft.links : [],
+    inquiries: (ft.inquiries && typeof ft.inquiries === 'object') ? ft.inquiries : {},
+    videos: (ft.videos && typeof ft.videos === 'object') ? ft.videos : {},
+    company: (ft.company && typeof ft.company === 'object') ? ft.company : {},
+    counters: (ft.counters && typeof ft.counters === 'object') ? ft.counters : {},
+  };
+}
+export const getFlowerTechProjects = () => getProjects().filter(p => p.projectType === 'flowertech');
 
 export function getById(kind, id) {
   const name = KIND_MAP[kind] || kind;
