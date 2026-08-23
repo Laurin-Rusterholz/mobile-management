@@ -116,7 +116,15 @@ export async function pushData() {
   setSyncStatus('syncing', 'Speichern…');
   try {
     state.data.updatedAt = nowISO();
-    if (state.data.meta) state.data.meta.updatedAt = state.data.updatedAt;
+    // meta.lastSavedBy ist der EINZIGE Fremdgeraete-Marker, den der Desktop
+    // auswertet (ai-sync public/index.html: pullAndMergeBeforeSave und
+    // rtdbJsonPut vergleichen meta.lastSavedBy mit der eigenen Geraete-Id).
+    // Ohne eigenen Wert blieb hier die Id des Desktops stehen: er las seine
+    // eigene Kennung zurueck, hielt den Stand fuer selbst geschrieben,
+    // uebersprang den Merge und ueberschrieb Aenderungen vom Handy.
+    if (!state.data.meta || typeof state.data.meta !== 'object') state.data.meta = {};
+    state.data.meta.updatedAt = state.data.updatedAt;
+    state.data.meta.lastSavedBy = 'mobile-app';
 
     const url = getBaseUrl() + '/.netlify/functions/blob-put?key=' + encodeURIComponent(getBlobKey());
     const headers = { 'Content-Type': 'application/json' };
