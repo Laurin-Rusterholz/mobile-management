@@ -298,3 +298,37 @@
   .pb-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
   .pb-note { min-height: 150px; }
 }
+
+/* ── Routinen am unteren Ende des Homebildschirms ─────────────────────────
+   Sie standen vorher nur als Zahl im Widget ("0/6"). Ausgeschrieben und
+   antippbar gehoeren sie ans Ende: dorthin sieht man am Tagesende. */
+.sb-routines {
+  margin-top: 22px; border: 1px solid var(--border); border-radius: 20px; padding: 12px;
+  background: color-mix(in oklab, var(--surface-raised) 78%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: var(--shadow);
+}
+.sb-rt-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.sb-rt-title { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.sb-rt-count { font-size: 13px; font-weight: 700; }
+.sb-rt-list { display: flex; flex-direction: column; gap: 4px; }
+.sb-rt {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px;
+  border: 0; background: transparent; color: var(--text-primary);
+  padding: 6px 6px; border-radius: var(--radius-sm); text-align: left;
+  font-size: 15px; transition: var(--transition);
+}
+.sb-rt:active { background: var(--hover); }
+.sb-rt-box {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 15px;
+  border: 1px solid var(--border); background: var(--surface-overlay); color: var(--text-muted);
+}
+.sb-rt.on .sb-rt-box { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.sb-rt.on .sb-rt-label { color: var(--text-muted); text-decoration: line-through; }
+.sb-rt-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-rt-all {
+  margin-top: 8px; width: 100%; min-height: 44px; border: 0; border-radius: var(--radius-sm);
+  background: var(--surface-overlay); color: var(--text-primary); font-size: 14px; font-weight: 600;
+}
+.sb-rt-all:active { background: var(--hover); }

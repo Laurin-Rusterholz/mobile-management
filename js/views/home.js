@@ -136,6 +136,36 @@ function widgets() {
   </div>`;
 }
 
+// ── Routinen, ganz unten ───────────────────────────────────────────────────
+// Sie standen bisher nur als Zahl im Widget ("0/6"). Eine Zahl sagt, dass
+// etwas offen ist, aber nicht WAS — und abhaken liess sie sich gar nicht.
+// Hier stehen sie ausgeschrieben und direkt antippbar, unter den Apps: der
+// Platz, an dem man am Ende des Tages hinsieht.
+function routinenBlock() {
+  const heute = todayYmd();
+  const habits = store.getHabits();
+  if (!habits.length) return '';
+  const erledigt = habits.filter(h => store.habitDoneOn(h, heute)).length;
+
+  const zeile = (h) => {
+    const on = store.habitDoneOn(h, heute);
+    return `<button class="sb-rt ${on ? 'on' : ''}" data-action="sb-habit" data-id="${escHTML(String(h.id))}"
+        aria-pressed="${on ? 'true' : 'false'}">
+      <span class="sb-rt-box">${on ? '✓' : (h.icon || '○')}</span>
+      <span class="sb-rt-label">${escHTML(String(h.text || '(ohne Name)'))}</span>
+    </button>`;
+  };
+
+  return `<section class="sb-routines">
+    <div class="sb-rt-head">
+      <span class="sb-rt-title">🔁 Routinen heute</span>
+      <span class="sb-rt-count">${erledigt}/${habits.length}</span>
+    </div>
+    <div class="sb-rt-list">${habits.map(zeile).join('')}</div>
+    <button class="sb-rt-all" data-action="sb-open" data-route="gewohnheiten">Alle Routinen ›</button>
+  </section>`;
+}
+
 // ── Aktionen ────────────────────────────────────────────────────────────────
 let pressTimer = null;
 let lastLongPress = 0;
@@ -158,6 +188,12 @@ registerActions({
   // Nach einem langen Druck darf der folgende Klick nicht navigieren.
   'sb-open': (d) => { if (Date.now() - lastLongPress < 700) return; navigate(d.route); },
   'sb-search': () => openSearch(),
+  // Abhaken ohne Umweg ueber die Gewohnheiten-Ansicht. Dieselbe Operation
+  // (toggle-habit), damit beide Wege nie auseinanderlaufen.
+  'sb-habit': async (d) => {
+    haptic(12);
+    await store.performOp({ type: 'toggle-habit', payload: { id: d.id, date: todayYmd() } });
+  },
   'sb-page': (d) => {
     const host = document.getElementById('sbPages');
     if (!host) return;
@@ -196,6 +232,8 @@ export default {
             <div class="sb-grid">${page.apps.map(a => iconHtml(a, false, dockKeys.has(a.key))).join('')}</div>
           </section>`).join('')}
       </div>
+
+      ${routinenBlock()}
 
       <div class="sb-dots" id="sbDots">
         ${SPRINGBOARD_PAGES.map((p, i) => `<button class="sb-dot ${i === 0 ? 'on' : ''}" data-action="sb-page" data-page="${i}" aria-label="Seite ${i + 1}"></button>`).join('')}

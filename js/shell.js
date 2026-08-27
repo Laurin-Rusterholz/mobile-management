@@ -17,6 +17,31 @@ import { openSearch } from './search.js';
 const TABLET_BREAKPOINT = 820;
 export const isTablet = () => window.innerWidth >= TABLET_BREAKPOINT;
 
+/*
+ * WARUM ES AUF DEM HANDY KEINE AUSFAHRBARE SEITENLEISTE MEHR GIBT
+ *
+ * BEFUND (Screenshot, iPhone): die geoeffnete Leiste war NICHT SCHLIESSBAR.
+ * Sie lag als position:fixed-Panel mit 260px Breite ueber der App — ohne
+ * Schirm, ohne Schliessknopf. Der einzige Weg zurueck war derselbe
+ * ☰-Knopf in der Kopfzeile, und der sitzt bei x 0..54px, also UNTER dem
+ * Panel. Man kam nur per Neuladen wieder heraus.
+ *
+ * Sie war ausserdem ueberfluessig: der Homebildschirm IST ein Springboard mit
+ * allen Apps, Seiten und Dock. Die Leiste war eine zweite, schlechtere Kopie
+ * davon — mit einer Falle darin.
+ *
+ * Statt Schirm und Schliessknopf nachzuruesten, ist der Weg auf dem Handy
+ * ganz entfallen. Zwei Wege bleiben, beide immer sichtbar und beide
+ * einstufig:
+ *   alle Apps  -> Homebildschirm (Springboard) bzw. der Tab „Mehr"
+ *   nach Hause -> der 🏠-Knopf links in der Kopfzeile
+ * Was es nicht gibt, kann auch nicht klemmen.
+ *
+ * Auf dem Tablet bleibt die Leiste, was sie dort immer war: fest stehende
+ * Navigation neben dem Inhalt, nie darueber. Der 🏠-Knopf ist dort
+ * ausgeblendet — die Leiste zeigt Home ohnehin an.
+ */
+
 // welche Route gehört zu welchem Bottom-Tab (fürs Highlighting)
 function activeTabFor(route) {
   if (TABS.some(t => t.route === route)) return route;
@@ -32,7 +57,7 @@ export function buildSkeleton() {
       <aside class="sidebar" id="sidebar"></aside>
       <div class="main">
         <header class="appbar" id="appbar">
-          <button class="appbar-btn" data-action="toggle-sidebar" aria-label="Menü">☰</button>
+          <button class="appbar-btn appbar-home" data-action="go" data-route="home" aria-label="Zum Homebildschirm">🏠</button>
           <div class="appbar-title" id="appbarTitle">Quantus</div>
           <div class="appbar-right">
             <button class="appbar-btn" data-action="open-search" aria-label="Suche">🔍</button>
@@ -147,7 +172,6 @@ store.onSyncStatus((stateName, text) => {
 registerActions({
   'go': (d) => router.navigate(d.route, { params: d.sub ? { } : {}, sub: d.sub || null }),
   'go-sub': (d) => router.navigate(d.route, { sub: d.sub || null, params: d.params ? JSON.parse(d.params) : {} }),
-  'toggle-sidebar': () => document.getElementById('layout').classList.toggle('sidebar-open'),
   'open-new': () => openNewMenu(),
   'open-search': () => openSearch(),
   'cycle-theme': () => { import('./theme.js').then(m => { const mode = m.cycleTheme(); toast('Theme: ' + mode, 'ok'); }); },

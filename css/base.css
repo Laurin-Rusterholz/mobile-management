@@ -138,9 +138,16 @@ h1,h2,h3 { letter-spacing: -.012em; }
 .side-item-icon { font-size: 18px; width: 22px; text-align: center; }
 .side-foot { margin-top: auto; padding-top: 10px; border-top: 1px solid var(--border); }
 
-/* Sidebar-Off-Canvas auf Phone (Menü-Button) */
-.layout.phone.sidebar-open .sidebar {
-  display: flex; position: fixed; inset: 0 auto 0 0; width: 260px; z-index: 60;
-  flex-direction: column; background: var(--surface-raised); box-shadow: var(--shadow-lg);
-  padding: calc(var(--safe-top) + 14px) 10px 14px; overflow-y: auto;
-}
+/* Auf dem Handy gibt es KEINE ausfahrbare Seitenleiste mehr.
+   Sie lag als 260px breites position:fixed-Panel ueber der App — ohne Schirm,
+   ohne Schliessknopf, und der ☰-Knopf, der sie wieder zugemacht haette, lag
+   darunter. Sie war nicht schliessbar. Ersetzt durch zwei immer sichtbare
+   Wege: der Homebildschirm (Springboard mit allen Apps) und der 🏠-Knopf in
+   der Kopfzeile. Die Regel steht bewusst NICHT hier — was es nicht gibt,
+   kann nicht klemmen. */
+
+/* Der 🏠-Knopf ist eine Handy-Sache: auf dem Tablet steht die Seitenleiste
+   ohnehin daneben und zeigt Home an. */
+.layout.tablet .appbar-home { display: none; }
+/* Fingerbreite Trefferflaeche in der Kopfzeile — 40px waren zu knapp. */
+.layout.phone .appbar-btn { width: 44px; height: 44px; }
