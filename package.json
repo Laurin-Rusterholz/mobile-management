@@ -8,6 +8,6 @@
     "@netlify/blobs": "^8.1.0"
   },
   "scripts": {
-    "test": "node tests/habits-open.test.mjs && node tests/layout-spacing.test.mjs && node tests/briefing-pinnboard.test.mjs && node tests/nav-no-trap.test.mjs"
+    "test": "node tests/habits-open.test.mjs && node tests/layout-spacing.test.mjs && node tests/briefing-pinnboard.test.mjs && node tests/nav-no-trap.test.mjs && node tests/auth-career.test.mjs"
   }
 }

@@ -52,6 +52,13 @@ export function getBlobKey() { return localStorage.getItem(LS.blobKey) || DEFAUL
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyC6xVo-wmXC4JjG7qMQnOExIJU-UDvBluE',
   authDomain: 'jupidu-36804.firebaseapp.com',
+  // Die App traegt jetzt eine eigene Google-Anmeldung (js/auth.js). Damit
+  // braucht sie auch projectId und databaseURL: das Career Model liegt unter
+  // careerModel/users/<uid> in der Realtime Database. Beides sind dieselben
+  // oeffentlichen Clientwerte, die die Hauptapp seit je verwendet — kein
+  // Geheimnis, der Schutz liegt in den Firebase-Regeln.
+  projectId: 'jupidu-36804',
+  databaseURL: 'https://jupidu-36804-default-rtdb.europe-west1.firebasedatabase.app',
   storageBucket: 'jupidu-36804.firebasestorage.app',
 };
 
@@ -80,6 +87,7 @@ export const MORE_MODULES = [
   // Leseplan IST beides. Zwei Kacheln, weil beide Namen gesucht werden.
   { key: 'smarter',      label: 'Smarter',       icon: '🧠', route: 'smarter',      desc: 'Tageslektion im Leseplan' },
   { key: 'bm',           label: 'BM-Vorbereitung', icon: '🎓', route: 'bm',         desc: 'Prüfungsstoff im Leseplan' },
+  { key: 'career',       label: 'Career Model',  icon: '🧗', route: 'career',       desc: 'Berufsfelder, Module, Tagespensum' },
   { key: 'pinnboard',    label: 'Pinnboard',     icon: '📌', route: 'pinnboard',    desc: 'Post-its aus Quantus' },
   { key: 'budget',       label: 'Budget',        icon: '💰', route: 'budget',       desc: 'Konten & Ausgaben' },
   { key: 'meetings',     label: 'Meetings',      icon: '🤝', route: 'meetings',     desc: 'Termine & Aktionspunkte' },
@@ -141,6 +149,7 @@ export const SPRINGBOARD_PAGES = [
       { key: 'ideen',      label: 'Ideen',      icon: '💡', route: 'ideen',      tone: 'sand' },
       { key: 'flashcards', label: 'Flashcards', icon: '🎴', route: 'flashcards', tone: 'red' },
       { key: 'leseplan',   label: 'Leseplan',   icon: '📖', route: 'leseplan',   tone: 'blue' },
+      { key: 'career',     label: 'Career',     icon: '🧗', route: 'career',     tone: 'coral' },
       { key: 'pinnboard',  label: 'Pinnboard',  icon: '📌', route: 'pinnboard',  tone: 'coral' },
       { key: 'konzepte',   label: 'Konzepte',   icon: '🧩', route: 'konzepte',   tone: 'violet' },
       { key: 'budget',     label: 'Budget',     icon: '💰', route: 'budget',     tone: 'green' },

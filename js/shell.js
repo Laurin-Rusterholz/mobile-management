@@ -12,6 +12,7 @@ import { registerActions, initActions } from './actions.js';
 import { applyTheme } from './theme.js';
 import * as focus from './focus.js';
 import { openNewType } from './new.js';
+import { initAuth } from './auth.js';
 import { openSearch } from './search.js';
 
 const TABLET_BREAKPOINT = 820;
@@ -115,14 +116,29 @@ function highlightNav(route) {
 }
 
 // ── Router-Renderer ──
+// Was eine Ansicht beim Betreten anmeldet, muss beim VERLASSEN wieder ab.
+// Ohne diesen Schritt liefe zum Beispiel der Live-Hoerer des Career Models in
+// einer laengst verlassenen Ansicht weiter und schriebe in ein Element, das es
+// nicht mehr gibt. mount() gibt es seit je — ein Gegenstueck fehlte.
+let laufendeAnsicht = null;
+function verlasseAnsicht() {
+  const v = laufendeAnsicht;
+  laufendeAnsicht = null;
+  if (v && typeof v.unmount === 'function') {
+    try { v.unmount(); } catch (e) { console.warn('unmount:', e); }
+  }
+}
+
 function renderView(ctx) {
   const view = router.getView(ctx.route);
   const content = $('#content');
   const titleEl = $('#appbarTitle');
+  verlasseAnsicht();
   if (!view) { content.innerHTML = '<div class="pad">Unbekannte Ansicht.</div>'; return; }
   titleEl.textContent = view.title || 'Quantus';
   try {
     content.innerHTML = view.render(ctx);
+    laufendeAnsicht = view;
     if (typeof view.mount === 'function') view.mount(content, ctx);
   } catch (e) {
     console.error('View render error', e);
@@ -272,6 +288,9 @@ store.subscribe(() => renderView(router.current()));
 export async function boot(viewModules) {
   migrateLegacyKeys();
   applyTheme();
+  // Anmeldung frueh hochfahren: eine bestehende Sitzung (oder die Rueckkehr aus
+  // einer Weiterleitung) soll gelten, bevor die erste Ansicht rendert.
+  try { initAuth(); } catch (e) { console.warn('initAuth:', e); }
   buildSkeleton();
   attachPullToRefresh();
   initActions();

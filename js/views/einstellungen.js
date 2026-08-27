@@ -9,8 +9,23 @@ import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
 import { pageHeader } from './common.js';
 import { getInstallPrompt } from '../pwa.js';
+import * as auth from '../auth.js';
 
 registerActions({
+  // Die App traegt die Google-Anmeldung selbst — eine Firebase-Sitzung gilt
+  // pro Origin, und dieser Origin ist nicht der der Hauptapp. Ein blosser
+  // Verweis nach Quantus haette hier nie eine Nutzerkennung ergeben.
+  'auth-login': async () => {
+    const r = await auth.signInGoogle();
+    if (r.ok) { navigate('einstellungen'); return; }
+    if (r.abgebrochen) return;
+    toast(r.grund || 'Anmeldung fehlgeschlagen', 'error');
+  },
+  'auth-logout': async () => {
+    const r = await auth.signOutGoogle();
+    if (!r.ok) { toast(r.grund || 'Abmelden fehlgeschlagen', 'error'); return; }
+    toast('Abgemeldet', 'ok'); navigate('einstellungen');
+  },
   'set-theme': (d) => { setThemeMode(d.mode); navigate('einstellungen'); },
   'sync-now': () => store.manualSync(),
   'edit-baseurl': () => {
@@ -45,6 +60,32 @@ registerActions({
   },
 });
 
+// Konto — Zustand ehrlich benennen, auch wenn er unerfreulich ist. Ein
+// stummes "nicht angemeldet" waere hier besonders irrefuehrend: die App
+// funktioniert ohne Anmeldung vollstaendig weiter, nur das Career Model nicht.
+function kontoBlock() {
+  if (!auth.sdkBereit()) {
+    return `<div class="card"><div class="diag">
+      <div class="diag-row"><span>Google-Anmeldung</span><b>SDK nicht geladen</b></div>
+    </div></div>`;
+  }
+  const u = auth.currentUser();
+  if (!u) {
+    return `<div class="card">
+      <div class="set-note">Nur fürs Career Model nötig — es liegt unter deiner Nutzerkennung.
+        Aufgaben, Notizen und alles Übrige laufen ohne Anmeldung weiter.</div>
+      <button class="btn primary block" data-action="auth-login">Mit Google anmelden</button>
+    </div>`;
+  }
+  return `<div class="card">
+    <div class="diag">
+      <div class="diag-row"><span>Angemeldet als</span><b>${escHTML(u.displayName || u.email || u.uid)}</b></div>
+      ${u.email && u.displayName ? `<div class="diag-row"><span>E-Mail</span><b>${escHTML(u.email)}</b></div>` : ''}
+    </div>
+    <button class="btn block" data-action="auth-logout" style="margin-top:10px">Abmelden</button>
+  </div>`;
+}
+
 function row(label, value, action) {
   return `<button class="set-row" ${action ? `data-action="${action}"` : ''}>
     <span class="set-label">${escHTML(label)}</span><span class="set-value">${escHTML(value)}</span></button>`;
@@ -61,6 +102,9 @@ export default {
     const meta = (store.state.data && store.state.data.meta) || {};
     return `<div class="pad">
       ${pageHeader('Einstellungen', 'App & Sync')}
+
+      <div class="section-title">Konto</div>
+      ${kontoBlock()}
 
       <div class="section-title">Darstellung</div>
       <div class="segmented">
@@ -88,4 +132,14 @@ export default {
       ${row('Datensatz exportieren (JSON)', 'Export', 'export-data')}
     </div>`;
   },
+  // Nach der Rueckkehr aus einer Anmelde-Weiterleitung feuert
+  // onAuthStateChanged ERST NACH dem ersten Zeichnen. Ohne diesen Hoerer
+  // stuende dort weiterhin "Mit Google anmelden", obwohl man angemeldet ist.
+  mount() {
+    this._ab = auth.onAuthChange(() => {
+      if (location.hash.indexOf('einstellungen') < 0) return;
+      navigate('einstellungen');
+    });
+  },
+  unmount() { if (this._ab) { this._ab(); this._ab = null; } },
 };

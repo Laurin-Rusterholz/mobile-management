@@ -332,3 +332,24 @@
   background: var(--surface-overlay); color: var(--text-primary); font-size: 14px; font-weight: 600;
 }
 .sb-rt-all:active { background: var(--hover); }
+
+/* ── Career Model ─────────────────────────────────────────────────────────
+   Nur lesend: Berufsfelder, ihre Module und der Fortschritt in Tagen.
+   Geschrieben wird das Career Model in der Hauptapp. */
+.cm-area { margin-bottom: 18px; }
+.cm-area-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.cm-area-name { font-size: 16px; font-weight: 700; }
+.cm-area-count { font-size: 12px; color: var(--text-muted); }
+.cm-area-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.cm-mod {
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-raised);
+  padding: 11px 12px; margin-bottom: 8px; box-shadow: var(--shadow);
+}
+.cm-mod-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.cm-mod-title { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-mod-pct { font-size: 13px; font-weight: 700; color: var(--accent); flex: 0 0 auto; }
+.cm-bar { height: 6px; border-radius: 3px; background: var(--surface-overlay); overflow: hidden; margin: 8px 0 6px; }
+.cm-bar > span { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.cm-mod-sub { font-size: 12px; color: var(--text-muted); }
+.set-note { font-size: 13px; color: var(--text-muted); padding: 12px 12px 10px; }
+.card > .btn.block { margin: 0 12px 12px; width: calc(100% - 24px); min-height: 44px; }

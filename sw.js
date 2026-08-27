@@ -4,7 +4,7 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v8-nav-ohne-falle';
+const VERSION = 'quantus-mobile-v9-google-login-career';
 const SHELL = [
   './',
   './index.html',
@@ -25,6 +25,7 @@ const SHELL = [
   './js/new.js',
   './js/search.js',
   './js/pwa.js',
+  './js/auth.js',
   './js/views/common.js',
   './js/views/home.js',
   './js/views/planen.js',
@@ -35,6 +36,7 @@ const SHELL = [
   './js/views/gewohnheiten.js',
   './js/views/briefing.js',
   './js/views/pinnboard.js',
+  './js/views/career.js',
   './js/views/flashcards.js',
   './js/views/budget.js',
   './js/views/gmail.js',
