@@ -45,6 +45,10 @@ button.row-card { border: 1px solid var(--border); background: var(--surface-rai
 .chip:active { transform: scale(.95); }
 .chip.active, .chip.accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft); }
 .chip-strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 10px; -webkit-overflow-scrolling: touch; }
+/* .chip-row wurde in zwei Ansichten benutzt, hatte aber gar keine Regel: die
+   Knoepfe standen mit dem zufaelligen Leerzeichen-Abstand des Markups da, und
+   zur Liste darunter fehlte jeder Abstand. Gleicher Rhythmus wie .segmented. */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .chip-strip::-webkit-scrollbar { display: none; }
 .pill { border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 700; background: var(--border); color: var(--text-muted); }
 .pill.accent { background: var(--accent-soft); color: var(--accent); }

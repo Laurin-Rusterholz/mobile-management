@@ -25,6 +25,10 @@ h1,h2,h3 { letter-spacing: -.012em; }
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --appbar-h: 54px;
   --tabbar-h: 62px;
+  /* Der FAB schwebt UEBER der Tab-Leiste. Der Inhalt muss an ihm vorbei, sonst
+     liegt er auf der letzten Karte. Hoehe 58 + Abstand 14 + Luft 12. */
+  --fab-h: 58px;
+  --fab-clear: calc(var(--fab-h) + 26px);
 }
 
 /* ── Layout ── */
@@ -53,7 +57,14 @@ h1,h2,h3 { letter-spacing: -.012em; }
 .appbar-btn .dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 
 /* Content */
-.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px); }
+/* Unten muss der Inhalt an der Tab-Leiste UND am FAB vorbei. Vorher rechnete
+   das Polster nur mit der Tab-Leiste — der FAB (58 px hoch, 14 px darueber)
+   lag deshalb auf der letzten Karte und verdeckte ihren Oeffnen-Pfeil. */
+.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--fab-clear)); }
+/* Wo kein FAB schwebt, braucht es seinen Platz auch nicht: auf der Startseite
+   ist er ausgeblendet (apps.css), auf dem Tablet FAB und Tab-Leiste beide. */
+.layout.route-home .content { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 12px); }
+.layout.tablet .content { padding-bottom: 24px; }
 
 /* Pull-to-Refresh */
 .ptr { height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: height .15s; }

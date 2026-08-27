@@ -214,8 +214,18 @@ function attachPullToRefresh() {
   }, { passive: true });
   content.addEventListener('touchend', async () => {
     if (!pulling) return; pulling = false;
-    if (dist > THRESHOLD) { ptr.classList.add('spinning'); haptic(16); await store.pullData(false); ptr.classList.remove('spinning'); }
-    ptr.style.height = '0px'; ptr.classList.remove('ready'); dist = 0;
+    // Das Zuruecksetzen gehoert ins finally. Vorher stand es HINTER dem await:
+    // warf store.pullData (Netz weg, Serverfehler), wurde die Zeile nie
+    // erreicht — der Anzeiger blieb bis zu 60 px hoch offen stehen, mit einem
+    // Loch zwischen App-Leiste und Inhalt, das sich nicht mehr schliessen
+    // liess. Ein zweiter Zug half nicht: touchstart verweigert waehrend
+    // state.syncing.
+    try {
+      if (dist > THRESHOLD) { ptr.classList.add('spinning'); haptic(16); await store.pullData(false); }
+    } finally {
+      ptr.classList.remove('spinning');
+      ptr.style.height = '0px'; ptr.classList.remove('ready'); dist = 0;
+    }
   });
 }
 
