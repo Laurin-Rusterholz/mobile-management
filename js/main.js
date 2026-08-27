@@ -22,6 +22,8 @@ import noteflow from './views/noteflow.js';
 import gewohnheiten from './views/gewohnheiten.js';
 import flashcards from './views/flashcards.js';
 import leseplan from './views/leseplan.js';
+import briefing from './views/briefing.js';
+import pinnboard from './views/pinnboard.js';
 import budget from './views/budget.js';
 import gmail from './views/gmail.js';
 import meetings from './views/meetings.js';
@@ -38,6 +40,13 @@ boot({
   mail, kalender, statistik, journal, flowertech,
   noteflow, gewohnheiten, flashcards, budget, gmail,
   meetings, ideen, inbox, einstellungen, integrationen,
-  leseplan,
+  leseplan, briefing, pinnboard,
+  // Smarter und BM-Vorbereitung sind KEINE eigenen Apps: leseplan.js ist
+  // ausweislich seines eigenen Kopfes die "Kombination aus Smarter +
+  // BM-Vorbereitung". Statt zwei Attrappen zu bauen, fuehren beide Namen auf
+  // dieselbe Ansicht — so laufen die Kacheln nicht mehr ins Leere und die App
+  // verweist fuer sie auch nicht mehr nach draussen.
+  smarter: leseplan,
+  bm: leseplan,
   ...collectionViews,   // projekte, ziele, strategien, konzepte, programme, …
 });

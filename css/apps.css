@@ -228,3 +228,73 @@
 .row-card.unread { border-left: 3px solid var(--accent); }
 .journal-detail { padding: 4px 2px; }
 .journal-body { white-space: pre-wrap; line-height: 1.55; margin: 10px 0 16px; }
+
+/* ── Morning Briefing ────────────────────────────────────────────────────────
+   Der Block auf dem Startbildschirm und die eigene Ansicht. Der Tag stand
+   vorher nirgends — jetzt zuoberst, vor den Kacheln. */
+.bfb {
+  display: block; width: 100%; text-align: left; margin: 0 0 14px;
+  background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 22%, var(--surface-raised)), var(--surface-raised));
+  border: 1px solid var(--accent-soft); border-radius: var(--radius-lg);
+  padding: 14px 16px; color: var(--text-primary); box-shadow: var(--shadow);
+}
+.bfb:active { transform: scale(.99); }
+.bfb-head { display: block; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.bfb-nums { display: flex; gap: 16px; margin: 8px 0 6px; font-size: 13px; color: var(--text-muted); flex-wrap: wrap; }
+.bfb-nums b { font-size: 20px; font-weight: 800; color: var(--text-primary); margin-right: 4px; }
+.bfb-lines { display: flex; flex-direction: column; gap: 3px; }
+.bfb-line { font-size: 13.5px; }
+.bfb-line.warn { color: var(--danger); font-weight: 600; }
+.bfb-more { display: block; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+
+.bf-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.bf-kpi { background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; }
+.bf-kpi strong { display: block; font-size: 20px; font-weight: 800; line-height: 1.1; }
+.bf-kpi span { font-size: 11px; color: var(--text-muted); }
+.bf-kpi.warn strong { color: var(--danger); }
+
+.bf-cols { display: grid; grid-template-columns: 1fr; gap: 0; }
+.bf-head { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin: 16px 0 8px; }
+.bf-head.warn { color: var(--danger); }
+.bf-row, .bf-habit {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 11px 12px; margin-bottom: 8px; color: inherit;
+}
+.bf-time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13px; min-width: 46px; color: var(--accent); }
+.bf-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.bf-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bf-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+.bf-dot.late { background: var(--danger); }
+/* Abhaken ist ein Daumenziel, kein Symbol. */
+.bf-check { width: 44px; height: 44px; border-radius: 13px; border: 2px solid var(--border2);
+  display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
+.bf-habit.on .bf-check { background: var(--success); border-color: var(--success); color: #fff; }
+.bf-belief { background: var(--surface-base); border-left: 3px solid var(--accent); border-radius: var(--radius-sm);
+  padding: 10px 12px; margin-bottom: 8px; font-size: 13.5px; }
+.bf-empty { color: var(--text-muted); font-size: 13px; padding: 6px 2px 10px; }
+
+/* Tablet: zwei Spalten. Auf dem Telefon bleibt es eine — nebeneinander waere
+   bei 390 px beides unlesbar. */
+@media (min-width: 820px) {
+  .bf-cols { grid-template-columns: 1fr 1fr; gap: 0 20px; align-items: start; }
+  .bf-kpis { grid-template-columns: repeat(4, 1fr); max-width: 640px; }
+}
+
+/* ── Pinnboard ───────────────────────────────────────────────────────────── */
+.pb-badge { min-width: 34px; height: 34px; border-radius: 11px; background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; font-weight: 800; font-size: 14px; flex-shrink: 0; }
+.pb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.pb-note { min-height: 110px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  text-align: left; color: var(--text-primary); background: var(--surface-raised); box-shadow: var(--shadow); }
+.pb-note:active { transform: scale(.98); }
+.pb-note-text { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; font-size: 13.5px; line-height: 1.4; }
+.pb-note.tone-sand { background: color-mix(in oklab, var(--warning) 20%, var(--surface-raised)); }
+.pb-note.tone-green { background: color-mix(in oklab, var(--success) 18%, var(--surface-raised)); }
+.pb-note.tone-blue { background: color-mix(in oklab, var(--info) 18%, var(--surface-raised)); }
+.pb-note.tone-red, .pb-note.tone-coral { background: color-mix(in oklab, var(--danger) 18%, var(--surface-raised)); }
+.pb-note.tone-violet { background: color-mix(in oklab, var(--accent) 18%, var(--surface-raised)); }
+@media (min-width: 820px) {
+  .pb-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .pb-note { min-height: 150px; }
+}

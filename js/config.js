@@ -66,6 +66,7 @@ export const TABS = [
 
 // Sekundärmodule im „Mehr"-Bereich (und in der Tablet-Seitenleiste sichtbar)
 export const MORE_MODULES = [
+  { key: 'briefing',     label: 'Briefing',      icon: '☀️', route: 'briefing',     desc: 'Der Tag auf einen Blick' },
   { key: 'uebersicht',   label: 'Übersicht',     icon: '📋', route: 'uebersicht',   desc: 'Karten-Dashboard' },
   { key: 'mail',         label: 'Mail',          icon: '✉️', route: 'mail',         desc: 'Posteingang, Suche, Senden' },
   { key: 'projekte',     label: 'Projekte',      icon: '📦', route: 'projekte',     desc: 'Vorhaben & Fortschritt' },
@@ -75,6 +76,11 @@ export const MORE_MODULES = [
   { key: 'gewohnheiten', label: 'Gewohnheiten',  icon: '🔁', route: 'gewohnheiten', desc: 'Routinen & Serien' },
   { key: 'flashcards',   label: 'Flashcards',    icon: '🎴', route: 'flashcards',   desc: 'Spaced Repetition' },
   { key: 'leseplan',     label: 'Leseplan',      icon: '📖', route: 'leseplan',     desc: 'Dokumente aufs Zieldatum verteilt' },
+  // Smarter und BM-Vorbereitung fuehren bewusst auf dieselbe Ansicht: der
+  // Leseplan IST beides. Zwei Kacheln, weil beide Namen gesucht werden.
+  { key: 'smarter',      label: 'Smarter',       icon: '🧠', route: 'smarter',      desc: 'Tageslektion im Leseplan' },
+  { key: 'bm',           label: 'BM-Vorbereitung', icon: '🎓', route: 'bm',         desc: 'Prüfungsstoff im Leseplan' },
+  { key: 'pinnboard',    label: 'Pinnboard',     icon: '📌', route: 'pinnboard',    desc: 'Post-its aus Quantus' },
   { key: 'budget',       label: 'Budget',        icon: '💰', route: 'budget',       desc: 'Konten & Ausgaben' },
   { key: 'meetings',     label: 'Meetings',      icon: '🤝', route: 'meetings',     desc: 'Termine & Aktionspunkte' },
   { key: 'ideen',        label: 'Ideen',         icon: '💡', route: 'ideen',        desc: 'Schnell erfassen' },
@@ -135,6 +141,7 @@ export const SPRINGBOARD_PAGES = [
       { key: 'ideen',      label: 'Ideen',      icon: '💡', route: 'ideen',      tone: 'sand' },
       { key: 'flashcards', label: 'Flashcards', icon: '🎴', route: 'flashcards', tone: 'red' },
       { key: 'leseplan',   label: 'Leseplan',   icon: '📖', route: 'leseplan',   tone: 'blue' },
+      { key: 'pinnboard',  label: 'Pinnboard',  icon: '📌', route: 'pinnboard',  tone: 'coral' },
       { key: 'konzepte',   label: 'Konzepte',   icon: '🧩', route: 'konzepte',   tone: 'violet' },
       { key: 'budget',     label: 'Budget',     icon: '💰', route: 'budget',     tone: 'green' },
       { key: 'flowertech', label: 'FlowerTech', icon: '🌸', route: 'flowertech', tone: 'pink' },

@@ -9,6 +9,7 @@
 import { escHTML, todayYmd, fmtDurationMin, haptic, toast } from '../util.js';
 import { SPRINGBOARD_PAGES, SPRINGBOARD_DOCK, LS } from '../config.js';
 import * as store from '../store.js';
+import { briefingZahlen } from './briefing.js';
 import * as focus from '../focus.js';
 import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
@@ -63,6 +64,38 @@ function iconHtml(app, inDock = false, pinned = false) {
       ${badge > 0 ? `<span class="sb-badge">${badge > 99 ? '99+' : badge}</span>` : ''}
     </span>
     <span class="sb-label">${escHTML(app.label)}</span>
+  </button>`;
+}
+
+// ── Morning Briefing, ganz oben ────────────────────────────────────────────
+// BEFUND: store.getDailyBriefing() gab es laengst, wurde aber nirgends
+// angezeigt. Auf dem Startbildschirm kam der Tag nicht vor. Der Block steht
+// deshalb VOR den Kacheln und den Widgets — er ist das Erste, was man sieht.
+// Er rechnet nichts selbst, sondern nimmt dieselben Zahlen wie die
+// Briefing-Ansicht (briefingZahlen), damit beide nie auseinanderlaufen.
+function briefingBlock() {
+  const z = briefingZahlen();
+  const naechster = z.termine
+    .slice()
+    .sort((a, b) => String(a.startTime || a.time || '').localeCompare(String(b.startTime || b.time || '')))[0];
+  const zeilen = [];
+  if (naechster) {
+    zeilen.push(`<span class="bfb-line"><b>${escHTML(String(naechster.startTime || naechster.time || ''))}</b> ${escHTML(String(naechster.title || naechster.name || 'Termin').slice(0, 40))}</span>`);
+  }
+  if (z.ueberfaellig.length) {
+    zeilen.push(`<span class="bfb-line warn">${z.ueberfaellig.length} überfällig</span>`);
+  }
+  if (!zeilen.length) zeilen.push('<span class="bfb-line">Nichts Dringendes — freier Lauf.</span>');
+
+  return `<button class="bfb" data-action="sb-open" data-route="briefing">
+    <span class="bfb-head">☀️ Dein Tag</span>
+    <span class="bfb-nums">
+      <span><b>${z.termine.length}</b> Termine</span>
+      <span><b>${z.faellig.length}</b> fällig</span>
+      <span><b>${z.erledigt}/${z.routinen.length}</b> Routinen</span>
+    </span>
+    <span class="bfb-lines">${zeilen.join('')}</span>
+    <span class="bfb-more">Briefing öffnen ›</span>
   </button>`;
 }
 
@@ -151,6 +184,8 @@ export default {
           <button class="sb-search" data-action="open-new" aria-label="Neu erstellen">＋</button>
         </div>
       </div>
+
+      ${briefingBlock()}
 
       ${widgets()}
 
