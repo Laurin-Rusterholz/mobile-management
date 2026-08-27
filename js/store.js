@@ -240,7 +240,8 @@ export function applyOp(op) {
   if (t === 'add-time-entry') { ensureColl('timeEntries')[op.payload.id] = op.payload; return; }
 
   // ── Gewohnheiten (Sonderpfad: dailyBriefing.routines[]) ──
-  if (t === 'add-habit' || t === 'update-habit' || t === 'delete-habit' || t === 'toggle-habit') {
+  if (t === 'add-habit' || t === 'update-habit' || t === 'delete-habit' || t === 'toggle-habit'
+      || t === 'toggle-subunit') {
     applyHabitOp(t, op.payload);
     return;
   }
@@ -318,6 +319,35 @@ function applyHabitOp(type, payload) {
     const idx = h.completions.findIndex(c => c && c.date === day);
     if (idx >= 0) h.completions.splice(idx, 1);
     else h.completions.push({ date: day, value: payload.value != null ? payload.value : 1 });
+    return;
+  }
+  if (type === 'toggle-subunit') {
+    // Exakt das Schreibformat der Hauptapp — inklusive der Automatik am Ende.
+    // Wuerde hier etwas anderes entstehen, liefen die beiden Apps auf dem
+    // gleichen Datensatz auseinander, und der Merge muesste es ausbaden.
+    const day = payload.date || todayYmd();
+    const name = payload.subUnitName;
+    if (!name) return;
+    if (!Array.isArray(h.subCompletions)) h.subCompletions = [];
+    if (!Array.isArray(h.completions)) h.completions = [];
+    const i = h.subCompletions.findIndex(c => c && c.date === day && c.subUnitName === name);
+    if (i >= 0) h.subCompletions.splice(i, 1);
+    else h.subCompletions.push({
+      id: 'sc_' + Math.random().toString(36).slice(2, 8),
+      date: day, subUnitName: name, completedAt: new Date().toISOString(),
+    });
+    // Sind heute ALLE Schritte abgehakt, bekommt der Tag einen
+    // completions-Eintrag (fuer Serie und Quote) — faellt einer wieder weg,
+    // verschwindet er. Die Kennzeichnung autoFromSubUnits trennt ihn von
+    // einem von Hand gesetzten Eintrag.
+    const subs = Array.isArray(h.subUnits) ? h.subUnits.filter(u => u && u.name) : [];
+    const alle = subs.length > 0 && subs.every(u => h.subCompletions.some(c => c.date === day && c.subUnitName === u.name));
+    const hatAuto = h.completions.some(c => c.date === day && c.autoFromSubUnits);
+    if (alle && !hatAuto) {
+      h.completions.push({ id: 'hc_' + Math.random().toString(36).slice(2, 8), date: day, value: h.target || 1, autoFromSubUnits: true });
+    } else if (!alle && hatAuto) {
+      h.completions = h.completions.filter(c => !(c.date === day && c.autoFromSubUnits));
+    }
   }
 }
 
@@ -392,7 +422,49 @@ export function getHabits() {
   const rs = (state.data && state.data.dailyBriefing && state.data.dailyBriefing.routines) || [];
   return Array.isArray(rs) ? rs.filter(r => r && !r.archived) : [];
 }
+/*
+ * SUB-EINHEITEN — die Schritte einer Routine.
+ *
+ * BEFUND: Die Handy-App zeigte von einer Routine nur Titel, Quote und einen
+ * 30-Tage-Streifen. Die eigentliche Substanz — "06:00 Wake", "06:05 Rowing",
+ * "06:15 Wash" … mit eigenem Zaehler 0/6 — kam gar nicht vor, obwohl sie im
+ * selben Datensatz steht. Auf dem Desktop ist genau das die Routine.
+ *
+ * Vertrag (unveraendert von der Hauptapp uebernommen):
+ *   h.subUnits       [{ name, icon }]
+ *   h.subCompletions [{ id, date, subUnitName, completedAt }]
+ *
+ * Und die WICHTIGE Regel, die hier bisher fehlte: eine Routine MIT
+ * Sub-Einheiten gilt erst als erledigt, wenn ALLE Schritte abgehakt sind —
+ * nicht schon bei irgendeinem completions-Eintrag. Beide Apps zaehlten sonst
+ * verschieden, und zwar am selben Datensatz.
+ */
+export function getSubUnits(h) {
+  return Array.isArray(h && h.subUnits) ? h.subUnits.filter(u => u && u.name) : [];
+}
+export function subUnitDoneOn(h, name, ymd) {
+  return Array.isArray(h && h.subCompletions)
+    && h.subCompletions.some(c => c && c.date === ymd && c.subUnitName === name);
+}
+export function subUnitsDoneCount(h, ymd) {
+  return getSubUnits(h).filter(u => subUnitDoneOn(h, u.name, ymd)).length;
+}
+
+// Faellt die Routine an diesem Tag ueberhaupt an? Wortgleich zur Hauptapp
+// (isHabitDueOnDate) — sonst zeigt das Handy Schritte zum Abhaken an Tagen,
+// an denen die Routine gar nicht laeuft.
+export function habitDueOn(h, ymd) {
+  const dow = new Date(String(ymd) + 'T12:00:00').getDay();   // 0 = So
+  const f = h && h.frequency;
+  if (f === 'weekdays') return dow >= 1 && dow <= 5;
+  if (f === 'weekends') return dow === 0 || dow === 6;
+  if (f === 'custom') return (Array.isArray(h.customDays) ? h.customDays : []).includes(dow);
+  return true;    // daily, weekly und alles Unbekannte
+}
+
 export function habitDoneOn(h, ymd) {
+  const subs = getSubUnits(h);
+  if (subs.length) return subs.every(u => subUnitDoneOn(h, u.name, ymd));
   return Array.isArray(h.completions) && h.completions.some(c => c && c.date === ymd);
 }
 

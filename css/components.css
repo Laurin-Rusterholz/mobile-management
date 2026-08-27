@@ -194,7 +194,7 @@ textarea.input { resize: vertical; }
 .focus-controls .btn { max-width: 320px; margin: 0 auto; }
 
 /* ── Gewohnheiten ── */
-.habit-card { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.habit-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; }
 .habit-card.done { border-color: color-mix(in oklab, var(--success) 40%, var(--border)); }
 .habit-check { flex-shrink: 0; width: 46px; height: 46px; border-radius: 14px; border: 2px solid var(--border2); background: var(--surface-base); font-size: 20px; display: grid; place-items: center; }
 .habit-check.on { background: var(--success); border-color: var(--success); color: #fff; }

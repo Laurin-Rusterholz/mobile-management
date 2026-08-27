@@ -37,6 +37,40 @@ const FREQ = { daily: 'Täglich', weekdays: 'Wochentags', weekly: 'Wöchentlich'
 
 function byId(id) { return store.getHabits().find(h => h && h.id === id) || null; }
 
+/*
+ * SUB-EINHEITEN — die Schritte einer Routine.
+ *
+ * BEFUND (Vergleich der beiden Bildschirmfotos): auf dem Desktop besteht eine
+ * Routine aus ihren Schritten — "06:00 Wake", "06:05 Rowing", "06:15 Wash" …
+ * mit eigenem Zaehler 0/6 und einzeln abhakbar. Auf dem Handy stand nur der
+ * Titel, eine Prozentzahl und ein Streifen. Die Substanz fehlte, obwohl sie im
+ * selben Datensatz liegt.
+ *
+ * Sie erscheinen nur an Tagen, an denen die Routine anfaellt — sonst laedt das
+ * Handy zum Abhaken an Tagen ein, an denen gar nichts ansteht.
+ */
+function subListe(h, today, klein) {
+  const subs = store.getSubUnits(h);
+  if (!subs.length) return '';
+  if (!store.habitDueOn(h, today)) {
+    return `<div class="sub-box"><div class="sub-head"><span>Sub-Einheiten</span>
+      <span class="sub-count">heute nicht fällig</span></div></div>`;
+  }
+  const fertig = store.subUnitsDoneCount(h, today);
+  return `<div class="sub-box">
+    <div class="sub-head"><span>Sub-Einheiten</span><span class="sub-count">${fertig}/${subs.length}</span></div>
+    ${subs.map((u) => {
+      const on = store.subUnitDoneOn(h, u.name, today);
+      return `<button class="sub-item ${on ? 'on' : ''}" data-action="subunit-toggle"
+          data-id="${escHTML(String(h.id))}" data-name="${escHTML(String(u.name))}"${klein ? ' data-sheet="1"' : ''}
+          aria-pressed="${on ? 'true' : 'false'}">
+        <span class="sub-box-check">${on ? '✓' : ''}</span>
+        <span class="sub-item-text">${u.icon ? escHTML(u.icon) + ' ' : ''}${escHTML(String(u.name))}</span>
+      </button>`;
+    }).join('')}
+  </div>`;
+}
+
 // ── Detail ────────────────────────────────────────────────────────────────
 function detailHtml(h) {
   const today = todayYmd();
@@ -47,14 +81,19 @@ function detailHtml(h) {
     <div class="detail-title">${h.icon ? escHTML(h.icon) + ' ' : ''}${escHTML(h.text || '(ohne Name)')}</div>
     <div class="muted-row">${escHTML(FREQ[h.frequency] || 'Täglich')}</div>
 
-    <button class="btn block ${on ? '' : 'primary'}" data-action="habit-toggle" data-id="${h.id}" data-sheet="1"
-            style="margin:12px 0">${on ? '↩︎ Heute rückgängig' : '✓ Heute erledigt'}</button>
+    ${store.getSubUnits(h).length
+      ? `<button class="btn block ${on ? '' : 'primary'}" data-action="subunits-all" data-id="${h.id}" data-sheet="1"
+            style="margin:12px 0">${on ? '↩︎ Alle Schritte zurücknehmen' : '✓ Alle Schritte abhaken'}</button>`
+      : `<button class="btn block ${on ? '' : 'primary'}" data-action="habit-toggle" data-id="${h.id}" data-sheet="1"
+            style="margin:12px 0">${on ? '↩︎ Heute rückgängig' : '✓ Heute erledigt'}</button>`}
 
     <div class="habit-stats">
       <div class="habit-stat"><div class="habit-stat-num">${st}</div><div class="habit-stat-lbl">Tage Serie</div></div>
       <div class="habit-stat"><div class="habit-stat-num">${rt}%</div><div class="habit-stat-lbl">30 Tage</div></div>
       <div class="habit-stat"><div class="habit-stat-num">${tage.filter(t => t.done).length}</div><div class="habit-stat-lbl">von 30 erledigt</div></div>
     </div>
+
+    ${subListe(h, today, true)}
 
     <div class="muted-row" style="margin-top:14px">Letzte 30 Tage</div>
     <div class="habit-strip">
@@ -103,6 +142,23 @@ registerActions({
     await store.performOp({ type: 'update-habit', payload: { id: d.id, text: v.text, icon: v.icon || '', frequency: v.frequency || 'daily' } });
     closeSheet(); toast('Gespeichert ✓', 'ok');
   },
+  'subunit-toggle': async (d) => {
+    await store.performOp({ type: 'toggle-subunit', payload: { id: d.id, subUnitName: d.name, date: todayYmd() } });
+    if (d.sheet) openDetail(d.id);
+  },
+  // Alle Schritte auf einmal — in die Richtung, die noch fehlt.
+  'subunits-all': async (d) => {
+    const h = byId(d.id); if (!h) return;
+    const today = todayYmd();
+    const subs = store.getSubUnits(h);
+    const alleFertig = subs.every(u => store.subUnitDoneOn(h, u.name, today));
+    for (const u of subs) {
+      if (store.subUnitDoneOn(h, u.name, today) === alleFertig) {
+        await store.performOp({ type: 'toggle-subunit', payload: { id: d.id, subUnitName: u.name, date: today } });
+      }
+    }
+    if (d.sheet) openDetail(d.id);
+  },
   'habit-toggle': async (d) => {
     await store.performOp({ type: 'toggle-habit', payload: { id: d.id, date: todayYmd() } });
     // Aus dem Sheet heraus: den Inhalt neu aufbauen, sonst zeigt er den Stand
@@ -137,7 +193,18 @@ export default {
         const on = store.habitDoneOn(h, today);
         const st = streak(h), rt = rate30(h);
         return `<div class="card habit-card ${on ? 'done' : ''}">
-          <button class="habit-check ${on ? 'on' : ''}" data-action="habit-toggle" data-id="${h.id}" aria-label="${on ? 'Heute rückgängig' : 'Heute erledigt'}">${on ? '✓' : (h.icon || '○')}</button>
+          ${(() => {
+            const subs = store.getSubUnits(h);
+            // Mit Schritten haekt der Knopf links ALLE auf einmal ab — ein
+            // einzelner completions-Eintrag waere hier gelogen: erledigt ist
+            // die Routine erst, wenn jeder Schritt steht.
+            const aktion = subs.length ? 'subunits-all' : 'habit-toggle';
+            const beschriftung = subs.length
+              ? (on ? 'Alle Schritte zurücknehmen' : 'Alle Schritte abhaken')
+              : (on ? 'Heute rückgängig' : 'Heute erledigt');
+            return `<button class="habit-check ${on ? 'on' : ''}" data-action="${aktion}" data-id="${h.id}"
+              aria-label="${beschriftung}">${on ? '✓' : (h.icon || '○')}</button>`;
+          })()}
           <div class="habit-main" data-action="habit-open" data-id="${h.id}" role="button" tabindex="0"
                aria-label="Routine öffnen: ${escHTML(h.text || '')}">
             <div class="habit-title">${escHTML(h.text || '(ohne Name)')}</div>
@@ -149,6 +216,7 @@ export default {
             <div class="habit-bar"><div class="habit-bar-fill" style="width:${rt}%"></div></div>
           </div>
           <button class="icon-btn danger" data-action="habit-delete" data-id="${h.id}" aria-label="Löschen">🗑</button>
+          ${subListe(h, today, false)}
         </div>`;
       }).join('')
       : `<div class="empty"><div class="empty-icon">🔁</div><div class="empty-title">Keine Gewohnheiten</div><div class="empty-sub">Baue Routinen mit Serien & Quote auf.</div></div>`}

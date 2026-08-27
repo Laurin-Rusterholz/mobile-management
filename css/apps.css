@@ -353,3 +353,39 @@
 .cm-mod-sub { font-size: 12px; color: var(--text-muted); }
 .set-note { font-size: 13px; color: var(--text-muted); padding: 12px 12px 10px; }
 .card > .btn.block { margin: 0 12px 12px; width: calc(100% - 24px); min-height: 44px; }
+.sb-rt-steps { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--accent); }
+.sb-rt.on .sb-rt-steps { color: var(--text-muted); }
+
+/* ── Sub-Einheiten einer Routine ──────────────────────────────────────────
+   Auf dem Desktop sind die Schritte die Routine. Auf dem Handy fehlten sie
+   ganz — hier stehen sie, einzeln abhakbar, mit eigenem Zaehler. */
+.sub-box {
+  /* .habit-card ist ein Flex-Container. Ohne die 100-%-Basis stellte sich der
+     Block neben Titel und Papierkorb statt darunter. */
+  flex: 0 0 100%; margin-top: 10px; padding: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface-overlay) 60%, transparent);
+}
+.sub-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 8px;
+}
+.sub-count { font-weight: 700; color: var(--accent); letter-spacing: 0; }
+.sub-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-raised); color: var(--text-primary);
+  padding: 7px 10px; margin-bottom: 6px; text-align: left; font-size: 14px;
+  transition: var(--transition);
+}
+.sub-item:last-child { margin-bottom: 0; }
+.sub-item:active { transform: scale(.985); background: var(--hover); }
+.sub-box-check {
+  flex: 0 0 auto; width: 22px; height: 22px; border-radius: 7px;
+  border: 1px solid var(--border); background: var(--surface-overlay);
+  display: grid; place-items: center; font-size: 13px; color: var(--on-accent);
+}
+.sub-item.on .sub-box-check { background: var(--accent); border-color: var(--accent); }
+.sub-item.on .sub-item-text { color: var(--text-muted); text-decoration: line-through; }
+.sub-item-text { flex: 1; min-width: 0; }

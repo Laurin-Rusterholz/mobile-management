@@ -149,10 +149,19 @@ function routinenBlock() {
 
   const zeile = (h) => {
     const on = store.habitDoneOn(h, heute);
-    return `<button class="sb-rt ${on ? 'on' : ''}" data-action="sb-habit" data-id="${escHTML(String(h.id))}"
-        aria-pressed="${on ? 'true' : 'false'}">
+    // Routinen mit Schritten tragen ihren Stand mit: "2/6" sagt mehr als ein
+    // leeres Kaestchen. Ein Tipp fuehrt dann in die Routine, statt sie mit
+    // einem Griff als erledigt zu erklaeren — die Schritte sind der Punkt.
+    const subs = store.getSubUnits(h);
+    const fertig = subs.length ? store.subUnitsDoneCount(h, heute) : 0;
+    const aktion = subs.length ? 'sb-open' : 'sb-habit';
+    // data-route nur dort, wo es auch gelesen wird — ein Attribut, das die
+    // Aktion gar nicht benutzt, ist bloss eine Fussangel fuer den Naechsten.
+    return `<button class="sb-rt ${on ? 'on' : ''}" data-action="${aktion}" data-id="${escHTML(String(h.id))}"${
+      subs.length ? ' data-route="gewohnheiten"' : ''} aria-pressed="${on ? 'true' : 'false'}">
       <span class="sb-rt-box">${on ? '✓' : (h.icon || '○')}</span>
       <span class="sb-rt-label">${escHTML(String(h.text || '(ohne Name)'))}</span>
+      ${subs.length ? `<span class="sb-rt-steps">${fertig}/${subs.length}</span>` : ''}
     </button>`;
   };
 

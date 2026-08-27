@@ -129,6 +129,16 @@ const stubs = {
     getHabits: () => HABITS,
     habitDoneOn: (h, y) => Array.isArray(h.completions) && h.completions.some((c) => c && c.date === y),
     performOp: async (op) => { protokoll.ops.push(op); },
+    // Seit die Routinen Sub-Einheiten tragen, fragt die Ansicht den Store auch
+    // danach. Eine unvollstaendige Attrappe wuerde den Lauf mit einer
+    // TypeError beenden statt zu messen.
+    getSubUnits: (h) => (Array.isArray(h.subUnits) ? h.subUnits.filter((u) => u && u.name) : []),
+    subUnitDoneOn: (h, n, y) => Array.isArray(h.subCompletions)
+      && h.subCompletions.some((c) => c && c.date === y && c.subUnitName === n),
+    subUnitsDoneCount: (h, y) => (Array.isArray(h.subUnits) ? h.subUnits : [])
+      .filter((u) => u && u.name && Array.isArray(h.subCompletions)
+        && h.subCompletions.some((c) => c && c.date === y && c.subUnitName === u.name)).length,
+    habitDueOn: () => true,
     getTasks: () => [], getInboxItems: () => [], getDueCards: () => [], getJournalPushes: () => [],
     getMeetings: () => [], getProjects: () => [], notify: () => {}, state: { data: {} },
   },
