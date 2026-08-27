@@ -246,6 +246,45 @@ export function applyOp(op) {
     return;
   }
 
+  // ── Daily Briefing: die schreibenden Teile ──
+  // Notiz und Tagesziel gehoeren zum Tag, nicht zu einer Entitaet. Beide
+  // schreiben in dieselben Felder wie die Hauptapp — dailyBriefing.dailyLog
+  // bzw. dailyGoals[<datum>].
+  if (t === 'briefing-note') {
+    if (!state.data.dailyBriefing) state.data.dailyBriefing = {};
+    const db2 = state.data.dailyBriefing;
+    if (!db2.dailyLog || typeof db2.dailyLog !== 'object') db2.dailyLog = {};
+    const tag = op.payload.date || todayYmd();
+    if (!db2.dailyLog[tag] || typeof db2.dailyLog[tag] !== 'object') db2.dailyLog[tag] = { routineChecks: {}, notes: '' };
+    db2.dailyLog[tag].notes = String(op.payload.text || '');
+    return;
+  }
+  if (t === 'add-daygoal' || t === 'toggle-daygoal' || t === 'delete-daygoal') {
+    if (!state.data.dailyGoals || typeof state.data.dailyGoals !== 'object') state.data.dailyGoals = {};
+    const tag = op.payload.date || todayYmd();
+    if (!Array.isArray(state.data.dailyGoals[tag])) state.data.dailyGoals[tag] = [];
+    const liste = state.data.dailyGoals[tag];
+    if (t === 'add-daygoal') {
+      liste.push({ id: op.payload.id, title: String(op.payload.title || ''), completed: false, createdAt: new Date().toISOString() });
+      return;
+    }
+    const g = liste.find(x => x && x.id === op.payload.id);
+    if (!g) return;
+    if (t === 'toggle-daygoal') { g.completed = !g.completed; return; }
+    const i = liste.indexOf(g);
+    if (i >= 0) liste.splice(i, 1);
+    return;
+  }
+  if (t === 'add-thought' || t === 'delete-thought') {
+    if (!state.data.journal || typeof state.data.journal !== 'object') state.data.journal = {};
+    if (!Array.isArray(state.data.journal.topics)) state.data.journal.topics = [];
+    const ts = state.data.journal.topics;
+    if (t === 'add-thought') { ts.push({ id: op.payload.id, text: String(op.payload.text || ''), createdAt: new Date().toISOString() }); return; }
+    const i = ts.findIndex(x => x && x.id === op.payload.id);
+    if (i >= 0) ts.splice(i, 1);
+    return;
+  }
+
   // ── Flashcards (Sonderpfad: recallLabData.decks/cards) ──
   if (t === 'add-flashcard' || t === 'update-flashcard' || t === 'review-flashcard' || t === 'add-deck') {
     applyFlashcardOp(t, op.payload);
@@ -485,6 +524,94 @@ export function getChats() { return Array.isArray(state.data && state.data.aiCha
 
 // Daily Briefing Rohdaten (falls von Quantus mitgeliefert)
 export function getDailyBriefing() { return (state.data && state.data.dailyBriefing) || {}; }
+
+/*
+ * DAS VOLLSTAENDIGE DAILY BRIEFING.
+ *
+ * BEFUND: Die Handy-Ansicht zeigte fuenf von siebzehn Abschnitten — Termine,
+ * faellige und ueberfaellige Aufgaben, Routinen, Leitsaetze. Tagesziele,
+ * Wochenziele, Massnahmen, Nachrichten, Gedanken, Leseliste, Tagesplanung,
+ * generelle Ziele, Notizen, Projekte, Programme, Reflexionsfragen und die
+ * vergangenen Tage fehlten ganz, obwohl alle im selben Datensatz liegen.
+ *
+ * Diese Funktion sammelt sie an EINER Stelle. Beide Apps (Handy und Tablet)
+ * lesen dieselben Felder — laufen sie auseinander, faellt der Waechter.
+ * Sie rechnet nichts Neues aus und speichert nichts.
+ */
+export function briefingFuerTag(ymd) {
+  const d = state.data || {};
+  const db = getDailyBriefing();
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const objWerte = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.values(v) : [];
+  const tagVon = (v) => String(v || '').slice(0, 10);
+
+  const offen = getTasks().filter((t) => t.status !== 'done');
+  const wocheStart = (() => {
+    const x = new Date(ymd + 'T12:00:00');
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));      // Montag
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  })();
+
+  // Massnahmen liegen VERTEILT an den Entitaeten, nicht in einer eigenen
+  // Sammlung — wortgleich zu getAllActiveMeasures() der Hauptapp.
+  const massnahmen = [];
+  [['task', 'tasks'], ['project', 'projects'], ['concept', 'concepts'], ['strategy', 'strategies']]
+    .forEach(([kind, coll]) => {
+      getCollection(coll).forEach((e) => arr(e.measures).forEach((m) => {
+        if (!m) return;
+        massnahmen.push({
+          id: m.id, text: m.text, effectiveDate: m.effectiveDate, status: m.status || 'active',
+          parentKind: kind, parentId: e.id, parentTitle: e.title || e.name || e.id, parentIcon: e.icon || '',
+        });
+      }));
+    });
+
+  const reflexionsfragen = [];
+  getProjects().forEach((p) => arr(p.reflectionQuestions).forEach((q) => {
+    if (!q) return;
+    const letzte = arr(q.answers).slice(-1)[0];
+    reflexionsfragen.push({
+      id: q.id, text: q.text || q.question || '', type: q.type || 'text',
+      projekt: p.title || p.name || p.id,
+      heuteBeantwortet: !!(letzte && letzte.date === ymd),
+      letzteAntwort: letzte ? (letzte.value != null ? letzte.value : letzte.text) : null,
+    });
+  }));
+
+  const log = (db.dailyLog && db.dailyLog[ymd]) || {};
+  const vergangene = [...new Set([
+    ...Object.keys((db.dailyLog) || {}),
+    ...Object.keys((db.timeBlocks) || {}),
+    ...Object.keys((d.dailyGoals) || {}),
+  ])].filter((k) => k < ymd).sort().reverse().slice(0, 14);
+
+  return {
+    datum: ymd,
+    modus: db.mode || 'planning',
+
+    tagesziele:    arr((d.dailyGoals || {})[ymd]),
+    wochenziele:   arr(d.weeklyGoals).filter((g) => !g.weekStart || g.weekStart === wocheStart),
+    routinen:      getHabits(),
+    beliefs:       arr(db.beliefs),
+    massnahmen:    massnahmen.filter((m) => m.status === 'active'),
+    nachrichten:   objWerte(d.entities && d.entities.scheduledMessages)
+                     .filter((m) => m && m.isDelivered && tagVon(m.deliveredAt) === ymd),
+    gedanken:      arr(d.journal && d.journal.topics).slice().reverse(),
+    leseliste:     arr(d.readingList),
+    zeitbloecke:   arr((db.timeBlocks || {})[ymd])
+                     .slice().sort((a, b) => String(a.startTime || '').localeCompare(String(b.startTime || ''))),
+    meetings:      getMeetings().filter((m) => tagVon(m.date) === ymd),
+    faellig:       offen.filter((t) => tagVon(t.dueDate) === ymd),
+    ueberfaellig:  offen.filter((t) => t.dueDate && tagVon(t.dueDate) < ymd),
+    pendent:       offen.filter((t) => !t.dueDate),
+    ziele:         getGoals().filter((g) => !arr(db.hiddenGoals).includes(g.id)),
+    notizen:       String(log.notes || ''),
+    projekte:      getProjects().filter((p) => arr(db.selectedProjects).includes(p.id)),
+    programme:     getCollection('programs').filter((p) => arr(db.selectedPrograms).includes(p.id)),
+    reflexionsfragen,
+    vergangeneTage: vergangene,
+  };
+}
 
 // „Nicht zugeordnet" (Inbox): Aufgaben/Notizen/Ideen ohne Projekt-/Notebook-Bezug
 export function getInboxItems() {

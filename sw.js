@@ -4,7 +4,7 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v10-subeinheiten';
+const VERSION = 'quantus-mobile-v11-briefing-vollstaendig';
 const SHELL = [
   './',
   './index.html',

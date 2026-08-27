@@ -389,3 +389,39 @@
 .sub-item.on .sub-box-check { background: var(--accent); border-color: var(--accent); }
 .sub-item.on .sub-item-text { color: var(--text-muted); text-decoration: line-through; }
 .sub-item-text { flex: 1; min-width: 0; }
+
+/* ── Daily Briefing: die vollstaendige Fassung ────────────────────────────
+   Vorher standen hier fuenf von siebzehn Abschnitten. Der Rest lag im
+   selben Datensatz und wurde nur nie gelesen. */
+.bf-nav { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.bf-nav .chip { min-height: 40px; }
+.bf-nav .chip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+  display: inline-flex; align-items: center; padding: 0 14px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+.bf-sec { margin-bottom: 6px; }
+.bf-count { font-weight: 700; color: var(--accent); letter-spacing: 0; }
+.bf-empty { font-size: 13px; color: var(--text-muted); padding: 6px 2px 10px; }
+.bf-add { display: flex; gap: 8px; margin-top: 8px; }
+.bf-add .input { flex: 1; min-width: 0; }
+.bf-add .btn { flex: 0 0 auto; min-width: 52px; min-height: 44px; }
+.bf-note { width: 100%; resize: vertical; font-family: inherit; }
+.bf-msg {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-raised); padding: 10px 12px; margin-bottom: 8px;
+}
+.bf-msg-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.bf-msg-body { font-size: 13.5px; line-height: 1.5; margin-top: 4px; white-space: pre-wrap; }
+.bf-days { display: flex; gap: 6px; flex-wrap: wrap; }
+.bf-days .chip { min-height: 40px; }
+.bf-more { display: block; margin-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--accent);
+  background: none; border: 0; padding: 8px 2px; min-height: 44px; text-align: left; }
+.bf-row.done .bf-title { color: var(--text-muted); text-decoration: line-through; }
+.bf-belief {
+  font-size: 14px; line-height: 1.5; padding: 10px 12px; margin-bottom: 6px;
+  border-radius: var(--radius-sm); background: var(--accent-soft); border: 1px solid var(--accent-soft);
+}
+/* Tablet: zwei Spalten, damit die siebzehn Abschnitte nicht zu einer
+   endlosen Rolle werden. */
+@media (min-width: 820px) {
+  .bf-cols { grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
+  .bf-col { min-width: 0; }
+}

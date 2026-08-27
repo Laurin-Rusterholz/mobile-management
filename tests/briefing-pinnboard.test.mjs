@@ -74,6 +74,24 @@ const stubs = {
     habitDoneOn: (h, y) => Array.isArray(h.completions) && h.completions.some((c) => c && c.date === y),
     performOp: async (op) => { protokoll.ops.push(op); },
     getDueCards: () => [], getInboxItems: () => [], getDecks: () => [], getCards: () => [],
+    // Das Briefing zeigt seit der Vollfassung alle siebzehn Abschnitte und
+    // fragt den Store nach einem fertigen Tagesmodell. Eine unvollstaendige
+    // Attrappe wuerde den Lauf mit einer TypeError beenden statt zu messen.
+    getSubUnits: (h) => (Array.isArray(h.subUnits) ? h.subUnits.filter((u) => u && u.name) : []),
+    subUnitDoneOn: () => false,
+    subUnitsDoneCount: () => 0,
+    getGoals: () => DATEN.goals || [],
+    getProjects: () => DATEN.projects || [],
+    briefingFuerTag: (ymd) => ({
+      datum: ymd, modus: 'planning',
+      tagesziele: [], wochenziele: [], routinen: DATEN.habits, beliefs: (DATEN.briefing || {}).beliefs || [],
+      massnahmen: [], nachrichten: [], gedanken: [], leseliste: [], zeitbloecke: [],
+      meetings: DATEN.meetings.filter((m) => String(m.date || '').slice(0, 10) === ymd),
+      faellig: DATEN.tasks.filter((t) => t.status !== 'done' && String(t.dueDate || '').slice(0, 10) === ymd),
+      ueberfaellig: DATEN.tasks.filter((t) => t.status !== 'done' && t.dueDate && String(t.dueDate).slice(0, 10) < ymd),
+      pendent: DATEN.tasks.filter((t) => t.status !== 'done' && !t.dueDate),
+      ziele: [], notizen: '', projekte: [], programme: [], reflexionsfragen: [], vergangeneTage: [],
+    }),
   },
   '../actions.js': { registerActions: (o) => Object.assign(AKTIONEN, o) },
   '../router.js': { navigate: (r, o) => protokoll.nav.push({ route: r, ...(o || {}) }), current: () => ROUTE },
