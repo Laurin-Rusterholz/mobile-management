@@ -194,7 +194,19 @@ textarea.input { resize: vertical; }
 .habit-card.done { border-color: color-mix(in oklab, var(--success) 40%, var(--border)); }
 .habit-check { flex-shrink: 0; width: 46px; height: 46px; border-radius: 14px; border: 2px solid var(--border2); background: var(--surface-base); font-size: 20px; display: grid; place-items: center; }
 .habit-check.on { background: var(--success); border-color: var(--success); color: #fff; }
-.habit-main { flex: 1; min-width: 0; }
+.habit-main { flex: 1; min-width: 0; cursor: pointer; }
+/* Der Kartenrumpf war tot — kein Detail, keine Bearbeitung. Jetzt oeffnet er
+   das Detail-Sheet und muss das auch zeigen: Zeigerform und ein sichtbarer
+   Fokusring fuer die Tastatur. */
+.habit-main:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+/* Detail-Sheet einer Routine */
+.habit-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.habit-stat { background: var(--surface-base); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 8px; text-align: center; }
+.habit-stat-num { font-size: 20px; font-weight: 700; line-height: 1.1; }
+.habit-stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.habit-strip { display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; margin-top: 6px; }
+.habit-strip-cell { aspect-ratio: 1; min-height: 10px; border-radius: 3px; background: var(--surface-base); border: 1px solid var(--border); }
+.habit-strip-cell.on { background: var(--accent); border-color: var(--accent); }
 .habit-title { font-weight: 600; }
 .habit-meta { display: flex; gap: 10px; margin: 4px 0 6px; flex-wrap: wrap; }
 .habit-bar { height: 6px; background: var(--surface-base); border-radius: 4px; overflow: hidden; }
