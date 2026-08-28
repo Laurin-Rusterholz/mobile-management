@@ -118,7 +118,7 @@ const stubs = {
     escHTML: (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])),
     todayYmd: () => HEUTE,
     fmtDurationMin: (m) => `${m}m`,
-    haptic: () => {}, toast: () => {},
+    haptic: () => {}, toast: () => {}, confirmPreview: async () => true,
   },
   '../config.js': {
     SPRINGBOARD_PAGES: [{ title: 'Seite', apps: [{ key: 'planen', label: 'Planen', icon: '🗂️', route: 'planen' }] }],
@@ -148,6 +148,12 @@ const stubs = {
   '../router.js': { navigate: () => {} },
   '../search.js': { openSearch: () => { protokoll.searches++; } },
 };
+// Das Anordnungs-Modell wird ECHT geladen (es haengt nur an config.js und an
+// localStorage) — so misst dieser Test die Home-Ansicht gegen dieselbe
+// Anordnung, die im Browser gilt, und nicht gegen eine Attrappe.
+globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+stubs['../springboard.js'] = await import('../js/springboard.js');
+
 const quelle = lies('js/views/home.js');
 const ohneImporte = quelle.replace(/^import\s+(?:\{[^}]*\}|\*\s+as\s+\w+)\s+from\s+'([^']+)';$/gm, (m, pfad) => {
   ok(Object.prototype.hasOwnProperty.call(stubs, pfad), `unbekannter Import: ${pfad}`);
@@ -155,7 +161,6 @@ const ohneImporte = quelle.replace(/^import\s+(?:\{[^}]*\}|\*\s+as\s+\w+)\s+from
   if (namen) return `const {${namen[1]}} = __stubs['${pfad}'];`;
   return `const ${/\*\s+as\s+(\w+)/.exec(m)[1]} = __stubs['${pfad}'];`;
 });
-globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 globalThis.document = { getElementById: () => null, querySelectorAll: () => [] };
 const modul = new Function('__stubs', ohneImporte.replace(/^export default/m, 'return') + ';')(stubs);
 ok(modul && typeof modul.render === 'function', 'die Home-Ansicht hat kein render()');

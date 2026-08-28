@@ -68,12 +68,6 @@
   border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700;
   display: grid; place-items: center; border: 2px solid var(--surface-base);
 }
-.sb-app.jiggle .sb-icon { animation: sb-jiggle .3s ease-in-out 2; }
-@keyframes sb-jiggle {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(-4deg); }
-  75% { transform: rotate(4deg); }
-}
 
 /* Symbolfarben — abgeleitet aus den Quantus-Tokens */
 .tone-violet { background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 92%, white 8%), var(--accent-deep)); }
@@ -82,6 +76,7 @@
 .tone-sand   { background: linear-gradient(160deg, #e3b048, #b3831f); }
 .tone-red    { background: linear-gradient(160deg, #e5765a, #b34d2c); }
 .tone-pink   { background: linear-gradient(160deg, #e879a9, #b0497a); }
+.tone-coral  { background: linear-gradient(160deg, #ef8f6d, #c1583a); }
 .tone-grey   { background: linear-gradient(160deg, var(--surface-overlay), var(--border)); }
 
 /* Seitenpunkte sitzen — wie auf iOS — direkt über dem Dock */
@@ -117,6 +112,87 @@
   .sb-dock { left: 50%; right: auto; transform: translateX(-50%); width: min(520px, 70vw); bottom: 22px; }
   .sb-dots { bottom: 108px; }
 }
+
+/* ── Anordnen-Modus (iOS-Wackelmodus) ─────────────────────────────────────
+   Die Bedienelemente sind IMMER gerendert und haengen nur an dieser Klasse:
+   der Modus beginnt mitten in einer Geste (langer Druck), und wer dafuer neu
+   aufbaut, zieht dem Finger das Symbol unter der Hand weg. */
+.sb-x, .sb-page-input, .sb-editbar { display: none; }
+
+.springboard.editing .bfb,
+.springboard.editing .sb-widgets,
+.springboard.editing .sb-routines { display: none; }
+.springboard.editing { padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 280px); }
+.springboard.editing .sb-page-title { display: none; }
+.springboard.editing .sb-page-input {
+  display: block; width: 100%; margin: 4px 0 10px; padding: 6px 10px;
+  border: 1px dashed var(--border2); border-radius: var(--radius-sm);
+  background: color-mix(in oklab, var(--surface-raised) 60%, transparent);
+  color: var(--text2); font: inherit; font-size: 12px; letter-spacing: .04em; text-transform: uppercase;
+}
+/* Ein leeres Gitter muss den Finger trotzdem annehmen koennen. */
+.springboard.editing .sb-grid { min-height: 132px; }
+/* Ohne touch-action rollt der Browser die Seite, statt das Symbol zu ziehen. */
+.springboard.editing .sb-app { touch-action: none; -webkit-user-select: none; user-select: none; }
+.springboard.editing .sb-app .sb-icon { animation: sb-wobble .42s ease-in-out infinite; }
+.springboard.editing .sb-app.dragging { opacity: .28; }
+.springboard.editing .sb-app.dragging .sb-icon { animation: none; }
+@keyframes sb-wobble {
+  0%, 100% { transform: rotate(-1.1deg); }
+  50% { transform: rotate(1.1deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .springboard.editing .sb-app .sb-icon { animation: none; outline: 2px dashed var(--accent-soft); outline-offset: 3px; }
+}
+
+.springboard.editing .sb-x {
+  display: grid; place-items: center; position: absolute; top: -6px; left: -6px;
+  width: 22px; height: 22px; padding: 0; border-radius: 50%; z-index: 2;
+  border: 1px solid var(--border2); background: var(--surface-overlay);
+  color: var(--text-primary); font-size: 12px; line-height: 1;
+}
+.sb-app { position: relative; }
+
+/* Das gezogene Symbol haengt am Finger — als Kopie ueber allem. */
+.sb-ghost {
+  position: fixed; z-index: 90; pointer-events: none; margin: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transform: scale(1.12); filter: drop-shadow(0 12px 22px rgba(0,0,0,.45));
+}
+.sb-ghost .sb-x { display: none; }
+
+/* Leiste des Modus: Hinweis, Ablage aller nicht gelegten Apps, Fertig. */
+.springboard.editing .sb-editbar {
+  display: flex; flex-direction: column; gap: 8px;
+  position: fixed; left: 12px; right: 12px; z-index: 34;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 108px);
+  padding: 10px; border-radius: 20px; border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--surface-overlay) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: var(--shadow-lg);
+}
+.sb-editbar-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sb-editbar-hint { font-size: 11px; color: var(--text-muted); }
+.sb-editbar-done {
+  flex: 0 0 auto; border: 0; border-radius: 999px; padding: 6px 16px;
+  background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px;
+}
+.sb-editbar-bottom { display: flex; gap: 6px; }
+.sb-editbar-btn {
+  border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px;
+  background: transparent; color: var(--text2); font-size: 12px;
+}
+.sb-tray { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.sb-tray::-webkit-scrollbar { display: none; }
+.sb-tray-empty { font-size: 12px; color: var(--text-muted); padding: 4px 2px; }
+.sb-chip {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px 4px 4px;
+  background: color-mix(in oklab, var(--surface-raised) 70%, transparent);
+  color: var(--text2); font-size: 12px;
+}
+.sb-chip-icon { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; font-size: 12px; }
+.sb-search.on { border-color: var(--accent); color: var(--accent); }
 
 /* Auf dem Homebildschirm ersetzt der Knopf oben rechts den schwebenden
    „Neu"-Knopf — sonst würde er ein App-Symbol verdecken. */
@@ -170,8 +246,21 @@
 .mail-detail-from { font-weight: 600; }
 .mail-detail-sub { color: var(--text-muted); font-size: 12px; }
 .mail-attachments { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
-.mail-attachment { font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--text2); }
-.mail-body { margin-top: 14px; white-space: pre-wrap; word-break: break-word; line-height: 1.55; font-size: 15px; }
+.mail-attachment { font-size: 12px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
+  color: var(--text2); background: color-mix(in oklab, var(--surface-raised) 60%, transparent); }
+.mail-attachment:active { background: var(--hover); }
+.mail-attachment-size { color: var(--text-muted); }
+/* Der Rumpf traegt selbst KEIN pre-wrap mehr: darin steht der Rahmen mit der
+   echten Nachricht, und Zeilenumbrueche im Markup wuerden zu Luecken. Reiner
+   Text bekommt sein pre-wrap in .mail-plaintext. */
+.mail-body { margin-top: 14px; }
+.mail-plaintext { white-space: pre-wrap; word-break: break-word; line-height: 1.55; font-size: 15px; }
+/* Die Mail laeuft in einem abgeschotteten Rahmen (siehe views/mail.js). Ihre
+   Hoehe wird von aussen gemessen; bis dahin steht eine Mindesthoehe. */
+.mail-frame {
+  display: block; width: 100%; min-height: 180px; border: 1px solid var(--border);
+  border-radius: var(--radius); background: #fff; color-scheme: light;
+}
 .mail-preview { font-size: 14px; }
 .mail-preview-body { margin-top: 8px; padding: 10px; border-radius: var(--radius-sm);
   background: var(--surface-overlay); white-space: pre-wrap; max-height: 220px; overflow: auto; }
