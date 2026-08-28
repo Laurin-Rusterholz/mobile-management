@@ -311,6 +311,24 @@ ok(HOME.busy() === false, 'der Anordnen-Modus laesst sich nicht beenden');
   vergeben.forEach(t => ok(toene.has(t), `der Farbton "${t}" wird vergeben, aber im CSS gibt es ihn nicht`));
 }
 
+// ═══ 5. DER SERVICE WORKER LIEFERT DAS NEUE MODUL AUS ══════════════════════
+// Ein Modul, das nicht in der App-Shell steht, ist auf einem Telefon mit
+// bestehendem Cache ein 404 — und weil home.js es importiert, waere damit der
+// ganze Homebildschirm weg. Deshalb hier nicht nur die neue Datei, sondern die
+// Regel: JEDES ausgelieferte Modul steht in der Shell.
+{
+  const sw = lies('sw.js');
+  ok(sw.includes('./js/springboard.js'), 'js/springboard.js steht nicht in der App-Shell — die Telefone bekaemen einen 404');
+  const dateien = [
+    ...fs.readdirSync(path.join(root, 'js')).filter(f => f.endsWith('.js')).map(f => './js/' + f),
+    ...fs.readdirSync(path.join(root, 'js/views')).filter(f => f.endsWith('.js')).map(f => './js/views/' + f),
+  ];
+  dateien.forEach(f => ok(sw.includes(f), `${f} fehlt in der App-Shell des Service Workers`));
+  const v = /const VERSION = '([^']+)'/.exec(sw);
+  ok(v && v[1] !== 'quantus-mobile-v13-polaris-anzeige',
+    `der Cache heisst weiterhin "${v && v[1]}" — die Telefone behielten den alten Homebildschirm`);
+}
+
 if (luecken.length) {
   console.error(`APPS ANORDNEN — ${luecken.length} von ${checks} Pruefungen:`);
   luecken.forEach((l) => console.error('   - ' + l));
