@@ -148,8 +148,15 @@ function renderView(ctx) {
   }
   highlightNav(ctx.route);
   // Der Homebildschirm hat ein eigenes Dock — der „Neu"-Knopf rückt darüber.
+  // data-route macht die laufende Route fuer das CSS greifbar. Polaris braucht
+  // das: der Chat ist kein Dokument, sondern eine Flaeche, die den Inhalt
+  // genau ausfuellt — und der schwebende „Neu"-Knopf lag dort auf dem
+  // Sendeknopf (gemessen: FAB x 314..372, Sendeknopf x 330..378).
   const layout = document.getElementById('layout');
-  if (layout) layout.classList.toggle('route-home', ctx.route === 'home');
+  if (layout) {
+    layout.dataset.route = ctx.route;
+    layout.classList.toggle('route-home', ctx.route === 'home');
+  }
   content.scrollTop = 0;
   updateBadges();
 }
