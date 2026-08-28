@@ -425,3 +425,49 @@
   .bf-cols { grid-template-columns: 1fr 1fr; gap: 0 24px; align-items: start; }
   .bf-col { min-width: 0; }
 }
+
+/* ── Budget: Schnellerfassung ─────────────────────────────────────────────
+   Eine Ausgabe an der Kasse zu erfassen ging vorher nur ueber ein Formular
+   aus fuenf Feldern mit Bildschirmtastatur. Hier: grosses Betragsfeld,
+   eigener Ziffernblock, Kategorien als Kacheln — Sichern ist ein Tipp. */
+.bu-quick { display: flex; flex-direction: column; gap: 12px; }
+.bu-typ { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bu-typ-btn {
+  min-height: 46px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-overlay); color: var(--text-muted); font-weight: 600; font-size: 14px;
+}
+.bu-typ-btn.on.ausgabe { background: var(--danger); border-color: var(--danger); color: #fff; }
+.bu-typ-btn.on.einnahme { background: var(--success); border-color: var(--success); color: #fff; }
+.bu-betrag {
+  display: flex; align-items: baseline; justify-content: center; gap: 8px;
+  padding: 14px 10px; border-radius: var(--radius); background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+.bu-waehrung { font-size: 14px; color: var(--text-muted); font-weight: 600; }
+.bu-betrag-zahl { font-size: 40px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.bu-betrag.ausgabe .bu-betrag-zahl { color: var(--danger); }
+.bu-betrag.einnahme .bu-betrag-zahl { color: var(--success); }
+.bu-kats { display: flex; flex-wrap: wrap; gap: 6px; }
+.bu-kat {
+  min-height: 40px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--border); background: var(--surface-overlay); color: var(--text-primary);
+}
+.bu-kat.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.bu-notiz { width: 100%; }
+.bu-zeile { display: flex; gap: 8px; }
+.bu-zeile .input { flex: 1; min-width: 0; }
+.bu-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.bu-taste {
+  min-height: 56px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface-raised); color: var(--text-primary);
+  font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.bu-taste:active { background: var(--hover); transform: scale(.97); }
+.bu-taste.del { color: var(--danger); }
+.bu-sichern { min-height: 52px; font-size: 16px; }
+/* Uebersicht */
+.bu-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.bu-nav .chip { min-height: 40px; }
+.bu-monat { flex: 1; text-align: center; font-weight: 700; font-size: 15px; }
+.bu-schnitt { font-size: 12.5px; color: var(--text-muted); margin: -4px 0 12px; }
+.bu-neu-btn { min-height: 52px; margin-top: 16px; font-size: 16px; }
