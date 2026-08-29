@@ -103,11 +103,15 @@ function renderCard(key) {
     return card('Budgetstatus', '💰', `<div class="big-stat"><span class="big-num">${spent.toLocaleString('de-CH', { style: 'currency', currency: 'CHF' })}</span><span class="big-lbl">Ausgaben diesen Monat</span></div>`, 'budget');
   }
   if (key === 'ideas') {
-    const items = store.getIdeas().slice(-5).reverse();
+    const items = store.getIdeaNotes()
+      .filter((note) => ((note.ideaMeta && note.ideaMeta.status) || note.status || 'idea') !== 'archived')
+      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))
+      .slice(0, 5);
     return card('Ideen', '💡', list(items, 'idea', 'ideen', 'Noch keine Ideen.'), 'ideen');
   }
   if (key === 'notes') {
-    const items = store.getNotes().slice().sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 4);
+    const items = store.getNotes().filter((note) => note.noteClass !== 'idea')
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '')).slice(0, 4);
     return card('Zuletzt bearbeitet', '📝', list(items, 'note', 'noteflow', 'Noch keine Notizen.'), 'noteflow');
   }
   return '';

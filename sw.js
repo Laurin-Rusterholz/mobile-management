@@ -4,7 +4,7 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v15-polaris-tastatur';
+const VERSION = 'quantus-mobile-v16-notizkonzept';
 const SHELL = [
   './',
   './index.html',
@@ -18,6 +18,8 @@ const SHELL = [
   './js/config.js',
   './js/util.js',
   './js/store.js',
+  './js/notes.js',
+  './js/note-ui.js',
   './js/theme.js',
   './js/router.js',
   './js/actions.js',
@@ -47,6 +49,7 @@ const SHELL = [
   './js/views/einstellungen.js',
   './js/views/integrationen.js',
   './js/views/leseplan.js',
+  './js/views/readinghub.js',
   './js/views/uebersicht.js',
   './js/views/mail.js',
   './js/views/kalender.js',

@@ -27,14 +27,28 @@ const SAMMLUNGEN = [
 ];
 
 function titelVon(e) { return e.title || e.text || e.name || '(ohne Titel)'; }
+function logicalBoardKey(coll, entity) {
+  if (coll === 'ideas') return `idea:${entity.id}`;
+  if (coll === 'notes' && entity.noteClass === 'idea' && entity.source && entity.source.app === 'ideas' && entity.source.entityId) {
+    return `idea:${entity.source.entityId}`;
+  }
+  return `${coll}:${entity.id}`;
+}
 
 // Alle Entitaeten mit mindestens einer Post-it-Notiz — das IST die Boardliste.
 export function boards() {
-  const out = [];
+  const out = []; const seen = new Set();
   for (const [coll, label] of SAMMLUNGEN) {
     for (const e of store.getCollection(coll)) {
       const notes = (e && e.stickyBoard && Array.isArray(e.stickyBoard.notes)) ? e.stickyBoard.notes : [];
-      if (notes.length) out.push({ coll, label, id: e.id, titel: titelVon(e), notes, updatedAt: e.updatedAt || '' });
+      if (!notes.length) continue;
+      const logicalKey = logicalBoardKey(coll, e);
+      // notes steht in SAMMLUNGEN vor ideas: enthält die migrierte zentrale
+      // Idee bereits das Board, gewinnt sie. Ein Legacy-Board bleibt nur dann
+      // als Fallback sichtbar, wenn die zentrale Notiz keines enthält.
+      if (seen.has(logicalKey)) continue;
+      seen.add(logicalKey);
+      out.push({ coll, label, id: e.id, titel: titelVon(e), notes, updatedAt: e.updatedAt || '' });
     }
   }
   return out.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
@@ -63,12 +77,24 @@ registerActions({
           <textarea class="input" name="text" rows="5">${escHTML(n.text || '')}</textarea></label>
         <div class="detail-actions" style="margin-top:16px">
           <button type="button" class="btn" data-action="pb-cancel">Abbrechen</button>
+          <button type="button" class="btn" data-action="pb-export" data-note="${escHTML(n.id)}">In Noteflow speichern</button>
           <button type="submit" class="btn primary" data-action="pb-save" data-note="${escHTML(n.id)}">Speichern</button>
         </div>
       </form>`,
     });
   },
   'pb-cancel': () => closeSheet(),
+  'pb-export': async (d) => {
+    const c = current(); const b = board(c.sub, c.params.id);
+    const n = b && b.notes.find(x => x && x.id === d.note);
+    if (!b || !n || !String(n.text || '').trim()) { toast('Post-it ist leer oder nicht mehr vorhanden', 'warn'); return; }
+    const note = await store.saveCanonicalNote({
+      noteClass: 'research', title: `Post-it · ${b.titel}`, content: String(n.text), tags: [b.titel], notebookId: null,
+      dedupeKey: `pinnboard:${b.coll}:${b.id}:${n.id}`,
+      source: { app: 'pinnboard', entityType: 'postit', entityId: `${b.id}:${n.id}`, label: b.titel, route: `#/pinnboard/${b.coll}?id=${encodeURIComponent(b.id)}` },
+    });
+    closeSheet(); toast('In Noteflow gespeichert ✓', 'ok'); navigate('noteflow', { params: { id: note.id } });
+  },
   'pb-save': async (d, _el, e) => {
     const form = e.target.closest('form'); if (!form) return;
     const v = {}; new FormData(form).forEach((val, k) => { v[k] = typeof val === 'string' ? val : val; });

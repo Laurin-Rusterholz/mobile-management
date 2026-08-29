@@ -2,11 +2,12 @@
 //  Journal — Einträge, die Quantus aufs Handy schickt (mobilePushes)
 //  Lesen, als gelesen markieren, in die Zwischenablage kopieren.
 // ============================================================================
-import { escHTML, openSheet, toast, emptyState } from '../util.js';
+import { escHTML, openSheet, closeSheet, toast, emptyState } from '../util.js';
 import * as store from '../store.js';
 import { LS } from '../config.js';
 import { registerActions } from '../actions.js';
 import { pageHeader } from './common.js';
+import { navigate } from '../router.js';
 
 function seenSet() {
   try { return new Set(JSON.parse(localStorage.getItem(LS.seenPushes) || '[]')); }
@@ -26,6 +27,7 @@ registerActions({
       body: `<div class="journal-detail">
         <div class="muted-row">${escHTML(push.sentAt ? new Date(push.sentAt).toLocaleString('de-CH') : '')}</div>
         <div class="journal-body">${escHTML(push.content || '')}</div>
+        <button class="btn primary block" type="button" data-action="journal-note" data-id="${escHTML(push.id)}">Erkenntnis in Noteflow speichern</button>
         <button class="btn block" type="button" data-action="journal-copy" data-id="${escHTML(push.id)}">Text kopieren</button>
       </div>`,
       onClose: () => store.notify(),
@@ -36,6 +38,16 @@ registerActions({
     if (!push) return;
     try { navigator.clipboard.writeText(push.content || ''); toast('Kopiert ✓', 'ok'); }
     catch (e) { toast('Bitte manuell markieren', 'warn'); }
+  },
+  'journal-note': async (d) => {
+    const push = store.getJournalPushes().find(p => p && p.id === d.id); if (!push) return;
+    const label = push.title || 'Journal';
+    const note = await store.saveCanonicalNote({
+      noteClass: 'learning', title: label, content: push.content || '', tags: [label], notebookId: null,
+      dedupeKey: `journal:${push.id}`,
+      source: { app: 'journal', entityType: 'entry', entityId: push.id, label, route: '#/journal' },
+    });
+    closeSheet(); toast('In Noteflow gespeichert ✓', 'ok'); navigate('noteflow', { params: { id: note.id } });
   },
   'journal-read-all': () => {
     const ids = store.getJournalPushes().map(p => p && p.id).filter(Boolean);

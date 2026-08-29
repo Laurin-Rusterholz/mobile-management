@@ -189,6 +189,18 @@ if (pinn.__exports.boards && pinn.render) {
   ok(b[0] && b[0].notes.length === 2, 'die Post-its des Boards wurden nicht gefunden');
   ok(b[0] && b[0].titel === 'Quantus', `das Board heisst "${b[0] && b[0].titel}"`);
 
+  // Eine migrierte Idee kann stickyBoard sowohl am Legacy-Record als auch an
+  // der kanonischen Notiz tragen. Sichtbar sein darf dieses Board nur einmal;
+  // die zentrale Notiz gewinnt, Legacy bleibt Fallback.
+  DATEN.notes.push({ id: 'note_idea_i1', title: 'Kanonische Idee', noteClass: 'idea',
+    source: { app: 'ideas', entityId: 'i1' }, stickyBoard: { notes: [{ id: 'pi1', text: 'Zentral' }] } });
+  DATEN.ideas = [{ id: 'i1', title: 'Legacy-Idee', noteId: 'note_idea_i1',
+    stickyBoard: { notes: [{ id: 'pi1', text: 'Legacy' }] } }];
+  const ideaBoards = pinn.__exports.boards().filter((board) => board.id === 'note_idea_i1' || board.id === 'i1');
+  ok(ideaBoards.length === 1, `migrierte Idee erzeugt ${ideaBoards.length} Pinnboards statt genau eines`);
+  ok(ideaBoards[0] && ideaBoards[0].coll === 'notes', 'Pinnboard bevorzugt nicht die kanonische Ideen-Notiz');
+  DATEN.notes.pop(); delete DATEN.ideas;
+
   ROUTE = { route: 'pinnboard', sub: null, params: {} };
   const liste = pinn.render();
   ok(/Quantus/.test(liste), 'das Board fehlt in der Liste');

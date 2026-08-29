@@ -12,6 +12,8 @@ import * as store from '../store.js';
 import { COLLECTIONS } from '../config.js';
 import { registerActions } from '../actions.js';
 import { pageHeader, segmented } from './common.js';
+import { navigate } from '../router.js';
+import { openNoteComposer } from '../note-ui.js';
 
 // Ansichtszustand je Modul (Suche/Filter bleiben beim Wechsel erhalten)
 const uiState = {};
@@ -79,6 +81,7 @@ function itemCard(key, item) {
 function formHtml(key, item) {
   const cfg = COLLECTIONS[key];
   const v = item || {};
+  const related = v.id ? store.getNotesBySource(cfg.entity, v.id) : [];
   return `<form class="form" id="collForm">
     <label class="f"><span class="f-label">Titel</span>
       <input id="cfTitle" class="input" value="${escHTML(titleOf(v) === '(ohne Titel)' ? '' : titleOf(v))}" placeholder="${escHTML(cfg.label)}"></label>
@@ -96,7 +99,14 @@ function formHtml(key, item) {
     </div>
     <button class="btn primary block" type="button" data-action="coll-save" data-coll="${key}" data-id="${v.id || ''}">Speichern</button>
     ${v.id ? `<button class="btn danger block" type="button" data-action="coll-delete" data-coll="${key}" data-id="${v.id}">Löschen</button>` : ''}
-  </form>`;
+  </form>
+  ${v.id ? `<div class="context-notes">
+    <div class="context-notes-head"><span>Zentrale Notizen (${related.length})</span>
+      <button class="chip accent" data-action="coll-note" data-coll="${key}" data-id="${escHTML(v.id)}">＋ Notiz</button></div>
+    ${related.length ? related.map((note) => `<button class="context-note-row" data-action="coll-note-open" data-id="${escHTML(note.id)}">
+      <span>${escHTML(note.title || 'Notiz')}</span><small>${escHTML((note.tags || []).join(', '))}</small><b>›</b></button>`).join('')
+      : '<div class="muted-row">Noch keine verknüpften Notizen.</div>'}
+  </div>` : ''}`;
 }
 
 function openForm(key, id) {
@@ -112,6 +122,18 @@ function openForm(key, id) {
 registerActions({
   'coll-open': (d) => openForm(d.coll, d.id),
   'coll-new': (d) => openForm(d.coll, null),
+  'coll-note-open': (d) => { closeSheet(); navigate('noteflow', { params: { id: d.id } }); },
+  'coll-note': (d) => {
+    const cfg = COLLECTIONS[d.coll];
+    const item = cfg && store.getCollection(cfg.entity).find((entry) => entry.id === d.id);
+    if (!cfg || !item) return;
+    const label = titleOf(item);
+    openNoteComposer({
+      heading: `Notiz zu ${cfg.label}`, noteClass: cfg.entity === 'goals' ? 'learning' : 'research',
+      tags: [label], lockedTags: [label],
+      source: { app: cfg.entity, entityType: cfg.kind, entityId: item.id, label, route: `#/${d.coll}?id=${encodeURIComponent(item.id)}` },
+    });
+  },
   'coll-filter': (d) => { ui(d.coll).filter = d.seg; store.notify(); },
   'coll-sort': (d) => { ui(d.coll).sort = d.sort; store.notify(); },
 

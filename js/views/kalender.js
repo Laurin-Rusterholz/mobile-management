@@ -16,14 +16,14 @@ function entries() {
   const out = [];
   store.getCollection('calendarEvents').forEach(e => {
     const day = ymd(e.date || e.start || e.startAt);
-    if (day) out.push({ day, time: e.start || e.time || '', title: e.title || e.name || 'Termin', kind: 'event', place: e.location || e.place || '' });
+    if (day) out.push({ id: e.id, day, time: e.start || e.time || '', title: e.title || e.name || 'Termin', kind: 'event', place: e.location || e.place || '' });
   });
   store.getMeetings().forEach(m => {
     const day = ymd(m.date || m.start);
-    if (day) out.push({ day, time: m.time || m.start || '', title: m.title || m.name || 'Meeting', kind: 'meeting', place: m.location || '' });
+    if (day) out.push({ id: m.id, day, time: m.time || m.start || '', title: m.title || m.name || 'Meeting', kind: 'meeting', place: m.location || '' });
   });
   store.getTasks().filter(t => t.status !== 'done' && t.dueDate).forEach(t => {
-    out.push({ day: ymd(t.dueDate), time: '', title: t.title || 'Aufgabe', kind: 'task', place: '' });
+    out.push({ id: t.id, day: ymd(t.dueDate), time: '', title: t.title || 'Aufgabe', kind: 'task', place: '' });
   });
   return out.sort((a, b) => (a.day + a.time).localeCompare(b.day + b.time));
 }
@@ -41,9 +41,10 @@ function agendaHtml() {
     <section class="cal-day">
       <div class="cal-day-head">${day === today ? 'Heute · ' : ''}${new Date(day + 'T12:00:00')
         .toLocaleDateString('de-CH', { weekday: 'long', day: '2-digit', month: 'long' })}</div>
-      ${byDay[day].map(e => `<div class="card row-card" data-action="cal-open" data-kind="${e.kind}">
+      ${byDay[day].map(e => `<div class="card row-card" data-action="cal-open" data-kind="${e.kind}" data-id="${escHTML(e.id || '')}">
         <div class="row-main"><div class="row-title">${ICON[e.kind]} ${escHTML(e.title)}</div>
         <div class="row-sub">${escHTML(e.time ? formatTime(e.time) || e.time : 'ganztags')}${e.place ? ' · ' + escHTML(e.place) : ''}</div></div>
+        <button class="icon-btn" data-action="cal-note" data-kind="${e.kind}" data-id="${escHTML(e.id || '')}" data-title="${escHTML(e.title)}" aria-label="Notiz">📝</button>
       </div>`).join('')}
     </section>`).join('');
 }
@@ -77,7 +78,15 @@ function monthHtml() {
 
 registerActions({
   'cal-mode': (d) => { ui.mode = d.seg; store.notify(); },
-  'cal-open': (d) => navigate(ROUTE[d.kind] || 'kalender'),
+  'cal-open': (d) => navigate(ROUTE[d.kind] || 'kalender', { params: d.id ? { id: d.id } : {} }),
+  'cal-note': async (d) => {
+    const label = d.title || 'Kalendereintrag';
+    const { openNoteComposer } = await import('../note-ui.js');
+    openNoteComposer({
+      heading: 'Notiz zum Kalendereintrag', noteClass: 'research', tags: [label], lockedTags: [label],
+      source: { app: d.kind === 'meeting' ? 'meetings' : d.kind === 'task' ? 'tasks' : 'calendar', entityType: d.kind, entityId: d.id || null, label, route: `#/${ROUTE[d.kind] || 'kalender'}${d.id ? `?id=${encodeURIComponent(d.id)}` : ''}` },
+    });
+  },
   'cal-month': (d) => {
     const [y, m] = ui.month.split('-').map(Number);
     const next = new Date(y, m - 1 + Number(d.dir), 1);

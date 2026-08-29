@@ -10,6 +10,7 @@ import { navigate, current } from '../router.js';
 import { isTablet } from '../shell.js';
 import { pageHeader, segmented, taskCard } from './common.js';
 import * as focus from '../focus.js';
+import { openNoteComposer } from '../note-ui.js';
 
 const VIEWS = [
   { key: 'inbox', label: 'Inbox' }, { key: 'heute', label: 'Heute' }, { key: 'geplant', label: 'Geplant' },
@@ -65,6 +66,7 @@ function detailPane(id) {
 
 function taskDetailHtml(t) {
   const done = t.status === 'done';
+  const notes = store.getNotesBySource('tasks', t.id);
   return `<div class="detail">
     <div class="detail-head">
       <div class="detail-title">${escHTML(t.title || '')}</div>
@@ -75,7 +77,11 @@ function taskDetailHtml(t) {
       <button class="btn ${done ? 'ghost' : 'primary'}" data-action="toggle-task" data-id="${t.id}">${done ? '↩︎ Wieder öffnen' : '✓ Erledigt'}</button>
       <button class="btn" data-action="edit-task" data-id="${t.id}">✎ Bearbeiten</button>
       <button class="btn" data-action="focus-from-task" data-id="${t.id}">🎯 Fokus starten</button>
+      <button class="btn" data-action="entity-note" data-kind="task" data-id="${t.id}">📝 Notiz</button>
       <button class="btn danger ghost" data-action="delete-task" data-id="${t.id}">🗑 Löschen</button>
+    </div>
+    <div class="context-notes"><div class="section-title">Notizen (${notes.length})</div>
+      ${notes.length ? notes.map(n => `<button class="context-note-row" data-action="entity-note-open" data-id="${escHTML(n.id)}"><span>${escHTML(n.title || 'Notiz')}</span><b>›</b></button>`).join('') : '<div class="muted-row">Noch keine Notizen.</div>'}
     </div>
   </div>`;
 }
@@ -112,12 +118,27 @@ registerActions({
   },
   'open-project': (d) => {
     const p = store.getById('project', d.id); if (!p) return;
+    const notes = store.getNotesBySource('projects', p.id);
     openSheet({ title: 'Projekt', size: 'half', body: `<div class="detail">
       <div class="detail-title">${escHTML(p.title || '')}</div>
       ${p.description ? `<div class="detail-text">${escHTML(p.description)}</div>` : ''}
       <div class="muted-row">Status: ${escHTML(p.status || 'active')}</div>
       <div class="detail-text">Aufgaben in diesem Projekt: ${store.getTasks().filter(t => t.projectId === p.id).length}</div>
+      <div class="detail-actions"><button class="btn primary" data-action="entity-note" data-kind="project" data-id="${p.id}">📝 Notiz hinzufügen</button></div>
+      <div class="context-notes"><div class="section-title">Notizen (${notes.length})</div>
+        ${notes.length ? notes.map(n => `<button class="context-note-row" data-action="entity-note-open" data-id="${escHTML(n.id)}"><span>${escHTML(n.title || 'Notiz')}</span><b>›</b></button>`).join('') : '<div class="muted-row">Noch keine Notizen.</div>'}
+      </div>
     </div>` });
+  },
+  'entity-note-open': (d) => { closeSheet(); navigate('noteflow', { params: { id: d.id } }); },
+  'entity-note': (d) => {
+    const isTask = d.kind === 'task';
+    const item = store.getById(isTask ? 'task' : 'project', d.id); if (!item) return;
+    const label = item.title || (isTask ? 'Aufgabe' : 'Projekt');
+    openNoteComposer({
+      heading: `Notiz zu ${isTask ? 'Aufgabe' : 'Projekt'}`, noteClass: 'research', tags: [label], lockedTags: [label],
+      source: { app: isTask ? 'tasks' : 'projects', entityType: d.kind, entityId: item.id, label, route: isTask ? `#/planen?id=${encodeURIComponent(item.id)}` : `#/projekte?id=${encodeURIComponent(item.id)}` },
+    });
   },
   'delete-task': async (d) => {
     const t = store.getById('task', d.id); if (!t) return;

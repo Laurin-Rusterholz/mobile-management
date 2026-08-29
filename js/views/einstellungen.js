@@ -96,7 +96,8 @@ export default {
   render() {
     const mode = getThemeMode();
     const counts = {
-      Aufgaben: store.getTasks().length, Notizen: store.getNotes().length, Ideen: store.getIdeas().length,
+      Aufgaben: store.getTasks().length, Notizen: store.getNotes().length,
+      Ideen: store.getIdeaNotes().filter((note) => ((note.ideaMeta && note.ideaMeta.status) || note.status || 'idea') !== 'archived').length,
       Projekte: store.getProjects().length, Buchungen: store.getTransactions().length, Karten: store.getCards().length,
     };
     const meta = (store.state.data && store.state.data.meta) || {};

@@ -9,6 +9,7 @@ import { getProjects, getDecks } from './store.js';
 import { registerActions } from './actions.js';
 import { navigate } from './router.js';
 import * as focus from './focus.js';
+import { openIdeaComposer, openNoteComposer, openShortnote } from './note-ui.js';
 
 function field(label, inner) { return `<label class="f"><span class="f-label">${label}</span>${inner}</label>`; }
 
@@ -33,22 +34,6 @@ const FORMS = {
       ${field('Beschreibung', `<textarea name="description" class="input" rows="2"></textarea>`)}
       ${field('Status', `<select name="status" class="input"><option value="active">Aktiv</option><option value="planned">Geplant</option><option value="onhold">Pausiert</option></select>`)}
       <button class="btn primary block" type="submit">Projekt erstellen</button>
-    </form>`,
-  }),
-  idea: () => ({
-    title: 'Neue Idee', icon: '💡',
-    body: `<form data-action="submit-new" data-type="idea" class="form">
-      ${field('Titel', `<input name="title" class="input" required placeholder="Der Funke…">`)}
-      ${field('Text', `<textarea name="text" class="input" rows="3" placeholder="Ausführen…"></textarea>`)}
-      <button class="btn primary block" type="submit">Idee festhalten</button>
-    </form>`,
-  }),
-  note: () => ({
-    title: 'Neue Notiz', icon: '📝',
-    body: `<form data-action="submit-new" data-type="note" class="form">
-      ${field('Titel', `<input name="title" class="input" placeholder="Titel (optional)">`)}
-      ${field('Inhalt', `<textarea name="content" class="input" rows="5" required placeholder="Schreib los…"></textarea>`)}
-      <button class="btn primary block" type="submit">Notiz speichern</button>
     </form>`,
   }),
   expense: () => ({
@@ -89,6 +74,16 @@ const FORMS = {
 
 export function openNewType(type) {
   if (type === 'focus') { closeSheet(); navigate('fokus'); toast('Fokus-Setup geöffnet', 'ok'); return; }
+  if (type === 'shortnote') { closeSheet(); openShortnote(); return; }
+  if (type === 'idea') { closeSheet(); openIdeaComposer(); return; }
+  if (type === 'note') {
+    closeSheet();
+    openNoteComposer({
+      heading: 'Neue Notiz', noteClass: 'general', allowClassSelection: true, tagsRequired: false,
+      source: { app: 'noteflow', entityType: null, entityId: null, label: 'Noteflow', route: '#/noteflow' },
+    });
+    return;
+  }
   const build = FORMS[type];
   if (!build) { toast('Typ „' + type + '" (bald)', 'warn'); return; }
   const f = build();
@@ -117,12 +112,6 @@ registerActions({
     } else if (type === 'project') {
       op = { type: 'add-project', payload: { id: newId('project'), title: v.title, description: v.description || '', status: v.status || 'active', priority: 3, tags: [], source: 'mobile', createdAt: now, updatedAt: now } };
       routeTo = 'planen';
-    } else if (type === 'idea') {
-      op = { type: 'add-idea', payload: { id: newId('idea'), title: v.title, text: v.text || '', status: 'idea', tags: [], source: 'mobile', createdAt: now, updatedAt: now } };
-      routeTo = 'ideen';
-    } else if (type === 'note') {
-      op = { type: 'add-note', payload: { id: newId('note'), title: v.title || '', content: v.content || '', notebookId: null, tags: [], source: 'mobile', createdAt: now, updatedAt: now } };
-      routeTo = 'noteflow';
     } else if (type === 'expense') {
       const amt = Math.abs(Number(v.amount || 0));
       op = { type: 'add-transaction', payload: { id: newId('txn'), amount: v.type === 'income' ? amt : -amt, type: v.type || 'expense', category: v.category || 'Sonstiges', description: v.description || '', date: v.date || todayYmd(), tags: [], source: 'mobile', createdAt: now, updatedAt: now } };

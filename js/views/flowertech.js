@@ -368,6 +368,16 @@ registerActions({
   'ft-set-stage': async (d) => {
     await store.performOp({ type: 'update-project', payload: { id: d.id, pipelineStage: d.stage } });
   },
+  'ft-project-note': async (d) => {
+    const project = projects().find((item) => item.id === d.id); if (!project) return;
+    const label = project.title || 'FlowerTech-Projekt';
+    const { openNoteComposer } = await import('../note-ui.js');
+    openNoteComposer({
+      heading: 'FlowerTech-Projektnotiz', noteClass: 'research', tags: [label], lockedTags: [label],
+      source: { app: 'flowertech', entityType: 'project', entityId: project.id, label, route: '#/flowertech' },
+      placeholder: 'Nur bewusst freigegebene Projektinformationen – keine Zugangsdaten oder Finanzdetails.',
+    });
+  },
 });
 
 // ── Ansichten ───────────────────────────────────────────────────────────────
@@ -399,6 +409,7 @@ function projectDetailHtml(project) {
   const list = tasksOf(project.id);
   const offers = docs('offer').filter(d => d.projectId === project.id);
   const invoices = docs('invoice').filter(d => d.projectId === project.id);
+  const notes = store.getNotesBySource('flowertech', project.id);
   return `
     <div class="chip-row">
       <button class="chip" data-action="ft-close-project">‹ Alle Projekte</button>
@@ -407,6 +418,8 @@ function projectDetailHtml(project) {
     </div>
     <div class="page-title">${escHTML(project.title || 'Projekt')}</div>
     ${project.description ? `<div class="muted-row">${escHTML(project.description)}</div>` : ''}
+    <button class="btn block" data-action="ft-project-note" data-id="${escHTML(project.id)}">📝 Projektnotiz (${notes.length})</button>
+    <div class="muted-row">Nur explizit gespeicherte Inhalte werden zentral übernommen; Kunden-, Rechnungs- und Zugangsdaten nie automatisch.</div>
 
     <section class="hcard"><div class="hcard-head"><span class="hcard-icon">✅</span><span class="hcard-title">Aufgaben</span></div>
       <div class="hcard-body">

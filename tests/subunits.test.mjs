@@ -82,6 +82,11 @@ globalThis.fetch = async () => { throw new Error('kein Netz im Test'); };
 const STORE = ladeModul('js/store.js', {
   './config.js': { LS: {}, getBaseUrl: () => 'https://x', getBlobKey: () => 'k', DEFAULT_BASE_URL: 'https://x', DEFAULT_BLOB_KEY: 'k' },
   './util.js': { todayYmd: () => HEUTE, uid: () => 'id', toast: () => {}, escHTML: (s) => String(s) },
+  './notes.js': {
+    migrateNotesData: () => ({ changed: false, count: 0 }), migrateNote: (n) => n,
+    createCanonicalNote: (n) => n, collectTags: () => [], noteSourceMatches: () => false,
+    bookStatus: (s) => s || 'registered',
+  },
 });
 
 // TOLERANT aufrufen. Auf einem Stand, der die Funktion noch gar nicht hat,

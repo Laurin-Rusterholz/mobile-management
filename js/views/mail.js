@@ -367,6 +367,7 @@ function detailHtml() {
       <div class="mail-detail-actions">
         <button class="chip" data-action="mail-reply" data-id="${item.id}">↩︎ Antworten</button>
         <button class="chip" data-action="mail-forward" data-id="${item.id}">↪︎ Weiterleiten</button>
+        <button class="chip" data-action="mail-note" data-id="${item.id}">📝 Als Notiz</button>
         <button class="chip" data-action="mail-plain">${ui.plain ? '🖼 Original' : '🅰 Nur Text'}</button>
         <button class="chip" data-action="mail-toggle-read" data-id="${item.id}">${item.unread ? 'Als gelesen' : 'Als ungelesen'}</button>
         <button class="chip" data-action="mail-archive" data-id="${item.id}">🗄️ Archiv</button>
@@ -523,6 +524,25 @@ registerActions({
   'mail-open': (d) => { haptic(10); openMessage(d.id); },
   'mail-close': () => { ui.openId = null; ui.body = null; rerender(); },
   'mail-plain': () => { ui.plain = !ui.plain; rerender(); },
+  'mail-note': async (d) => {
+    const item = ui.list.find(m => m.id === d.id); if (!item) return;
+    const body = ui.body && ui.body.id === item.id ? ui.body : null;
+    const content = body ? (body.text || htmlToText(body.html)) : (item.snippet || '');
+    const ok = await confirmPreview({
+      title: 'E-Mail als Notiz übernehmen?', confirmLabel: 'Notiz vorbereiten',
+      previewHtml: `<div class="mail-preview"><div><b>${escHTML(item.subject || '(kein Betreff)')}</b></div>
+        <div>Von: ${escHTML(item.fromName || item.fromEmail || '')}</div>
+        <div class="mail-preview-body">${escHTML(String(content).slice(0, 500))}</div></div>`,
+    });
+    if (!ok) return;
+    const { openNoteComposer } = await import('../note-ui.js');
+    const label = item.subject || 'E-Mail';
+    openNoteComposer({
+      heading: 'E-Mail als Recherchenotiz', noteClass: 'research', title: label, content,
+      tags: [label], lockedTags: [label], dedupeKey: `mail:${item.id}`,
+      source: { app: 'mail', entityType: 'email', entityId: item.id, label, route: '#/mail' },
+    });
+  },
 
   'mail-attachment': async (d) => {
     if (!d.att) { toast('Dieser Anhang hat keine Kennung', 'error'); return; }

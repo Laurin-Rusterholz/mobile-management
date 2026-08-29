@@ -14,7 +14,11 @@
 //  werden nur gezielte Mutationen über applyOp() ausgeführt.
 // ============================================================================
 import { LS, getBaseUrl, getBlobKey } from './config.js';
-import { nowISO, toast, todayYmd } from './util.js';
+import { nowISO, toast, todayYmd, newId } from './util.js';
+import {
+  migrateNotesData, migrateNote, createCanonicalNote, collectTags,
+  noteSourceMatches, bookStatus,
+} from './notes.js';
 
 export const state = {
   data: null,
@@ -23,6 +27,8 @@ export const state = {
   syncing: false,
   initialPullDone: false,          // Schutz: nie pushen, bevor Server-Daten gesehen wurden
   initialPullStatus: 'pending',    // pending | ok | empty | failed
+  noteMigrationPending: false,
+  replayPending: false,
 };
 
 // Beobachter, die bei Datenänderung neu rendern sollen (Router setzt einen).
@@ -36,7 +42,10 @@ export function onSyncStatus(fn) { _statusHandler = fn; }
 export function setSyncStatus(stateName, text) { if (_statusHandler) _statusHandler(stateName, text); }
 
 function emptySkeleton() {
-  return { entities: { tasks: {}, notes: {}, ideas: {}, notebooks: {}, projects: {}, meetings: {}, timeEntries: {} } };
+  return { entities: {
+    tasks: {}, notes: {}, ideas: {}, notebooks: {}, books: {}, projects: {}, meetings: {},
+    timeEntries: {}, scheduledMessages: {},
+  } };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -63,9 +72,11 @@ export async function pullData(silent = false) {
 
     const text = await r.text();
     state.data = JSON.parse(text);
+    const migration = migrateNotesData(state.data);
+    state.noteMigrationPending = migration.changed;
     state.etag = r.headers.get('ETag') || r.headers.get('etag');
     try {
-      localStorage.setItem(LS.lastData, text);
+      localStorage.setItem(LS.lastData, JSON.stringify(state.data));
       if (state.etag) localStorage.setItem(LS.lastEtag, state.etag);
     } catch (e) { /* Quota — ignorieren, Cache ist optional */ }
 
@@ -82,6 +93,7 @@ export async function pullData(silent = false) {
     if (cached) {
       try {
         state.data = JSON.parse(cached);
+        migrateNotesData(state.data);
         state.etag = localStorage.getItem(LS.lastEtag);
         // Cache laden, aber initialPullDone bleibt false → Schreibschutz aktiv
         state.initialPullStatus = 'failed';
@@ -98,7 +110,17 @@ export async function pullData(silent = false) {
       notify();
       if (!silent) toast('Verbindung fehlgeschlagen', 'error');
     }
-  } finally { state.syncing = false; }
+  } finally {
+    state.syncing = false;
+    // Alte Notizen/Bücher werden nach einem erfolgreichen Pull genau einmal
+    // zurückgeschrieben. Ein ETag-Konflikt zieht erneut und migriert wieder;
+    // die Migration ist idempotent und erzeugt deshalb keine Duplikate.
+    if ((state.noteMigrationPending || state.replayPending) && state.initialPullDone) {
+      state.noteMigrationPending = false;
+      state.replayPending = false;
+      setTimeout(() => { pushData(); }, 0);
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -134,6 +156,10 @@ export async function pushData() {
     const r = await fetch(url, { method: 'PUT', headers, body });
 
     if (r.status === 412) {
+      // Die gerade lokal angewendeten Operationen müssen den Konflikt-Pull
+      // überleben. Ohne vorheriges Persistieren würde der frische Snapshot
+      // state.data ersetzen, bevor applyPendingChanges sie erneut einspielt.
+      savePending();
       toast('Konflikt — synchronisiere…', 'warn');
       state.syncing = false;
       await pullData(true);
@@ -163,23 +189,146 @@ function savePending() {
   }
 }
 
+function stableSerialize(value) {
+  if (value == null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(stableSerialize).join(',') + ']';
+  return '{' + Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',') + '}';
+}
+
+function entityFingerprint(entity) {
+  const input = stableSerialize(entity); let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function entityVersion(entity) {
+  return entity && (entity.updatedAt || entity.modifiedAt || entity.createdAt) || null;
+}
+
+function validTime(value) {
+  const parsed = Date.parse(value || '');
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function operationParts(op) {
+  const [verb, ...rest] = String(op && op.type || '').split('-');
+  return { verb, kind: rest.join('-') };
+}
+
+function pendingTarget(op, data = state.data) {
+  const { kind } = operationParts(op);
+  const collectionName = KIND_MAP[kind];
+  const payload = op && op.payload;
+  const collection = data && data.entities && collectionName && data.entities[collectionName];
+  if (!payload || !collection || typeof collection !== 'object') return null;
+  if (payload.id && collection[payload.id]) return collection[payload.id];
+  if (kind === 'note' && payload.dedupeKey) {
+    return Object.values(collection).find((note) => note && note.dedupeKey === payload.dedupeKey) || null;
+  }
+  return null;
+}
+
+/**
+ * Persistiert den Zeitpunkt und die tatsächlich gelesene Basisversion jeder
+ * lokalen Operation. Diese Metadaten bleiben ausschließlich in der lokalen
+ * Offline-Queue und gelangen nie in eine Entität oder in den Server-Snapshot.
+ */
+export function preparePendingOp(op, queuedAt = nowISO()) {
+  if (!op || typeof op !== 'object' || op._queue) return op;
+  const target = pendingTarget(op);
+  return {
+    ...op,
+    payload: op.payload && typeof op.payload === 'object' ? { ...op.payload } : op.payload,
+    _queue: {
+      version: 1,
+      queuedAt,
+      baseExists: !!target,
+      baseUpdatedAt: entityVersion(target),
+      baseFingerprint: target ? entityFingerprint(target) : null,
+    },
+  };
+}
+
+/** Server-wins nur dann, wenn der gezogene Stand nachweislich neuer ist. */
+export function shouldSkipPendingOp(op, remoteEntity) {
+  const { verb } = operationParts(op);
+  if (!remoteEntity || !['add', 'update', 'delete'].includes(verb)) return false;
+  const queue = op && op._queue;
+  const remoteVersion = entityVersion(remoteEntity);
+  const remoteTime = validTime(remoteVersion);
+
+  if (queue && Number(queue.version) >= 1) {
+    const baseTime = validTime(queue.baseUpdatedAt);
+    if (!queue.baseExists) {
+      // Die ID/Dedupe-Entität entstand während der Offline-Phase auf einem
+      // anderen Gerät. Allein ihre Existenz beweist eine Änderung gegenüber
+      // der gelesenen Basis; bei einer Kollision bleibt deshalb der Server.
+      return true;
+    }
+    // Der Fingerprint ist die eigentliche Basisversion. Er macht auch einen
+    // Konflikt in einer Kette sichtbar: Wird A→B verworfen, darf B→C nicht
+    // allein über dem fremden D landen – D entspricht dem gespeicherten B-
+    // Fingerprint nicht, selbst wenn sein Zeitstempel vor B liegt.
+    if (queue.baseFingerprint) return entityFingerprint(remoteEntity) !== queue.baseFingerprint;
+    if (remoteTime != null && baseTime != null) {
+      if (remoteTime > baseTime) return true;
+      if (remoteTime < baseTime) return false; // Basis enthält frühere lokale Queue-Operationen.
+    }
+    return remoteVersion !== queue.baseUpdatedAt;
+  }
+
+  // Rückwärtskompatibilität für alte, noch unversionierte Queues: nur dann
+  // anwenden, wenn ihr Payload nachweislich neuer als der Serverstand ist.
+  const payloadTime = validTime(op && op.payload && (op.payload.updatedAt || op.payload.createdAt));
+  return remoteTime != null && payloadTime != null ? remoteTime > payloadTime : true;
+}
+
+export function replayPendingOperations(ops) {
+  const list = Array.isArray(ops) ? ops.filter(Boolean) : [];
+  const applied = []; const skipped = [];
+  list.forEach((op) => {
+    // Unmittelbar vor jeder Operation prüfen: Nach A→B muss die Basis der
+    // nächsten lokalen Operation B→C gegen B laufen. Ist der Server bereits
+    // auf D, bleibt D stehen und beide veralteten Schritte werden verworfen.
+    const current = pendingTarget(op);
+    const baseline = current ? JSON.parse(JSON.stringify(current)) : null;
+    if (shouldSkipPendingOp(op, baseline)) skipped.push(op);
+    else { applyOp(op); applied.push(op); }
+  });
+  return { applied, skipped };
+}
+
 async function applyPendingChanges() {
   const stored = localStorage.getItem(LS.pending);
   if (!stored) return;
   try {
     const ops = JSON.parse(stored);
     if (!ops || !ops.length) return;
-    ops.forEach(op => applyOp(op));
-    const ok = await pushData();
-    if (ok) toast(ops.length + ' Änderung(en) synchronisiert', 'ok');
+    // Der Server-Snapshot ist wieder die Basis. Die gespeicherte Queue wird
+    // genau einmal darüber gelegt und erst NACH Ende des Pulls gepusht (während
+    // state.syncing würde pushData den Schreibversuch korrekt blockieren).
+    const replay = replayPendingOperations(ops);
+    state.pending = replay.applied.slice();
+    if (state.pending.length) {
+      savePending();
+      state.replayPending = true;
+    } else localStorage.removeItem(LS.pending);
+    if (replay.skipped.length) {
+      console.warn('[pending] newer server version retained for', replay.skipped.map((op) => op.type));
+      toast(`${replay.skipped.length} veraltete Offline-Änderung(en) übersprungen`, 'warn');
+    }
   } catch (e) { console.error('Pending replay failed:', e); }
 }
 
 // Öffentlicher Mutations-Einstieg: lokal anwenden, rendern, dann pushen.
 export async function performOp(op) {
   if (!state.data) return;
-  applyOp(op);
-  state.pending.push(op);
+  const pendingOp = preparePendingOp(op);
+  applyOp(pendingOp);
+  state.pending.push(pendingOp);
   notify();
   const ok = await pushData();
   if (!ok) savePending();
@@ -195,6 +344,7 @@ export function pullStatus() { return state.initialPullStatus; }
 // Entitäts-Ops folgen dem Muster '<verb>-<kind>' mit verb add|update|delete.
 const KIND_MAP = {
   task: 'tasks', note: 'notes', idea: 'ideas', notebook: 'notebooks',
+  book: 'books', message: 'scheduledMessages',
   project: 'projects', meeting: 'meetings', transaction: 'transactions',
   account: 'accounts', goal: 'goals', decision: 'decisions',
   // Funktionsparität mit Desktop und Tablet: alle weiteren Sammlungen
@@ -219,19 +369,35 @@ export function applyOp(op) {
   const t = op.type || '';
   const [verb, ...rest] = t.split('-');
   const kind = rest.join('-');
+  const mutationTime = op._queue && validTime(op._queue.queuedAt) != null ? op._queue.queuedAt : nowISO();
 
   // ── Standard-Entitäten (Dictionary nach ID, Soft-Delete) ──
   if (KIND_MAP[kind]) {
     const coll = ensureColl(KIND_MAP[kind]);
-    if (verb === 'add') coll[op.payload.id] = op.payload;
+    if (verb === 'add') {
+      if (kind === 'note') {
+        // Auch alte oder noch nicht aktualisierte Views können keine rohe,
+        // unklassifizierte Notiz mehr in den gemeinsamen Bestand schreiben.
+        const next = migrateNote(op.payload);
+        const duplicate = next.dedupeKey && Object.values(coll).find(n => n && !n.deleted && n.dedupeKey === next.dedupeKey);
+        if (duplicate) Object.assign(duplicate, next, { id: duplicate.id, createdAt: duplicate.createdAt || next.createdAt, updatedAt: mutationTime });
+        else coll[next.id] = next;
+      } else if (kind === 'book') coll[op.payload.id] = { ...op.payload, status: bookStatus(op.payload.status) };
+      else coll[op.payload.id] = op.payload;
+    }
     else if (verb === 'update') {
       const cur = coll[op.payload.id];
-      if (cur) Object.assign(cur, op.payload, { updatedAt: nowISO() });
+      if (kind === 'note') {
+        const next = migrateNote(cur ? { ...cur, ...op.payload } : op.payload);
+        coll[next.id] = { ...(cur || {}), ...next, updatedAt: mutationTime };
+      } else if (kind === 'book') {
+        coll[op.payload.id] = { ...(cur || {}), ...op.payload, status: bookStatus(op.payload.status || (cur && cur.status)), updatedAt: mutationTime };
+      } else if (cur) Object.assign(cur, op.payload, { updatedAt: mutationTime });
       else coll[op.payload.id] = op.payload;
     } else if (verb === 'delete') {
       // Soft-Delete (Quantus nutzt Tombstones/Flags) statt hartem Entfernen
       const cur = coll[op.payload.id];
-      if (cur) { cur.deleted = true; cur.updatedAt = nowISO(); }
+      if (cur) { cur.deleted = true; cur.updatedAt = mutationTime; }
     }
     return;
   }
@@ -421,13 +587,37 @@ const alive = x => x && !x.deleted && !x.archived;
 export const getTasks       = () => coll('tasks').filter(alive);
 export const getProjects    = () => coll('projects').filter(alive);
 export const getNotes       = () => coll('notes').filter(alive);
-export const getIdeas       = () => coll('ideas').filter(alive);
+// Nur für gezielte Legacy-Bridges (Migration/Pinnboard-Fallback). Neue
+// Oberflächen lesen Ideen ausschließlich über getIdeaNotes().
+export const getLegacyIdeas = () => coll('ideas').filter(alive);
 export const getMeetings    = () => coll('meetings').filter(alive);
 export const getTransactions= () => coll('transactions').filter(alive);
 export const getAccounts    = () => coll('accounts').filter(alive);
 export const getGoals       = () => coll('goals').filter(alive);
 export const getTimeEntries = () => coll('timeEntries').filter(Boolean);
 export const getNotebooks   = () => coll('notebooks').filter(alive).sort((a, b) => (a.order || 0) - (b.order || 0));
+export const getBooks       = () => coll('books').filter(alive)
+  .map(book => ({ ...book, status: bookStatus(book.status) }))
+  .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+
+export const getAllTags = () => collectTags(getNotes());
+export const getNotesBySource = (app, entityId) => getNotes().filter(note => noteSourceMatches(note, app, entityId));
+export const getIdeaNotes = () => getNotes().filter(note => note.noteClass === 'idea');
+
+// Einziger öffentlicher Schreibweg für neue zentrale Notizen. Die Factory
+// validiert Klasse, Tags, Source und Inbox-Regel; dedupeKey gilt nur, wenn ein
+// aufrufender Flow ausdrücklich eine Singleton-Spiegelung bezeichnet.
+export async function saveCanonicalNote(input) {
+  const existing = input && input.dedupeKey
+    ? getNotes().find(note => note.dedupeKey === input.dedupeKey)
+    : (input && input.id ? getNotes().find(note => note.id === input.id) : null);
+  const payload = createCanonicalNote({ ...(existing || {}), ...(input || {}) }, {
+    id: (existing && existing.id) || (input && input.id) || newId('note'),
+    knownTags: getAllTags(),
+  });
+  await performOp({ type: existing ? 'update-note' : 'add-note', payload });
+  return payload;
+}
 
 // Generischer Zugriff auf beliebige Sammlungen (entities.<name>) — Grundlage
 // der gemeinsamen Modul-Ansicht für Projekte, Ziele, Strategien, Konzepte …
@@ -617,7 +807,14 @@ export function briefingFuerTag(ymd) {
 export function getInboxItems() {
   const out = [];
   getTasks().forEach(t => { if (!t.projectId && (!t.linkedProjects || !t.linkedProjects.length)) out.push({ kind: 'task', item: t }); });
-  getIdeas().forEach(i => { if ((i.status || 'idea') === 'idea' || i.status === 'neu') out.push({ kind: 'idea', item: i }); });
-  getNotes().forEach(n => { if (!n.notebookId) out.push({ kind: 'note', item: n }); });
+  // Ideen werden aus derselben kanonischen Notes-Sammlung genau einmal als
+  // Idee einsortiert. Geplante/archivierte Ideen gehören nicht mehr zur Inbox.
+  getNotes().forEach(n => {
+    if (n.notebookId) return;
+    if (n.noteClass === 'idea') {
+      const status = n.ideaMeta && n.ideaMeta.status || n.status || 'idea';
+      if (status === 'idea' || status === 'neu') out.push({ kind: 'idea', item: n });
+    } else out.push({ kind: 'note', item: n });
+  });
   return out;
 }

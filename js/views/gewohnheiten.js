@@ -101,6 +101,7 @@ function detailHtml(h) {
     </div>
 
     <div class="detail-actions" style="margin-top:16px">
+      <button class="btn" data-action="habit-note" data-id="${h.id}">🧠 Lernnotiz</button>
       <button class="btn" data-action="habit-edit" data-id="${h.id}">✏️ Bearbeiten</button>
       <button class="btn danger" data-action="habit-delete" data-id="${h.id}" data-sheet="1">🗑 Löschen</button>
     </div>
@@ -131,6 +132,15 @@ function openDetail(id) {
 
 registerActions({
   'habit-open': (d) => openDetail(d.id),
+  'habit-note': async (d) => {
+    const h = byId(d.id); if (!h) return;
+    const label = h.text || 'Gewohnheit';
+    const { openNoteComposer } = await import('../note-ui.js');
+    openNoteComposer({
+      heading: 'Lernnotiz zur Routine', noteClass: 'learning', tags: [label], lockedTags: [label],
+      source: { app: 'habits', entityType: 'habit', entityId: h.id, label, route: '#/gewohnheiten' },
+    });
+  },
   'habit-edit': (d) => {
     const h = byId(d.id); if (!h) return;
     openSheet({ title: 'Routine bearbeiten', size: 'half', body: editHtml(h) });

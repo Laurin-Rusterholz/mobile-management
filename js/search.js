@@ -9,8 +9,8 @@ import * as store from './store.js';
 const TYPES = [
   { key: 'task',    label: 'Aufgaben',   icon: '✅', get: () => store.getTasks(),   text: t => `${t.title} ${t.description || ''}`, route: 'planen' },
   { key: 'project', label: 'Projekte',   icon: '📦', get: () => store.getProjects(),text: p => `${p.title} ${p.description || ''}`, route: 'planen' },
-  { key: 'note',    label: 'Notizen',    icon: '📝', get: () => store.getNotes(),   text: n => `${n.title || ''} ${n.content || ''}`, route: 'noteflow' },
-  { key: 'idea',    label: 'Ideen',      icon: '💡', get: () => store.getIdeas(),   text: i => `${i.title} ${i.text || ''}`, route: 'ideen' },
+  { key: 'note',    label: 'Notizen',    icon: '📝', get: () => store.getNotes().filter(n => n.noteClass !== 'idea'), text: n => `${n.title || ''} ${n.content || ''} ${(n.tags || []).join(' ')}`, route: 'noteflow' },
+  { key: 'idea',    label: 'Ideen',      icon: '💡', get: () => store.getIdeaNotes(), text: i => `${i.title || ''} ${i.content || ''} ${(i.tags || []).join(' ')}`, route: 'ideen' },
   { key: 'meeting', label: 'Meetings',   icon: '🤝', get: () => store.getMeetings(),text: m => `${m.title || ''} ${m.location || ''}`, route: 'meetings' },
   { key: 'habit',   label: 'Gewohnheiten',icon: '🔁',get: () => store.getHabits(),  text: h => `${h.text || ''}`, route: 'gewohnheiten' },
   { key: 'card',    label: 'Flashcards', icon: '🎴', get: () => store.getCards(),   text: c => `${c.front || ''} ${c.back || ''}`, route: 'flashcards' },
@@ -53,7 +53,7 @@ function runSearch(root, q) {
     html += `<div class="search-group-title">${t.icon} ${t.label}</div>`;
     hits.forEach(x => {
       const label = x.title || x.text || x.front || x.content || '(ohne Titel)';
-      html += `<button class="search-hit" data-action="search-open" data-route="${t.route}">${escHTML(String(label).slice(0, 80))}</button>`;
+      html += `<button class="search-hit" data-action="search-open" data-route="${t.route}" data-kind="${t.key}" data-id="${escHTML(x.id || '')}">${escHTML(String(label).slice(0, 80))}</button>`;
     });
   });
   results.innerHTML = count ? html : `<div class="empty"><div class="empty-icon">🤷</div><div class="empty-sub">Nichts gefunden für „${escHTML(q)}".</div></div>`;
@@ -68,6 +68,9 @@ registerActions({
   },
   'search-open': (d) => {
     import('./util.js').then(m => m.closeSheet());
-    navigate(d.route);
+    // Zentrale Notizen (inkl. Ideen) direkt öffnen; andere Typen führen wie
+    // bisher in ihre App-Liste.
+    if ((d.kind === 'note' || d.kind === 'idea') && d.id) navigate('noteflow', { params: { id: d.id } });
+    else navigate(d.route);
   },
 });

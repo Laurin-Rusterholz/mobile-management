@@ -82,6 +82,7 @@ export const MORE_MODULES = [
   { key: 'noteflow',     label: 'Noteflow',      icon: '📝', route: 'noteflow',     desc: 'Notizen & Verknüpfungen' },
   { key: 'gewohnheiten', label: 'Gewohnheiten',  icon: '🔁', route: 'gewohnheiten', desc: 'Routinen & Serien' },
   { key: 'flashcards',   label: 'Flashcards',    icon: '🎴', route: 'flashcards',   desc: 'Spaced Repetition' },
+  { key: 'readinghub',   label: 'Reading Hub',   icon: '📚', route: 'readinghub',   desc: 'Bücher registrieren & Lesenotizen' },
   { key: 'leseplan',     label: 'Leseplan',      icon: '📖', route: 'leseplan',     desc: 'Dokumente aufs Zieldatum verteilt' },
   // Smarter und BM-Vorbereitung fuehren bewusst auf dieselbe Ansicht: der
   // Leseplan IST beides. Zwei Kacheln, weil beide Namen gesucht werden.
@@ -148,6 +149,7 @@ export const SPRINGBOARD_PAGES = [
       { key: 'noteflow',   label: 'Noteflow',   icon: '📝', route: 'noteflow',   tone: 'violet' },
       { key: 'ideen',      label: 'Ideen',      icon: '💡', route: 'ideen',      tone: 'sand' },
       { key: 'flashcards', label: 'Flashcards', icon: '🎴', route: 'flashcards', tone: 'red' },
+      { key: 'readinghub', label: 'Reading Hub', icon: '📚', route: 'readinghub', tone: 'blue' },
       { key: 'leseplan',   label: 'Leseplan',   icon: '📖', route: 'leseplan',   tone: 'blue' },
       { key: 'career',     label: 'Career',     icon: '🧗', route: 'career',     tone: 'coral' },
       { key: 'pinnboard',  label: 'Pinnboard',  icon: '📌', route: 'pinnboard',  tone: 'coral' },
@@ -186,6 +188,7 @@ export const SPRINGBOARD_DOCK = [
 
 // Inhaltstypen des zentralen „Neu"-Buttons
 export const NEW_TYPES = [
+  { key: 'shortnote',label: 'Shortnote',      icon: '⚡', route: 'noteflow' },
   { key: 'task',     label: 'Aufgabe',        icon: '✅', route: 'planen' },
   { key: 'project',  label: 'Projekt',        icon: '📦', route: 'planen' },
   { key: 'idea',     label: 'Idee',           icon: '💡', route: 'ideen' },
