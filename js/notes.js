@@ -225,13 +225,25 @@ function sameJson(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 function entityMap(value, prefix) {
   if (value && typeof value === 'object' && !Array.isArray(value)) return value;
   const output = {};
-  (Array.isArray(value) ? value : []).forEach((entry, index) => {
+  const input = Array.isArray(value) ? value : [];
+  Object.keys(input).forEach((key) => {
+    const entry = input[key];
     const item = entry && typeof entry === 'object' ? { ...entry } : { legacyValue: entry };
-    const base = text(item.id) || `legacy_${prefix}_${index}`;
+    const rawKey = String(key);
+    const keyPart = /^(0|[1-9]\d*)$/.test(rawKey)
+      ? rawKey
+      : (rawKey.replace(/[^A-Za-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'key');
+    const base = text(item.id) || `legacy_${prefix}_${keyPart}`;
     const id = freeEntityId(output, base);
-    output[id] = { ...item, id };
+    Object.defineProperty(output, id, {
+      value: { ...item, id }, enumerable: true, writable: true, configurable: true,
+    });
   });
   return output;
+}
+
+function isDeletedEntity(value) {
+  return !!(value && (value.deleted || value.archived || value.status === 'deleted' || value.deletedAt));
 }
 
 /**
@@ -260,7 +272,7 @@ export function migrateNotesData(data, now = new Date().toISOString()) {
   // und Kategorie werden danach ausschließlich an der Notiz bearbeitet.
   const ideas = entities.ideas && typeof entities.ideas === 'object' ? entities.ideas : {};
   Object.entries(ideas).forEach(([ideaKey, idea]) => {
-    if (!idea || idea.deleted || idea.archived) return;
+    if (!idea || isDeletedEntity(idea)) return;
     const ideaId = idea.id || ideaKey;
     const dedupeKey = `ideas:${ideaId}`;
     const linked = findIdeaNote(entities.notes, idea, ideaId);

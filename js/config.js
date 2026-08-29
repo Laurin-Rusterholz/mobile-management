@@ -13,6 +13,7 @@ export const DEFAULT_BLOB_KEY = 'app-data.json';
 // localStorage-Keys (Prefix qm- für die neue App; alte qc-mobile-* werden migriert)
 export const LS = {
   pending:      'qm-pending-changes',
+  pendingConflicts: 'qm-pending-conflicts',
   lastData:     'qm-last-data',
   lastEtag:     'qm-last-etag',
   baseUrl:      'qm-base-url',

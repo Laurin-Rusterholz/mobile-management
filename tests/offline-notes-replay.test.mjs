@@ -40,6 +40,21 @@ eq(store.state.data.entities.notes.n1.content, 'C', 'letzte lokale Folgeoperatio
 eq(store.state.data.entities.notes.n1.updatedAt, '2026-08-29T10:05:00.000Z', 'Replay stempelt die Änderung mit der späteren Wiederverbindungszeit');
 ok(!('_queue' in store.state.data.entities.notes.n1), 'Queue-Metadaten gelangen in die synchronisierte Entität');
 
+// Nur die tatsächlich lokal geänderten Felder konkurrieren. Eine komplette
+// Formular-Payload darf eine unabhängige Serveränderung nicht zurücksetzen.
+const baseWithFavorite = note('merge', 'A', '2026-08-29T09:00:00.000Z', { favorite: false });
+store.state.data = snapshot([structuredClone(baseWithFavorite)]);
+const contentOnly = store.preparePendingOp({
+  type: 'update-note',
+  payload: { ...structuredClone(baseWithFavorite), title: 'B', content: 'B' },
+}, '2026-08-29T10:00:00.000Z');
+eq(contentOnly._queue.intentFields.sort(), ['content', 'title'], 'Queue speichert nicht nur die tatsächliche Feldabsicht');
+store.state.data = snapshot([{ ...structuredClone(baseWithFavorite), favorite: true, updatedAt: '2026-08-29T11:00:00.000Z' }]);
+const nonOverlap = store.replayPendingOperations([contentOnly]);
+eq(nonOverlap.applied.length, 1, 'nicht überlappende Offline-Änderung wird verworfen');
+eq([store.state.data.entities.notes.merge.content, store.state.data.entities.notes.merge.favorite], ['B', true], 'Remote- und Offline-Felder werden nicht verlustfrei gemergt');
+eq(store.state.data.entities.notes.merge.updatedAt, '2026-08-29T11:00:00.000Z', 'neuere unabhängige Serverversion wird beim Merge zurückdatiert');
+
 // Server D ist nach beiden lokalen Basen entstanden: keine der veralteten
 // Update-Operationen darf ihn überschreiben.
 const serverD = note('n1', 'D vom Server', '2026-08-29T11:00:00.000Z');
@@ -48,6 +63,7 @@ const staleUpdates = store.replayPendingOperations([opAB, opBC]);
 eq(staleUpdates.applied.length, 0, 'veraltete Updates werden trotz neuerem Serverstand angewendet');
 eq(staleUpdates.skipped.length, 2, 'nicht alle veralteten Updates werden erkannt');
 eq(store.state.data.entities.notes.n1.content, 'D vom Server', 'Offline-Update überschreibt den neueren Serverstand');
+ok(staleUpdates.skipped.every((op) => op._queue.conflict), 'echte Feldkonflikte werden nicht als Konflikt erhalten');
 
 // Kaskadenkonflikt: D liegt zeitlich nach Basis A, aber vor dem lokalen B.
 // Nachdem A→B verworfen wurde, darf B→C D nicht doch noch überschreiben.
@@ -91,5 +107,22 @@ eq(inbox.filter((item) => item.item.id === idea.id).map((item) => item.kind), ['
 store.state.data.entities.notes[idea.id].ideaMeta.status = 'planned';
 inbox = store.getInboxItems();
 ok(!inbox.some((item) => item.item.id === idea.id), 'geplante kanonische Idee bleibt in der Inbox');
+
+// Beide Gerätefamilien verwenden historisch unterschiedliche Tombstones.
+// Mobile liest alle Marker und schreibt beim Löschen die interoperable Form.
+store.state.data = snapshot([
+  note('tablet-status', 'weg', '2026-08-29T10:00:00.000Z', { status: 'deleted' }),
+  note('tablet-time', 'weg', '2026-08-29T10:00:00.000Z', { deletedAt: '2026-08-29T10:00:00.000Z' }),
+  note('mobile-flag', 'weg', '2026-08-29T10:00:00.000Z', { deleted: true }),
+]);
+eq(store.getNotes(), [], 'fremde Tombstone-Formen erscheinen als aktive Notizen');
+store.state.data = snapshot([note('delete-me', 'weg', '2026-08-29T10:00:00.000Z')]);
+store.applyOp({ type: 'delete-note', payload: { id: 'delete-me' }, _queue: { queuedAt: '2026-08-29T12:00:00.000Z' } });
+const deleted = store.state.data.entities.notes['delete-me'];
+ok(deleted.deleted && deleted.status === 'deleted' && deleted.deletedAt === '2026-08-29T12:00:00.000Z', 'Mobile-Delete schreibt keinen interoperablen Tombstone');
+eq(store.getNotes(), [], 'mobil gelöschte Notiz bleibt in Accessors sichtbar');
+
+const sourceText = await import('node:fs').then((fs) => fs.readFileSync(new URL('../js/store.js', import.meta.url), 'utf8'));
+ok(sourceText.includes('LS.pendingConflicts') && sourceText.includes('conflict: true'), 'übersprungene Offline-Konflikte werden nicht separat erhalten');
 
 console.log(`Offline-Notiz-Replay: ok (${checks} Prüfungen)`);

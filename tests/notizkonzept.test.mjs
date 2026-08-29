@@ -120,13 +120,25 @@ const arrayLegacy = { entities: {
   ideas: [{ id: 'array-idea', text: 'Array-Idee', category: 'Produkt' }],
   notebooks: [{ id: 'nb', title: 'First Notebook' }, { id: 'nb', title: 'Second Notebook' }],
 } };
+arrayLegacy.entities.notes.push({ id: '__proto__', content: 'Reserved note', source: 'mobile' });
+arrayLegacy.entities.notebooks.push({ id: '__proto__', title: 'Reserved notebook' });
+arrayLegacy.entities.books.push({ id: '__proto__', title: 'Reserved book' });
+arrayLegacy.entities.ideas.push({ id: '__proto__', text: 'Reserved idea', category: 'System' });
+arrayLegacy.entities.notes[14] = { content: 'Sparse note', source: 'mobile' };
+arrayLegacy.entities.notes['custom tag'] = { content: 'String-key note', source: 'mobile' };
 migrateNotesData(arrayLegacy, '2026-08-29T10:00:00.000Z');
 eq(Object.keys(arrayLegacy.entities.notes).filter((id) => id.startsWith('dup')), ['dup', 'dup_2'], 'doppelte Notiz-IDs gehen bei Array→Map verloren');
 eq([arrayLegacy.entities.notes.dup.content, arrayLegacy.entities.notes.dup_2.content], ['First', 'Second']);
-eq(Object.keys(arrayLegacy.entities.books), ['book-1', 'book-1_2'], 'doppelte Buch-IDs gehen bei Array→Map verloren');
+eq(Object.keys(arrayLegacy.entities.books).filter((id) => id.startsWith('book-1')), ['book-1', 'book-1_2'], 'doppelte Buch-IDs gehen bei Array→Map verloren');
 eq([arrayLegacy.entities.books['book-1'].title, arrayLegacy.entities.books['book-1_2'].title], ['First Book', 'Second Book']);
-eq(Object.keys(arrayLegacy.entities.notebooks), ['nb', 'nb_2'], 'doppelte Notizbuch-IDs gehen bei Array→Map verloren');
+eq(Object.keys(arrayLegacy.entities.notebooks).filter((id) => id.startsWith('nb')), ['nb', 'nb_2'], 'doppelte Notizbuch-IDs gehen bei Array→Map verloren');
 ok(!Array.isArray(arrayLegacy.entities.ideas) && arrayLegacy.entities.ideas['array-idea'], 'Ideas-Array wird nicht verlustfrei normalisiert');
+for (const name of ['notes', 'notebooks', 'books', 'ideas']) {
+  ok(Object.prototype.hasOwnProperty.call(arrayLegacy.entities[name], '__proto__'), `${name}: reservierte ID geht verloren`);
+}
+ok(Object.getPrototypeOf(arrayLegacy.entities.notes) === Object.prototype, 'reservierte ID polluiert den Map-Prototyp');
+ok(arrayLegacy.entities.notes.legacy_note_14.content === 'Sparse note', 'sparse Array-Position geht verloren');
+ok(arrayLegacy.entities.notes.legacy_note_custom_tag.content === 'String-key note', 'enumerable String-Property geht verloren');
 ok(arrayLegacy.entities.notes.dup_2.noteClass === 'reading' && arrayLegacy.entities.notes.dup_2.source.app === 'readinghub'
   && arrayLegacy.entities.notes.dup_2.source.entityId === 'book-1', 'bookId wird nicht als Reading-Hub-Kontext migriert');
 ok(arrayLegacy.entities.notes.research.noteClass === 'research' && arrayLegacy.entities.notes.research.source.app === 'articles', 'articleId wird nicht als articles-Recherche migriert');
@@ -139,6 +151,14 @@ ok(arrayLegacy.entities.notes.quick.noteClass === 'short' && arrayLegacy.entitie
 const arraySnapshot = JSON.stringify(arrayLegacy);
 const arrayAgain = migrateNotesData(arrayLegacy, '2026-08-30T10:00:00.000Z');
 ok(!arrayAgain.changed && JSON.stringify(arrayLegacy) === arraySnapshot, 'lossless Array-Migration ist nicht idempotent');
+
+const deletedIdeaPayload = { entities: { notes: {}, notebooks: {}, books: {}, ideas: {
+  mobile: { id: 'mobile', text: 'weg', deleted: true },
+  tablet: { id: 'tablet', text: 'weg', status: 'deleted', deletedAt: '2026-08-29T10:00:00.000Z' },
+  archived: { id: 'archived', text: 'weg', archived: true },
+} } };
+migrateNotesData(deletedIdeaPayload, '2026-08-29T11:00:00.000Z');
+eq(Object.keys(deletedIdeaPayload.entities.notes), [], 'gelöschte Idea-Shadows werden als zentrale Notizen wiederbelebt');
 
 eq(['new', 'unread', 'registriert'].map(bookStatus), ['registered', 'registered', 'registered']);
 eq(['reading', 'pausiert', 'read', 'done', 'abgebrochen'].map(bookStatus), ['reading', 'paused', 'completed', 'completed', 'abandoned']);

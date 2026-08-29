@@ -24,6 +24,7 @@ export const state = {
   data: null,
   etag: null,
   pending: [],
+  conflicts: [],
   syncing: false,
   initialPullDone: false,          // Schutz: nie pushen, bevor Server-Daten gesehen wurden
   initialPullStatus: 'pending',    // pending | ok | empty | failed
@@ -204,6 +205,10 @@ function entityFingerprint(entity) {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
+function fieldFingerprint(value) {
+  return entityFingerprint({ value });
+}
+
 function entityVersion(entity) {
   return entity && (entity.updatedAt || entity.modifiedAt || entity.createdAt) || null;
 }
@@ -239,15 +244,25 @@ function pendingTarget(op, data = state.data) {
 export function preparePendingOp(op, queuedAt = nowISO()) {
   if (!op || typeof op !== 'object' || op._queue) return op;
   const target = pendingTarget(op);
+  const { verb } = operationParts(op);
+  const payload = op.payload && typeof op.payload === 'object' ? { ...op.payload } : op.payload;
+  const ignored = new Set(['id', 'createdAt', 'updatedAt', 'modifiedAt']);
+  const intentFields = verb === 'update' && target && payload && typeof payload === 'object'
+    ? Object.keys(payload).filter((key) => !ignored.has(key)
+      && fieldFingerprint(payload[key]) !== fieldFingerprint(target[key]))
+    : [];
+  const baseFields = Object.fromEntries(intentFields.map((key) => [key, fieldFingerprint(target[key])]));
   return {
     ...op,
-    payload: op.payload && typeof op.payload === 'object' ? { ...op.payload } : op.payload,
+    payload,
     _queue: {
-      version: 1,
+      version: 2,
       queuedAt,
       baseExists: !!target,
       baseUpdatedAt: entityVersion(target),
       baseFingerprint: target ? entityFingerprint(target) : null,
+      intentFields,
+      baseFields,
     },
   };
 }
@@ -255,8 +270,9 @@ export function preparePendingOp(op, queuedAt = nowISO()) {
 /** Server-wins nur dann, wenn der gezogene Stand nachweislich neuer ist. */
 export function shouldSkipPendingOp(op, remoteEntity) {
   const { verb } = operationParts(op);
-  if (!remoteEntity || !['add', 'update', 'delete'].includes(verb)) return false;
+  if (!['add', 'update', 'delete'].includes(verb)) return false;
   const queue = op && op._queue;
+  if (!remoteEntity) return !!(queue && queue.baseExists && (verb === 'update' || verb === 'delete'));
   const remoteVersion = entityVersion(remoteEntity);
   const remoteTime = validTime(remoteVersion);
 
@@ -267,6 +283,9 @@ export function shouldSkipPendingOp(op, remoteEntity) {
       // anderen Gerät. Allein ihre Existenz beweist eine Änderung gegenüber
       // der gelesenen Basis; bei einer Kollision bleibt deshalb der Server.
       return true;
+    }
+    if (Number(queue.version) >= 2 && verb === 'update' && Array.isArray(queue.intentFields)) {
+      return queue.intentFields.some((key) => fieldFingerprint(remoteEntity[key]) !== queue.baseFields[key]);
     }
     // Der Fingerprint ist die eigentliche Basisversion. Er macht auch einen
     // Konflikt in einer Kette sichtbar: Wird A→B verworfen, darf B→C nicht
@@ -286,6 +305,23 @@ export function shouldSkipPendingOp(op, remoteEntity) {
   return remoteTime != null && payloadTime != null ? remoteTime > payloadTime : true;
 }
 
+function replayIntent(op, remoteEntity) {
+  const queue = op && op._queue;
+  const { verb } = operationParts(op);
+  if (verb !== 'update' || !queue || Number(queue.version) < 2 || !Array.isArray(queue.intentFields)) return op;
+  const payload = { id: op.payload && op.payload.id };
+  queue.intentFields.forEach((key) => { payload[key] = op.payload[key]; });
+  if (op.payload && op.payload.dedupeKey && !Object.prototype.hasOwnProperty.call(payload, 'dedupeKey')) {
+    payload.dedupeKey = op.payload.dedupeKey;
+  }
+  const remoteTime = validTime(entityVersion(remoteEntity));
+  const queuedTime = validTime(queue.queuedAt);
+  const effectiveTime = remoteTime != null && (queuedTime == null || remoteTime > queuedTime)
+    ? entityVersion(remoteEntity)
+    : queue.queuedAt;
+  return { ...op, payload, _queue: { ...queue, queuedAt: effectiveTime } };
+}
+
 export function replayPendingOperations(ops) {
   const list = Array.isArray(ops) ? ops.filter(Boolean) : [];
   const applied = []; const skipped = [];
@@ -295,8 +331,12 @@ export function replayPendingOperations(ops) {
     // auf D, bleibt D stehen und beide veralteten Schritte werden verworfen.
     const current = pendingTarget(op);
     const baseline = current ? JSON.parse(JSON.stringify(current)) : null;
-    if (shouldSkipPendingOp(op, baseline)) skipped.push(op);
-    else { applyOp(op); applied.push(op); }
+    if (shouldSkipPendingOp(op, baseline)) skipped.push({ ...op, _queue: { ...(op._queue || {}), conflict: true } });
+    else {
+      const next = replayIntent(op, baseline);
+      applyOp(next);
+      applied.push(next);
+    }
   });
   return { applied, skipped };
 }
@@ -312,6 +352,11 @@ async function applyPendingChanges() {
     // state.syncing würde pushData den Schreibversuch korrekt blockieren).
     const replay = replayPendingOperations(ops);
     state.pending = replay.applied.slice();
+    const priorConflicts = (() => {
+      try { return JSON.parse(localStorage.getItem(LS.pendingConflicts) || '[]'); } catch (_) { return []; }
+    })();
+    state.conflicts = [...(Array.isArray(priorConflicts) ? priorConflicts : []), ...replay.skipped];
+    if (state.conflicts.length) localStorage.setItem(LS.pendingConflicts, JSON.stringify(state.conflicts));
     if (state.pending.length) {
       savePending();
       state.replayPending = true;
@@ -336,6 +381,13 @@ export async function performOp(op) {
 
 export async function manualSync() { await pullData(); }
 export function pendingCount() { return state.pending.length; }
+export function pendingConflicts() {
+  if (state.conflicts.length) return state.conflicts.slice();
+  try {
+    const stored = JSON.parse(localStorage.getItem(LS.pendingConflicts) || '[]');
+    return Array.isArray(stored) ? stored : [];
+  } catch (_) { return []; }
+}
 export function pullStatus() { return state.initialPullStatus; }
 
 // ─────────────────────────────────────────────────────────────
@@ -379,7 +431,7 @@ export function applyOp(op) {
         // Auch alte oder noch nicht aktualisierte Views können keine rohe,
         // unklassifizierte Notiz mehr in den gemeinsamen Bestand schreiben.
         const next = migrateNote(op.payload);
-        const duplicate = next.dedupeKey && Object.values(coll).find(n => n && !n.deleted && n.dedupeKey === next.dedupeKey);
+        const duplicate = next.dedupeKey && Object.values(coll).find(n => n && !isDeleted(n) && n.dedupeKey === next.dedupeKey);
         if (duplicate) Object.assign(duplicate, next, { id: duplicate.id, createdAt: duplicate.createdAt || next.createdAt, updatedAt: mutationTime });
         else coll[next.id] = next;
       } else if (kind === 'book') coll[op.payload.id] = { ...op.payload, status: bookStatus(op.payload.status) };
@@ -397,7 +449,12 @@ export function applyOp(op) {
     } else if (verb === 'delete') {
       // Soft-Delete (Quantus nutzt Tombstones/Flags) statt hartem Entfernen
       const cur = coll[op.payload.id];
-      if (cur) { cur.deleted = true; cur.updatedAt = mutationTime; }
+      if (cur) {
+        cur.deleted = true;
+        cur.status = 'deleted';
+        cur.deletedAt = mutationTime;
+        cur.updatedAt = mutationTime;
+      }
     }
     return;
   }
@@ -582,7 +639,8 @@ function coll(name) {
   const c = state.data && state.data.entities && state.data.entities[name];
   return c && typeof c === 'object' ? Object.values(c) : [];
 }
-const alive = x => x && !x.deleted && !x.archived;
+export const isDeleted = x => !!(x && (x.deleted || x.archived || x.status === 'deleted' || x.deletedAt));
+const alive = x => x && !isDeleted(x);
 
 export const getTasks       = () => coll('tasks').filter(alive);
 export const getProjects    = () => coll('projects').filter(alive);
