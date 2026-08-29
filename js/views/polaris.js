@@ -106,6 +106,56 @@ export function formatMessage(text) {
   return raus.join('');
 }
 
+// ── Die Tastatur ────────────────────────────────────────────────────────────
+// iOS Safari verkleinert bei geoeffneter Tastatur NICHT das Layout-Fenster:
+// 100dvh bleibt, was es war. Passt die Seite nicht in den Rest, verschiebt
+// Safari stattdessen das ganze Bild nach oben, bis das Feld ueber der Tastatur
+// steht — auf dem iPhone 13 gemessen 274 px. Die Kopfzeile faellt komplett
+// heraus, die Nachrichten sind oben abgeschnitten.
+// Nur das visuelle Fenster weiss davon. Also fragen wir es: die Ueberdeckung
+// geht als --kb ans Layout, die Tab-Leiste tritt beim Tippen ab — dann passt
+// alles in den sichtbaren Streifen und Safari muss nichts mehr verschieben.
+// Eine Zubehoerleiste allein ist keine Tastatur, deshalb die Schwelle.
+const TASTATUR_SCHWELLE = 80;
+let tastaturAb = null;
+
+function tastaturBeobachten() {
+  // Ein Neuaufbau darf nicht zwei Beobachter hinterlassen. Die Wache steht
+  // hier und nicht beim Aufrufer: wer anmeldet, meldet auch ab.
+  if (tastaturAb) tastaturAb();
+  const vv = window.visualViewport;
+  const layout = document.getElementById('layout');
+  if (!vv || !layout) return;
+  const messen = () => {
+    // NUR innerHeight - vv.height, NICHT minus vv.offsetTop. Der Versatz ist
+    // Safaris Notbehelf, nicht die Tastatur: hat Safari schon verschoben,
+    // zoege ihn die Formel wieder ab, der Wert fiele unter die Schwelle, die
+    // Ansicht ginge auf, Safari verschoebe erneut — ein Flackern zwischen
+    // beiden Zustaenden. Die Tastaturhoehe steht allein in vv.height.
+    const ueberdeckung = Math.max(0, Math.round(window.innerHeight - vv.height));
+    const offen = ueberdeckung > TASTATUR_SCHWELLE;
+    layout.style.setProperty('--kb', ueberdeckung + 'px');
+    layout.classList.toggle('keyboard-open', offen);
+    // Hat Safari schon verschoben, holen wir das zurueck: ab jetzt passt es.
+    if (offen && window.scrollY) window.scrollTo(0, 0);
+    const host = document.getElementById('chatMessages');
+    if (host) host.scrollTop = host.scrollHeight;
+  };
+  vv.addEventListener('resize', messen);
+  vv.addEventListener('scroll', messen);
+  messen();
+  // Was beim Betreten angemeldet wird, muss beim Verlassen wieder ab — sonst
+  // rechnet der Beobachter in einer laengst verlassenen Ansicht weiter und
+  // laesst die Tab-Leiste dort verschwinden.
+  tastaturAb = () => {
+    vv.removeEventListener('resize', messen);
+    vv.removeEventListener('scroll', messen);
+    layout.style.removeProperty('--kb');
+    layout.classList.remove('keyboard-open');
+    tastaturAb = null;
+  };
+}
+
 function renderMessages() {
   const host = document.getElementById('chatMessages'); if (!host) return;
   const chat = currentChat();
@@ -131,24 +181,36 @@ registerActions({
 export default {
   title: 'Polaris', icon: '🛰️',
   render() {
+    // Die App-Kopfzeile sagt schon „Polaris" — hier steht stattdessen, in
+    // welchem Chat man ist. Die zweite grosse Ueberschrift hat 35 px
+    // gekostet und nichts gesagt.
+    const chat = currentChat();
+    const titel = chat && chat.title ? chat.title : 'Neuer Chat';
     return `<div class="chat-view">
       <div class="chat-head">
-        <div class="page-title">🛰️ Polaris</div>
-        <button class="chip" data-action="polaris-new">＋ Neu</button>
+        <div class="chat-head-title">${escHTML(titel)}</div>
+        <button class="chip mini" data-action="polaris-new">＋ Neu</button>
       </div>
       <div class="chat-messages" id="chatMessages"></div>
       <div class="chat-input-bar">
-        <input id="chatInput" class="input" placeholder="Frag Polaris…" autocomplete="off">
-        <button class="btn primary chat-send" data-action="polaris-send" aria-label="Senden">➤</button>
+        <div class="chat-input-pill">
+          <input id="chatInput" class="chat-field" placeholder="Frag Polaris…" autocomplete="off"
+                 enterkeyhint="send" autocapitalize="sentences">
+          <button class="chat-send" data-action="polaris-send" aria-label="Senden">➤</button>
+        </div>
       </div>
     </div>`;
   },
   mount(root) {
     renderMessages();
+    tastaturBeobachten();
     const inp = root.querySelector('#chatInput');
     if (!inp) return;
     inp.value = entwurf;                                  // Neuaufbau ueberlebt
     inp.addEventListener('input', () => { entwurf = inp.value; });
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); senden(); } });
+  },
+  unmount() {
+    if (tastaturAb) tastaturAb();
   },
 };
