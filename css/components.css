@@ -242,43 +242,99 @@ textarea.input { resize: vertical; }
  * 3. DER SICHERE RAND ZAEHLTE DOPPELT. Die Hoehe zog --safe-bottom ab, die
  *    Eingabezeile polsterte ihn noch einmal: auf einem Geraet mit Aussparung
  *    ein leerer Streifen von 34 px in der Zeile.
+ * 4. DIE TASTATUR WARF DIE HALBE ANSICHT HERAUS. iOS Safari verkleinert bei
+ *    offener Tastatur NICHT das Layout-Fenster: 100dvh bleibt, was es war.
+ *    Passt die Seite nicht in den Rest, verschiebt Safari das ganze Bild nach
+ *    oben, bis das Feld ueber der Tastatur steht — gemessen 274 px. Die
+ *    Kopfzeile fiel komplett heraus, die Nachrichten waren oben
+ *    abgeschnitten, und die Tab-Leiste haengte sich an die Tastatur und nahm
+ *    dem Text weitere 62 px weg. Jetzt meldet die Ansicht die Ueberdeckung
+ *    als --kb ans Layout und die Tab-Leiste tritt beim Tippen ab: es passt,
+ *    also verschiebt Safari nichts.
  *
- * Die Ansicht rechnet jetzt nichts mehr selbst aus: .content ist auf dieser
- * Route die Flaeche (Polster nur fuer die Tab-Leiste, kein eigener Scrollweg),
- * .chat-view fuellt sie per flex. Eine Hoehe, an einer Stelle.
+ * Die Ansicht rechnet ihre Hoehe nicht selbst aus: .content ist auf dieser
+ * Route die Flaeche, .chat-view fuellt sie per flex. Eine Hoehe, an einer
+ * Stelle — und nur ein Wert (--kb) kommt von aussen dazu.
  */
+/* .main hat nur ein min-height. Ohne feste Hoehe ist die Hoehe des
+   Flex-Behaelters unbestimmt — und ein Kind mit flex:1 wird dann von seinem
+   INHALT bemessen statt vom freien Platz. Bei einem langen Verlauf wuchs
+   .content deshalb wieder ueber den Bildschirm hinaus (gemessen: 761 statt
+   610 px), und die ganze Seite bekam ihren Scrollweg zurueck. Mit kurzem
+   Verlauf faellt das nicht auf — deshalb steht im Test ein langer. */
+.layout[data-route="polaris"] .main { height: 100dvh; min-height: 0; }
 .layout[data-route="polaris"] .content {
   display: flex; flex-direction: column; min-height: 0; overflow: hidden;
   padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom));
 }
 .layout.tablet[data-route="polaris"] .content { padding-bottom: 0; }
 .layout[data-route="polaris"] .fab { display: none; }
+/* Tastatur offen: der Chat weicht ihr genau aus, die Tab-Leiste tritt ab.
+   Sie waere sonst der einzige Grund, warum es nicht mehr passt — und beim
+   Schreiben navigiert niemand. */
+.layout[data-route="polaris"].keyboard-open .content { padding-bottom: var(--kb, 0px); }
+.layout[data-route="polaris"].keyboard-open .tabbar { display: none; }
+
 .chat-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.chat-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
-.chat-messages { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }
-.chat-intro { color: var(--text-muted); text-align: center; padding: 30px 20px; font-size: 14px; }
-.chat-msg { max-width: 82%; padding: 10px 13px; border-radius: 16px; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
-.chat-msg.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); border-bottom-right-radius: 5px; }
-.chat-msg.assistant { align-self: flex-start; background: var(--surface-raised); border: 1px solid var(--border); border-bottom-left-radius: 5px; }
-.chat-msg.pending { opacity: .6; font-style: italic; }
+/* Die Kopfzeile der App sagt schon „Polaris". Statt das gross zu wiederholen,
+   steht hier der Titel des laufenden Chats — schmal, und die 35 px, die die
+   zweite Ueberschrift gekostet hat, gehoeren jetzt dem Text. */
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 14px 4px; }
+.chat-head-title { font-size: 12px; font-weight: 600; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+.chat-intro { color: var(--text-muted); text-align: center; padding: 40px 24px; font-size: 14px; line-height: 1.6; }
+
+.chat-msg { font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; }
+/* Die eigene Frage bleibt eine Blase — sie ist kurz und soll sich absetzen. */
+.chat-msg.user {
+  align-self: flex-end; max-width: 84%; padding: 10px 14px;
+  background: var(--accent); color: var(--on-accent);
+  border-radius: 20px; border-bottom-right-radius: 6px;
+}
+/* Die ANTWORT bekommt keine Blase. Auf 390 px war der Rahmen ein Kasten um
+   fast den ganzen Bildschirm: er hat nichts getrennt, nur Platz gekostet und
+   den Text auf 82 % eingeschnuert. Ohne ihn liest sich die Antwort wie ein
+   Absatz statt wie ein Formularfeld. */
+.chat-msg.assistant { align-self: stretch; max-width: 100%; padding: 0 2px; color: var(--text-primary); }
+.chat-msg.pending { opacity: .55; font-style: italic; }
 /* Antworten kommen in Markdown und werden zu echten Bloecken. Die
    Vorgabewerte des Browsers (16 px Absatz-Abstand, 40 px Listen-Einzug)
-   sprengen eine 82 % breite Blase auf 390 px — deshalb eigene Werte. */
+   sind auf 390 px zu viel — deshalb eigene Werte. */
 .chat-msg > :first-child { margin-top: 0; }
 .chat-msg > :last-child { margin-bottom: 0; }
-.chat-msg p { margin: 0 0 8px; }
-.chat-msg h4 { margin: 10px 0 6px; font-size: 14px; font-weight: 700; }
-.chat-msg ul, .chat-msg ol { margin: 0 0 8px; padding-left: 20px; }
-.chat-msg li { margin: 2px 0; }
-.chat-msg code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: var(--hover); border-radius: 5px; padding: 1px 5px; }
+.chat-msg p { margin: 0 0 10px; }
+.chat-msg h4 { margin: 14px 0 6px; font-size: 15px; font-weight: 700; }
+.chat-msg ul, .chat-msg ol { margin: 0 0 10px; padding-left: 20px; }
+.chat-msg li { margin: 4px 0; }
+.chat-msg code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: var(--hover); border-radius: 5px; padding: 1px 5px; }
 .chat-msg a { text-decoration: underline; }
 .chat-msg.user a { color: inherit; }
-/* Das untere Polster steckt auf dem Handy in .content (Tab-Leiste + sicherer
-   Rand). Auf dem Tablet gibt es dort keine Leiste — dort haelt die Zeile ihn
-   selbst. Frueher tat sie es immer, und der Rand zaehlte doppelt. */
-.chat-input-bar { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); background: var(--surface-base); }
-.layout.tablet .chat-input-bar { padding-bottom: calc(10px + var(--safe-bottom)); }
-.chat-input-bar .input { flex: 1; min-width: 0; } .chat-input-bar .btn { flex-shrink: 0; }
+
+/* Die Eingabe ist EIN Feld, nicht Kasten neben Knopf: Rahmen und Fokusring
+   liegen auf der Huelle, Feld und Knopf sitzen darin. Das untere Polster
+   steckt auf dem Handy in .content (Tab-Leiste bzw. Tastatur). Auf dem Tablet
+   gibt es dort keine Leiste — dort haelt die Zeile den sicheren Rand selbst.
+   Frueher tat sie es immer, und der Rand zaehlte doppelt. */
+.chat-input-bar { padding: 8px 12px 12px; background: var(--surface-base); }
+.layout.tablet .chat-input-bar { padding-bottom: calc(12px + var(--safe-bottom)); }
+.chat-input-pill {
+  display: flex; align-items: center; gap: 6px; padding: 5px 5px 5px 14px;
+  background: var(--surface-raised); border: 1px solid var(--border);
+  border-radius: 26px; transition: var(--transition);
+}
+.chat-input-pill:focus-within { border-color: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); }
+.chat-field {
+  flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text-primary);
+  font-size: 16px; padding: 9px 0; outline: none;
+}
+.chat-field::placeholder { color: var(--text-muted); }
+.chat-send {
+  flex-shrink: 0; width: 38px; height: 38px; border: 0; border-radius: 50%;
+  background: var(--accent); color: var(--on-accent); font-size: 15px;
+  display: grid; place-items: center; transition: var(--transition);
+}
+.chat-send:active { transform: scale(.92); }
+.chat-send:disabled { opacity: .4; }
 
 /* ── Suche ── */
 .search-box { margin-bottom: 10px; }

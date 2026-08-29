@@ -136,6 +136,18 @@ function renderView(ctx) {
   verlasseAnsicht();
   if (!view) { content.innerHTML = '<div class="pad">Unbekannte Ansicht.</div>'; return; }
   titleEl.textContent = view.title || 'Quantus';
+  // Die Route VOR dem Rendern ans Layout schreiben. Sie entscheidet ueber
+  // CSS, das die Groessen der Ansicht bestimmt (Polaris ist eine Flaeche, kein
+  // Dokument). Stand sie erst danach, mass mount() in einem Layout, das es
+  // gleich nicht mehr gab: der Chat fand seine Hoehe noch nicht, das Scrollen
+  // ans Ende landete bei 0 — beim Wechsel aus einer anderen Ansicht stand man
+  // bei der AELTESTEN Nachricht.
+  const layout = document.getElementById('layout');
+  if (layout) {
+    layout.dataset.route = ctx.route;
+    // Der Homebildschirm hat ein eigenes Dock — der „Neu"-Knopf rueckt darueber.
+    layout.classList.toggle('route-home', ctx.route === 'home');
+  }
   try {
     content.innerHTML = view.render(ctx);
     laufendeAnsicht = view;
@@ -147,16 +159,6 @@ function renderView(ctx) {
       <div class="empty-sub">${escHTML(e.message || String(e))}</div></div></div>`;
   }
   highlightNav(ctx.route);
-  // Der Homebildschirm hat ein eigenes Dock — der „Neu"-Knopf rückt darüber.
-  // data-route macht die laufende Route fuer das CSS greifbar. Polaris braucht
-  // das: der Chat ist kein Dokument, sondern eine Flaeche, die den Inhalt
-  // genau ausfuellt — und der schwebende „Neu"-Knopf lag dort auf dem
-  // Sendeknopf (gemessen: FAB x 314..372, Sendeknopf x 330..378).
-  const layout = document.getElementById('layout');
-  if (layout) {
-    layout.dataset.route = ctx.route;
-    layout.classList.toggle('route-home', ctx.route === 'home');
-  }
   content.scrollTop = 0;
   updateBadges();
 }
