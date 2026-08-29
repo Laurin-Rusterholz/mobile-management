@@ -4,7 +4,7 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v13-polaris-anzeige';
+const VERSION = 'quantus-mobile-v14-apps-anordnen';
 const SHELL = [
   './',
   './index.html',
@@ -25,6 +25,7 @@ const SHELL = [
   './js/new.js',
   './js/search.js',
   './js/pwa.js',
+  './js/springboard.js',
   './js/auth.js',
   './js/views/common.js',
   './js/views/home.js',

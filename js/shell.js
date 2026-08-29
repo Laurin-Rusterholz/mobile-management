@@ -289,7 +289,15 @@ setInterval(() => { if (!document.hidden) store.pullData(true); }, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) store.pullData(true); });
 
 // bei Datenänderung neu rendern (aktuelle Route)
-store.subscribe(() => renderView(router.current()));
+// AUSNAHME: eine Ansicht darf sich waehrend einer laufenden Geste sperren
+// (busy()). Der Homebildschirm tut das beim Anordnen der Apps — ein Abgleich
+// im Hintergrund (alle 60 s) wuerde sonst mitten im Ziehen den ganzen
+// Bildschirm neu bauen und dem Finger das Symbol unter der Hand wegziehen.
+store.subscribe(() => {
+  try { if (laufendeAnsicht && typeof laufendeAnsicht.busy === 'function' && laufendeAnsicht.busy()) return; }
+  catch (e) { /* eine kaputte busy() darf das Rendern nicht verhindern */ }
+  renderView(router.current());
+});
 
 // ── Bootstrap ──
 export async function boot(viewModules) {

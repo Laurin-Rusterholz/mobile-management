@@ -40,6 +40,7 @@ const ui = {
   body: null,         // { id, html, text, from, to, subject, date }
   bodyLoading: false,
   profile: null,      // { emailAddress }
+  plain: false,       // Nur-Text statt Original-Darstellung (pro Sitzung)
 };
 
 function cacheKey() { return ui.search ? 'search' : ui.folder; }
@@ -130,23 +131,69 @@ function decodeBody(data) {
   } catch (e) { return ''; }
 }
 
-// text/plain bevorzugen; nur wenn es keine Textvariante gibt, wird HTML
-// entschärft (Tags entfernt) angezeigt — es wird nie fremdes HTML eingebettet.
+// Beide Fassungen einsammeln: die HTML-Fassung IST bei den meisten Mails die
+// Nachricht (Newsletter, Rechnungen, Signaturen), text/plain nur ihr Abfall.
+// Anhaenge kommen mit ihrer attachmentId und ihrer Content-ID heraus — ohne
+// die Kennung liesse sich weder ein Anhang laden noch ein eingebettetes Bild
+// aufloesen (siehe resolveInlineImages).
+function partHeader(part, name) {
+  const hs = (part && part.headers) || [];
+  const hit = hs.find(h => String(h.name).toLowerCase() === name.toLowerCase());
+  return hit ? String(hit.value || '') : '';
+}
+
 function extractBody(payload) {
   const out = { text: '', html: '', attachments: [] };
   const walk = (part) => {
     if (!part) return;
     const mime = part.mimeType || '';
-    if (part.filename && part.body && part.body.attachmentId) {
-      out.attachments.push({ name: part.filename, size: part.body.size || 0, mime });
-    } else if (mime === 'text/plain' && part.body && part.body.data && !out.text) {
-      out.text = decodeBody(part.body.data);
-    } else if (mime === 'text/html' && part.body && part.body.data && !out.html) {
-      out.html = decodeBody(part.body.data);
+    const body = part.body || {};
+    const cid = partHeader(part, 'Content-ID').replace(/^<|>$/g, '');
+    const disposition = partHeader(part, 'Content-Disposition').toLowerCase();
+    if (body.attachmentId) {
+      out.attachments.push({
+        name: part.filename || (cid ? 'Bild' : 'Anhang'),
+        size: body.size || 0,
+        mime,
+        attachmentId: body.attachmentId,
+        cid,
+        inline: !!cid || disposition.startsWith('inline'),
+      });
+    } else if (mime === 'text/plain' && body.data && !out.text && !part.filename) {
+      out.text = decodeBody(body.data);
+    } else if (mime === 'text/html' && body.data && !out.html) {
+      out.html = decodeBody(body.data);
     }
     (part.parts || []).forEach(walk);
   };
   walk(payload);
+  return out;
+}
+
+// Eingebettete Bilder tragen im HTML kein http-Ziel, sondern src="cid:…" —
+// eine Verweisform, die ein Browser NICHT aufloesen kann. Genau daran lag es,
+// dass Bilder nicht luden: sie waren gar nie geladen worden. Der Gmail-Proxy
+// kennt /messages/<id>/attachments/<id>; von dort kommt der Inhalt als
+// base64url und wird als data:-URL an die Stelle des cid-Verweises gesetzt.
+async function resolveInlineImages(msgId, html, attachments) {
+  if (!html || !/cid:/i.test(html)) return html;
+  const inline = (attachments || []).filter(a => a.cid && a.attachmentId && a.size < 6 * 1024 * 1024);
+  let out = html;
+  for (const a of inline.slice(0, 25)) {
+    const cid = a.cid.trim();
+    if (!cid) continue;
+    const muster = new RegExp('cid:' + cid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    if (!muster.test(out)) continue;
+    muster.lastIndex = 0;
+    try {
+      const res = await rpc('GET', '/users/me/messages/' + encodeURIComponent(msgId) +
+        '/attachments/' + encodeURIComponent(a.attachmentId));
+      const b64 = String((res && res.data) || '').replace(/-/g, '+').replace(/_/g, '/');
+      if (!b64) continue;
+      out = out.replace(muster, 'data:' + (a.mime || 'image/png') + ';base64,' + b64);
+      a.resolved = true;
+    } catch (e) { /* ein Bild weniger ist kein Grund, die Mail nicht zu zeigen */ }
+  }
   return out;
 }
 
@@ -161,6 +208,97 @@ function htmlToText(html) {
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+// ── Die Mail als Mail anzeigen ──────────────────────────────────────────────
+// BEFUND: der Rumpf wurde als escHTML(htmlToText(html)) ausgegeben. Damit war
+// jede HTML-Mail eine Wand aus Text: keine Absaetze, keine Ueberschriften,
+// keine Tabellen, keine Links — und kein einziges Bild, denn <img> war unter
+// den entfernten Tags. „Komisch angezeigt" war also kein Stilproblem, sondern
+// der Verzicht auf die Darstellung ueberhaupt.
+//
+// Fremdes HTML kommt trotzdem nicht in unser Dokument: es laeuft in einem
+// abgeschotteten <iframe> mit srcdoc, OHNE allow-scripts (Mail-JavaScript kann
+// also nicht laufen) und mit einer eigenen CSP als zweiter Schranke.
+// allow-same-origin wird allein dafuer gewaehrt, dass WIR von aussen die Hoehe
+// messen koennen — ohne allow-scripts kommt die Mail damit an nichts heran.
+function sanitizeMailHtml(html) {
+  return String(html || '')
+    .replace(/<\?xml[^>]*>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<(script|iframe|object|embed|form|base|meta|link)\b[^>]*>/gi, '')
+    .replace(/<\/(script|iframe|object|embed|form)>/gi, '')
+    .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, '')
+    .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, '')
+    .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, '')
+    .replace(/javascript:/gi, 'blocked:');
+}
+
+// Mails bringen ihre eigenen Farben mit und rechnen mit hellem Grund. Ein
+// dunkler Rahmen ergaebe dunkle Schrift auf dunklem Grund — der Rumpf steht
+// deshalb bewusst hell, wie in jedem Mail-Programm.
+const FRAME_CSS = 'html,body{margin:0;padding:14px;background:#ffffff;color:#16181d;' +
+  'font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.55;' +
+  'overflow-wrap:anywhere;word-break:break-word}' +
+  'img{max-width:100%!important;height:auto}table{max-width:100%}' +
+  'a{color:#2c6499}blockquote{margin:0 0 0 12px;padding-left:10px;border-left:3px solid #d5d8de;color:#4d5560}' +
+  'pre{white-space:pre-wrap}';
+
+function frameDoc(inner) {
+  return '<!doctype html><html><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; ' +
+    'img-src http: https: data:; style-src \'unsafe-inline\'; font-src http: https: data:; ' +
+    'script-src \'none\'; object-src \'none\'; base-uri \'none\'; form-action \'none\'">' +
+    '<base target="_blank">' +
+    '<style>' + FRAME_CSS + '</style></head><body>' + inner + '</body></html>';
+}
+
+function bodyFrameHtml(html, text) {
+  const inner = html && html.trim()
+    ? sanitizeMailHtml(html)
+    : '<pre style="white-space:pre-wrap;font-family:inherit;margin:0">' +
+      escHTML(text || '(Kein Textinhalt)') + '</pre>';
+  return '<iframe class="mail-frame" data-role="mail-frame" title="Nachricht" ' +
+    'sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" ' +
+    'referrerpolicy="no-referrer" srcdoc="' + escHTML(frameDoc(inner)) + '"></iframe>';
+}
+
+// Der Rahmen bringt seine Hoehe nicht selbst mit (kein Skript darin) — sie
+// wird von aussen gemessen, auch noch einmal, nachdem die Bilder geladen sind.
+export function fitMailFrames(root) {
+  (root || document).querySelectorAll('.mail-frame').forEach((frame) => {
+    const fit = () => {
+      try {
+        const doc = frame.contentDocument;
+        if (!doc || !doc.body) return;
+        const h = Math.max(doc.body.scrollHeight || 0, doc.documentElement.scrollHeight || 0);
+        frame.style.height = Math.min(Math.max(h + 20, 160), 20000) + 'px';
+      } catch (e) { frame.style.height = '70vh'; }
+    };
+    const nachladen = () => {
+      fit();
+      try {
+        const doc = frame.contentDocument;
+        if (doc) doc.querySelectorAll('img').forEach(img => {
+          if (!img.complete) img.addEventListener('load', fit, { once: true });
+          img.addEventListener('error', fit, { once: true });
+        });
+      } catch (e) { /* egal */ }
+      setTimeout(fit, 400);
+      setTimeout(fit, 1500);
+    };
+    frame.addEventListener('load', nachladen);
+    nachladen();     // srcdoc kann bereits fertig sein, bevor der Hoerer haengt
+  });
+}
+
+function fmtBytes(n) {
+  const v = Number(n || 0);
+  if (!v) return '';
+  if (v < 1024) return v + ' B';
+  if (v < 1024 * 1024) return Math.round(v / 1024) + ' KB';
+  return (v / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
 // ── Rendering-Hilfen ────────────────────────────────────────────────────────
@@ -229,6 +367,7 @@ function detailHtml() {
       <div class="mail-detail-actions">
         <button class="chip" data-action="mail-reply" data-id="${item.id}">↩︎ Antworten</button>
         <button class="chip" data-action="mail-forward" data-id="${item.id}">↪︎ Weiterleiten</button>
+        <button class="chip" data-action="mail-plain">${ui.plain ? '🖼 Original' : '🅰 Nur Text'}</button>
         <button class="chip" data-action="mail-toggle-read" data-id="${item.id}">${item.unread ? 'Als gelesen' : 'Als ungelesen'}</button>
         <button class="chip" data-action="mail-archive" data-id="${item.id}">🗄️ Archiv</button>
         <button class="chip danger" data-action="mail-trash" data-id="${item.id}">🗑️ Papierkorb</button>
@@ -242,10 +381,32 @@ function detailHtml() {
         <div class="mail-detail-sub">${escHTML(item.fromEmail)} · ${escHTML(item.date ? new Date(item.ts).toLocaleString('de-CH') : '')}</div>
       </div>
     </div>
-    ${body && body.attachments.length ? `<div class="mail-attachments">${body.attachments.map(a =>
-      `<span class="mail-attachment">📎 ${escHTML(a.name)}</span>`).join('')}</div>` : ''}
-    <div class="mail-body">${text ? escHTML(text) : escHTML(item.snippet || '')}</div>
+    ${anhaengeHtml(item.id, body)}
+    <div class="mail-body">${bodyHtml(item, body, text)}</div>
   </div>`;
+}
+
+// Anhaenge waren bisher blosse Namen ohne Griff. Eingebettete Bilder stehen
+// nicht darunter: die sind im Rumpf zu sehen, wo sie hingehoeren.
+function anhaengeHtml(msgId, body) {
+  if (!body || !body.attachments || !body.attachments.length) return '';
+  const echte = body.attachments.filter(a => !(a.inline && a.resolved));
+  if (!echte.length) return '';
+  return `<div class="mail-attachments">${echte.map(a => `
+    <button class="mail-attachment" data-action="mail-attachment" data-id="${escHTML(msgId)}"
+      data-att="${escHTML(a.attachmentId || '')}" data-name="${escHTML(a.name)}" data-mime="${escHTML(a.mime || '')}">
+      📎 ${escHTML(a.name)}${a.size ? ` <span class="mail-attachment-size">${fmtBytes(a.size)}</span>` : ''}
+    </button>`).join('')}</div>`;
+}
+
+// Die Nachricht selbst: im Original (abgeschotteter Rahmen) oder — auf Wunsch
+// und wenn es gar kein HTML gibt — als reiner Text.
+function bodyHtml(item, body, text) {
+  if (!body) return `<div class="mail-plaintext">${escHTML(item.snippet || '')}</div>`;
+  if (ui.plain || !body.html) {
+    return `<div class="mail-plaintext">${escHTML(text || item.snippet || '(Kein Textinhalt)')}</div>`;
+  }
+  return bodyFrameHtml(body.html, text);
 }
 
 // ── Aktionen ────────────────────────────────────────────────────────────────
@@ -299,6 +460,13 @@ async function openMessage(id) {
     const full = await rpc('GET', '/users/me/messages/' + encodeURIComponent(id), { format: 'full' });
     const parts = extractBody(full.payload);
     ui.body = { id, text: parts.text, html: parts.html, attachments: parts.attachments };
+    // Erst anzeigen, dann die eingebetteten Bilder nachziehen: die Mail steht
+    // sofort da, auch wenn ein Anhang lange braucht oder nie kommt.
+    if (parts.html && /cid:/i.test(parts.html)) {
+      rerender();
+      const mitBildern = await resolveInlineImages(id, parts.html, parts.attachments);
+      if (ui.body && ui.body.id === id) ui.body.html = mitBildern;
+    }
     // Beim Öffnen als gelesen markieren (wie in jedem Mail-Programm).
     const item = ui.list.find(m => m.id === id);
     if (item && item.unread) {
@@ -354,6 +522,25 @@ registerActions({
   'mail-refresh': () => refresh(),
   'mail-open': (d) => { haptic(10); openMessage(d.id); },
   'mail-close': () => { ui.openId = null; ui.body = null; rerender(); },
+  'mail-plain': () => { ui.plain = !ui.plain; rerender(); },
+
+  'mail-attachment': async (d) => {
+    if (!d.att) { toast('Dieser Anhang hat keine Kennung', 'error'); return; }
+    toast('Anhang wird geladen…', 'ok', 1400);
+    try {
+      const res = await rpc('GET', '/users/me/messages/' + encodeURIComponent(d.id) +
+        '/attachments/' + encodeURIComponent(d.att));
+      const b64 = String((res && res.data) || '').replace(/-/g, '+').replace(/_/g, '/');
+      if (!b64) throw new Error('leer');
+      const bin = atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, '='));
+      const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: d.mime || 'application/octet-stream' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = d.name || 'anhang'; a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { toast('Anhang konnte nicht geladen werden: ' + (e.message || e), 'error'); }
+  },
 
   'mail-star': async (d, el, e) => {
     if (e) e.stopPropagation();
@@ -517,6 +704,8 @@ export default {
       if (cached && cached.length) ui.list = cached;
     }
     if (!ui._loadedOnce) { ui._loadedOnce = true; refresh(!ui.list.length); }
+    // Ein srcdoc-Rahmen ist 0 Pixel hoch, solange ihm niemand eine Hoehe gibt.
+    fitMailFrames(root);
   },
 };
 
