@@ -63,16 +63,22 @@ const staleUpdates = store.replayPendingOperations([opAB, opBC]);
 eq(staleUpdates.applied.length, 0, 'veraltete Updates werden trotz neuerem Serverstand angewendet');
 eq(staleUpdates.skipped.length, 2, 'nicht alle veralteten Updates werden erkannt');
 eq(store.state.data.entities.notes.n1.content, 'D vom Server', 'Offline-Update überschreibt den neueren Serverstand');
-ok(staleUpdates.skipped.every((op) => op._queue.conflict), 'echte Feldkonflikte werden nicht als Konflikt erhalten');
+ok(staleUpdates.skipped.every((record) => record.kind === 'local-superseded'), 'echte Feldkonflikte werden nicht als unterlegene lokale Fassung abgelegt');
 
-// Kaskadenkonflikt: D liegt zeitlich nach Basis A, aber vor dem lokalen B.
-// Nachdem A→B verworfen wurde, darf B→C D nicht doch noch überschreiben.
+// Kaskadenfall: D liegt zeitlich nach Basis A, aber VOR der lokalen
+// Bearbeitung B. Vertragsregel des Notizkonzepts (Review P2-3): bei einer
+// Feldkollision gewinnt der NEUERE Zeitstempel — die lokalen Bearbeitungen
+// von 10:00/10:05 schlagen also das ältere D von 09:30, und D wandert als
+// unterlegene Fassung vollständig in die Konfliktablage. (Vorher galt hier
+// pauschal Server-wins; die Ablage war zudem unsichtbar.)
 const serverBetween = note('n1', 'D zwischen A und B', '2026-08-29T09:30:00.000Z');
 store.state.data = snapshot([structuredClone(serverBetween)]);
 const cascade = store.replayPendingOperations([opAB, opBC]);
-eq(cascade.applied.length, 0, 'Folgeoperation einer verworfenen Basis wird trotzdem angewendet');
-eq(cascade.skipped.length, 2, 'Kaskadenkonflikt verwirft nicht die gesamte abhängige Queue');
-eq(store.state.data.entities.notes.n1.content, 'D zwischen A und B', 'B→C überschreibt D nach verworfenem A→B');
+eq(cascade.applied.length, 2, 'neuere lokale Bearbeitungen gewinnen nicht gegen das ältere D');
+eq(cascade.skipped.length, 1, 'die unterlegene Serverfassung D landet nicht genau einmal in der Ablage');
+eq(cascade.skipped[0].kind, 'remote-superseded', 'D wird nicht als unterlegene Serverfassung markiert');
+eq(cascade.skipped[0].snapshot && cascade.skipped[0].snapshot.content, 'D zwischen A und B', 'der D-Inhalt fehlt im Konflikt-Snapshot');
+eq(store.state.data.entities.notes.n1.content, 'C', 'die jüngste lokale Bearbeitung setzt sich nicht durch');
 
 // Auch ein offline erzeugtes add mit inzwischen serverseitig belegter ID darf
 // eine neuere Entität nicht ersetzen.
@@ -123,6 +129,6 @@ ok(deleted.deleted && deleted.status === 'deleted' && deleted.deletedAt === '202
 eq(store.getNotes(), [], 'mobil gelöschte Notiz bleibt in Accessors sichtbar');
 
 const sourceText = await import('node:fs').then((fs) => fs.readFileSync(new URL('../js/store.js', import.meta.url), 'utf8'));
-ok(sourceText.includes('LS.pendingConflicts') && sourceText.includes('conflict: true'), 'übersprungene Offline-Konflikte werden nicht separat erhalten');
+ok(sourceText.includes('LS.pendingConflicts') && sourceText.includes("conflictRecord('local-superseded'") && sourceText.includes("conflictRecord('remote-superseded'"), 'unterlegene Fassungen (beide Richtungen) werden nicht separat abgelegt');
 
 console.log(`Offline-Notiz-Replay: ok (${checks} Prüfungen)`);

@@ -18,6 +18,7 @@ import { nowISO, toast, todayYmd, newId } from './util.js';
 import {
   migrateNotesData, migrateNote, createCanonicalNote, collectTags,
   noteSourceMatches, bookStatus,
+  ideaStatusFromShared,
 } from './notes.js';
 
 export const state = {
@@ -322,23 +323,56 @@ function replayIntent(op, remoteEntity) {
   return { ...op, payload, _queue: { ...queue, queuedAt: effectiveTime } };
 }
 
+// Ein Konflikt-Eintrag hält die UNTERLEGENE Fassung fest — als Datensatz,
+// nicht als Operation, damit die Einstellungen sie anzeigen und als Kopie
+// wiederherstellen können (Review P2-3: die Ablage war eine unsichtbare
+// Sackgasse und wuchs unbegrenzt).
+function conflictRecord(kind, op, baseline) {
+  const payload = op && op.payload && typeof op.payload === 'object' ? op.payload : {};
+  return {
+    kind, // 'local-superseded' (Server war neuer) | 'remote-superseded' (lokal war neuer)
+    at: nowISO(),
+    opType: (op && op.type) || '',
+    entityId: payload.id || null,
+    queuedAt: (op && op._queue && op._queue.queuedAt) || null,
+    snapshot: kind === 'local-superseded' ? payload : (baseline || null),
+  };
+}
+
 export function replayPendingOperations(ops) {
   const list = Array.isArray(ops) ? ops.filter(Boolean) : [];
-  const applied = []; const skipped = [];
+  const applied = []; const conflicts = [];
   list.forEach((op) => {
     // Unmittelbar vor jeder Operation prüfen: Nach A→B muss die Basis der
     // nächsten lokalen Operation B→C gegen B laufen. Ist der Server bereits
     // auf D, bleibt D stehen und beide veralteten Schritte werden verworfen.
     const current = pendingTarget(op);
     const baseline = current ? JSON.parse(JSON.stringify(current)) : null;
-    if (shouldSkipPendingOp(op, baseline)) skipped.push({ ...op, _queue: { ...(op._queue || {}), conflict: true } });
-    else {
+    if (shouldSkipPendingOp(op, baseline)) {
+      // Vertragsregel (Review P2-3): kollidieren zwei Fassungen, gewinnt der
+      // NEUERE Zeitstempel — nicht pauschal der Server. Die unterlegene
+      // Fassung wandert in jedem Fall in die Konfliktablage.
+      const queue = (op && op._queue) || {};
+      const opTime = validTime(queue.queuedAt)
+        ?? validTime(op && op.payload && (op.payload.updatedAt || op.payload.createdAt));
+      const remoteTime = validTime(entityVersion(baseline));
+      const localNewer = !!baseline && queue.baseExists !== false
+        && opTime != null && remoteTime != null && opTime > remoteTime;
+      if (localNewer) {
+        conflicts.push(conflictRecord('remote-superseded', op, baseline));
+        const next = replayIntent(op, baseline);
+        applyOp(next);
+        applied.push(next);
+      } else {
+        conflicts.push(conflictRecord('local-superseded', op, baseline));
+      }
+    } else {
       const next = replayIntent(op, baseline);
       applyOp(next);
       applied.push(next);
     }
   });
-  return { applied, skipped };
+  return { applied, skipped: conflicts };
 }
 
 async function applyPendingChanges() {
@@ -355,15 +389,17 @@ async function applyPendingChanges() {
     const priorConflicts = (() => {
       try { return JSON.parse(localStorage.getItem(LS.pendingConflicts) || '[]'); } catch (_) { return []; }
     })();
-    state.conflicts = [...(Array.isArray(priorConflicts) ? priorConflicts : []), ...replay.skipped];
+    // Begrenzt auf die letzten 100 Einträge — die Ablage ist ein Sichtfenster
+    // mit Wiederherstellung, kein unbegrenztes Archiv.
+    state.conflicts = [...(Array.isArray(priorConflicts) ? priorConflicts : []), ...replay.skipped].slice(-100);
     if (state.conflicts.length) localStorage.setItem(LS.pendingConflicts, JSON.stringify(state.conflicts));
     if (state.pending.length) {
       savePending();
       state.replayPending = true;
     } else localStorage.removeItem(LS.pending);
     if (replay.skipped.length) {
-      console.warn('[pending] newer server version retained for', replay.skipped.map((op) => op.type));
-      toast(`${replay.skipped.length} veraltete Offline-Änderung(en) übersprungen`, 'warn');
+      console.warn('[pending] conflicts stored', replay.skipped.map((record) => `${record.kind}:${record.opType}`));
+      toast(`${replay.skipped.length} Sync-Konflikt(e) — unterlegene Fassung liegt in den Einstellungen`, 'warn');
     }
   } catch (e) { console.error('Pending replay failed:', e); }
 }
@@ -389,6 +425,39 @@ export function pendingConflicts() {
   } catch (_) { return []; }
 }
 export function pullStatus() { return state.initialPullStatus; }
+
+// Konfliktablage: unterlegene Fassung als neue Inbox-Notiz zurückholen bzw.
+// die Ablage bewusst leeren (Review P2-3 — vorher unsichtbare Sackgasse).
+export async function restoreConflictAsNote(index) {
+  const conflicts = pendingConflicts();
+  const record = conflicts[index];
+  if (!record) return null;
+  const snap = (record.snapshot && typeof record.snapshot === 'object' ? record.snapshot : null)
+    || (record.payload && typeof record.payload === 'object' ? record.payload : null) || {};
+  const title = 'Konfliktkopie: ' + String(snap.title || snap.content || record.opType || 'Änderung').replace(/\s+/g, ' ').slice(0, 60);
+  const skip = new Set(['id', '_queue', 'createdAt', 'updatedAt']);
+  const lines = Object.entries(snap)
+    .filter(([key, value]) => !skip.has(key) && value != null && value !== '')
+    .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`);
+  const note = await saveCanonicalNote({
+    noteClass: 'general',
+    title,
+    content: lines.join('\n') || JSON.stringify(record, null, 2),
+    tags: ['Konflikt'],
+    notebookId: null,
+    source: { app: 'noteflow', entityType: 'note', entityId: null, label: 'Konfliktablage', route: '#/noteflow' },
+  });
+  const rest = conflicts.filter((_, i) => i !== index);
+  state.conflicts = rest;
+  if (rest.length) localStorage.setItem(LS.pendingConflicts, JSON.stringify(rest));
+  else localStorage.removeItem(LS.pendingConflicts);
+  return note;
+}
+export function clearConflicts() {
+  state.conflicts = [];
+  localStorage.removeItem(LS.pendingConflicts);
+  notify();
+}
 
 // ─────────────────────────────────────────────────────────────
 //  applyOp — mutiert state.data verlustfrei
@@ -870,7 +939,7 @@ export function getInboxItems() {
   getNotes().forEach(n => {
     if (n.notebookId) return;
     if (n.noteClass === 'idea') {
-      const status = n.ideaMeta && n.ideaMeta.status || n.status || 'idea';
+      const status = n.ideaMeta && n.ideaMeta.status || (n.ideaStatus && ideaStatusFromShared(n.ideaStatus)) || n.status || 'idea';
       if (status === 'idea' || status === 'neu') out.push({ kind: 'idea', item: n });
     } else out.push({ kind: 'note', item: n });
   });
