@@ -289,6 +289,12 @@
 .cal-pill.task { background: color-mix(in oklab, var(--warning) 28%, transparent); }
 .cal-more { font-size: 9px; color: var(--text-muted); }
 
+/* ── Google Kalender ─────────────────────────────────────────────────────── */
+.gcal-connect-card { display: flex; flex-direction: column; }
+.gcal-status-card { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.gcal-cal-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.gcal-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+
 /* ── Statistiken ─────────────────────────────────────────────────────────── */
 .stat-bars { display: flex; align-items: flex-end; gap: 8px; height: 110px; margin-top: 12px; }
 .stat-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative; }
