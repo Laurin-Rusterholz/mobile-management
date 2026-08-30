@@ -141,6 +141,18 @@ registerActions({
     await store.performOp({ type: 'briefing-note', payload: { text: el.value, date: tagJetzt() } });
     toast('Notiz gesichert', 'ok');
   },
+  'bf-export-note': async () => {
+    const el = document.getElementById('bfNoteInput');
+    const content = el && el.value.trim();
+    if (!content) { toast('Schreibe zuerst eine Erkenntnis', 'warn'); return; }
+    const label = `Briefing ${tagJetzt()}`;
+    const note = await store.saveCanonicalNote({
+      noteClass: 'learning', title: `Erkenntnis · ${tagJetzt()}`, content, tags: [label], notebookId: null,
+      source: { app: 'briefing', entityType: 'day', entityId: tagJetzt(), label, route: `#/briefing?date=${tagJetzt()}` },
+    });
+    toast('Erkenntnis in Noteflow gespeichert ✓', 'ok');
+    navigate('noteflow', { params: { id: note.id } });
+  },
   'bf-open-route': (d) => navigate(d.route),
 });
 
@@ -250,7 +262,8 @@ export default {
         ${abschnitt('📝 Tägliche Notizen', `
           <textarea class="input bf-note" id="bfNoteInput" rows="4"
             placeholder="Was war heute?">${escHTML(b.notizen)}</textarea>
-          <button class="btn block" data-action="bf-save-note" style="margin-top:8px">Notiz sichern</button>`)}
+          <button class="btn block" data-action="bf-save-note" style="margin-top:8px">Tagesnotiz sichern</button>
+          <button class="btn ghost block" data-action="bf-export-note" style="margin-top:8px">Erkenntnis in Noteflow speichern</button>`)}
 
         ${abschnitt('📚 Leseliste', b.leseliste.length
           ? b.leseliste.slice(0, 8).map(r => textZeile(String(r.title || r.name || 'Eintrag'),

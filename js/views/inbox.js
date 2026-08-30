@@ -12,7 +12,12 @@ const KIND = { task: { icon: '✅', route: 'planen' }, idea: { icon: '💡', rou
 
 registerActions({
   'inbox-open': (d) => navigate(KIND[d.kind] ? KIND[d.kind].route : 'home'),
-  'inbox-idea-plan': async (d) => { await store.performOp({ type: 'update-idea', payload: { id: d.id, status: 'planned' } }); },
+  'inbox-idea-plan': async (d) => {
+    const note = store.getById('note', d.id); if (!note || note.noteClass !== 'idea') return;
+    await store.performOp({ type: 'update-note', payload: {
+      id: note.id, ideaMeta: { ...(note.ideaMeta || {}), status: 'planned' },
+    } });
+  },
 });
 
 export default {

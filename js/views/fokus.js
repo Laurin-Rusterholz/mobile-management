@@ -43,6 +43,7 @@ function setupView() {
       <select id="focusTask" class="input"><option value="">— keine —</option>${tasks.map(t => `<option value="${t.id}" ${t.id === prefs.taskId ? 'selected' : ''}>${escHTML(t.title || '')}</option>`).join('')}</select>
     </label>
     <button class="btn primary block big" data-action="focus-start">🎯 Fokus starten${prefs.durationMin ? ` · ${prefs.durationMin} Min` : ' · frei'}</button>
+    <button class="btn ghost block" data-action="focus-note">🧠 Erkenntnis aus einer Fokus-Sitzung</button>
 
     <div class="stat-row" style="margin-top:18px">
       <div class="stat"><div class="stat-num">${fmtDurationMin(d.minutes)}</div><div class="stat-lbl">heute</div></div>
@@ -70,6 +71,14 @@ registerActions({
     navigate('fokus');
   },
   'focus-stop': async () => { await focus.finish('stopped'); navigate('fokus'); },
+  'focus-note': async () => {
+    const label = `Fokus ${todayYmd()}`;
+    const { openNoteComposer } = await import('../note-ui.js');
+    openNoteComposer({
+      heading: 'Fokuserkenntnis', noteClass: 'learning', tags: [label], lockedTags: [label],
+      source: { app: 'focus', entityType: 'day', entityId: todayYmd(), label, route: '#/fokus' },
+    });
+  },
 });
 
 export default {

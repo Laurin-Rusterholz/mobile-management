@@ -160,7 +160,8 @@ function renderMessages() {
   const host = document.getElementById('chatMessages'); if (!host) return;
   const chat = currentChat();
   const msgs = chat ? (chat.messages || []) : [];
-  const blasen = msgs.map(m => `<div class="chat-msg ${m.role === 'user' ? 'user' : 'assistant'}">${formatMessage(m.content)}</div>`).join('');
+  const blasen = msgs.map((m, index) => `<div class="chat-msg ${m.role === 'user' ? 'user' : 'assistant'}">${formatMessage(m.content)}
+    <button class="chat-note" data-action="polaris-note" data-index="${index}" aria-label="Als Notiz speichern">📝</button></div>`).join('');
   const wartend = wartetAufAntwort ? '<div class="chat-msg assistant pending">Polaris denkt…</div>' : '';
   host.innerHTML = (blasen + wartend)
     || `<div class="chat-intro">🛰️ Frag Polaris nach deinen Aufgaben, Projekten oder Notizen. Änderungen bestätigst du per Vorschau.</div>`;
@@ -176,6 +177,17 @@ function senden() {
 registerActions({
   'polaris-send': senden,
   'polaris-new': async () => { await store.performOp({ type: 'add-chat', payload: { id: newId('chat'), title: 'Neuer Chat', messages: [], createdAt: nowISO(), updatedAt: nowISO() } }); renderMessages(); toast('Neuer Chat', 'ok'); },
+  'polaris-note': async (d) => {
+    const chat = currentChat(); const message = chat && (chat.messages || [])[Number(d.index)];
+    if (!chat || !message || !String(message.content || '').trim()) return;
+    const { openNoteComposer } = await import('../note-ui.js');
+    const label = chat.title || 'Polaris';
+    openNoteComposer({
+      heading: 'Polaris-Antwort speichern', noteClass: message.role === 'assistant' ? 'learning' : 'research',
+      title: label, content: message.content, tags: [label], lockedTags: [label],
+      source: { app: 'polaris', entityType: 'message', entityId: `${chat.id}:${d.index}`, label, route: '#/polaris' },
+    });
+  },
 });
 
 export default {

@@ -8,6 +8,7 @@ import * as store from '../store.js';
 import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
 import { pageHeader } from './common.js';
+import { openNoteComposer } from '../note-ui.js';
 
 // SM-2-artige Planung (kompatibel zum RecallLab-srs-Schema)
 function schedule(card, grade) {
@@ -46,6 +47,18 @@ registerActions({
     else navigate('flashcards', { sub: 'learn' });
   },
   'fc-exit': () => { _learn = null; navigate('flashcards'); },
+  'fc-note': (d) => {
+    const card = d.kind === 'card' && store.getCards().find((item) => item.id === d.id);
+    const deck = d.kind === 'deck' ? store.getDecks().find((item) => item.id === d.id)
+      : (card && store.getDecks().find((item) => item.id === card.deckId));
+    const entity = card || deck; if (!entity) return;
+    const label = (deck && deck.name) || card.front || 'RecallLab';
+    openNoteComposer({
+      heading: 'Lernnotiz · RecallLab', noteClass: 'learning', title: card ? String(card.front || '').slice(0, 72) : '',
+      tags: [label], lockedTags: [label],
+      source: { app: 'recalllab', entityType: card ? 'card' : 'deck', entityId: entity.id, label, route: '#/flashcards' },
+    });
+  },
 });
 
 function learnView() {
@@ -59,6 +72,7 @@ function learnView() {
       <div class="fc-face">${escHTML(card.front || '')}</div>
       ${_learn.revealed ? `<div class="fc-divider"></div><div class="fc-face back">${escHTML(card.back || '')}</div>` : ''}
     </div>
+    <button class="btn block" data-action="fc-note" data-kind="card" data-id="${escHTML(card.id)}">🧠 Lernnotiz zu dieser Karte</button>
     ${_learn.revealed
       ? `<div class="grade-row">
           <button class="btn danger" data-action="fc-grade" data-g="1">Nochmal</button>
@@ -86,6 +100,7 @@ export default {
         return `<div class="card row-card">
           <div class="row-main"><div class="row-title">🗂 ${escHTML(dk.name || 'Deck')}</div>
           <div class="row-sub">${cards.length} Karten · ${dueN} fällig</div></div>
+          <button class="icon-btn" data-action="fc-note" data-kind="deck" data-id="${escHTML(dk.id)}" aria-label="Lernnotiz">📝</button>
           ${dueN ? `<button class="chip accent" data-action="fc-learn" data-deck="${dk.id}">Lernen</button>` : ''}
         </div>`;
       }).join('')

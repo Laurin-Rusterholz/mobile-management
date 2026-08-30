@@ -16,6 +16,8 @@ import { registerActions } from '../actions.js';
 import { navigate, current } from '../router.js';
 import { isTablet } from '../shell.js';
 import { pageHeader } from './common.js';
+import * as store from '../store.js';
+import { openNoteComposer } from '../note-ui.js';
 
 const RTDB = 'https://jupidu-36804-default-rtdb.europe-west1.firebasedatabase.app';
 const LP_BASE = RTDB + '/leseplan';
@@ -164,7 +166,22 @@ async function load(force) {
   state.loading = false; state.loaded = true;
   rerender();
 }
-function rerender() { if (current().route === 'leseplan') navigate('leseplan', { sub: current().sub || null, params: current().params || {} }); }
+function rerender() {
+  const route = current().route;
+  if (['leseplan', 'smarter', 'bm'].includes(route)) navigate(route, { sub: current().sub || null, params: current().params || {} });
+}
+
+// Dasselbe Dokument ist je nach Einstiegsroute unter drei Quell-Apps
+// erfasst worden (leseplan/smarter/bmpruefung). Der Zähler und die
+// Notizliste eines Dokuments müssen alle drei sehen (Review P3).
+const LESSON_APPS = ['leseplan', 'smarter', 'bmpruefung'];
+
+function lessonContext() {
+  const route = current().route;
+  if (route === 'bm') return { route, app: 'bmpruefung', title: 'BM-Vorbereitung' };
+  if (route === 'smarter') return { route, app: 'smarter', title: 'Smarter' };
+  return { route: 'leseplan', app: 'leseplan', title: 'Leseplan' };
+}
 
 function docsList() {
   const d = state.docs || {};
@@ -226,6 +243,8 @@ function detailHtml(d) {
   const plan = planArr(d);
   const total = plan.length, done = plan.filter(p => p.done).length;
   const cur = currentSlot(d);
+  const context = lessonContext();
+  const related = store.getNotes().filter((n) => n.source && LESSON_APPS.includes(n.source.app) && String(n.source.entityId || '') === String(d._id));
   const today = todayYmd();
   let h = `<div class="detail">
     <div class="lp-detail-head">
@@ -237,7 +256,8 @@ function detailHtml(d) {
       <div class="stat"><div class="stat-num">${Number(d.geschaetzteLesezeit) || 0}</div><div class="stat-lbl">Min gesamt</div></div>
       <div class="stat"><div class="stat-num">${d.rhythmus === 'zweitaeglich' ? '2-tägig' : 'täglich'}</div><div class="stat-lbl">Rhythmus</div></div>
       <div class="stat"><div class="stat-num" style="font-size:15px">${escHTML(d.zieldatum || '?')}</div><div class="stat-lbl">Zieldatum</div></div>
-    </div>`;
+    </div>
+    <button class="btn block" data-action="lp-learning-note" data-id="${d._id}">🧠 Lernnotiz (${related.length})</button>`;
   if (!cur) return h + `<div class="muted-row">Kein Plan vorhanden.</div></div>`;
   const due = cur.datum <= today;
   h += `<div class="lp-unit-head">${d.status === 'fertig' ? '✅ Alle Einheiten gelesen' : `Aktuelle Leseeinheit — ${escHTML(cur.datum)} ${due ? '(fällig)' : '(geplant)'}`} <span class="meta">≈ ${Number(cur.estMinutes) || 0} Min</span></div>`;
@@ -266,7 +286,8 @@ function openReaderSheet(d) {
   openSheet({ title: d.title || 'Leseeinheit', size: 'full', body: aiBlock(d._id, cur) + `<div class="lp-reader">${readerHtml(d, cur)}</div>
     <div class="lp-unit-actions" style="margin-top:14px">${cur.done
       ? `<button class="btn ghost block" data-action="lp-undone" data-id="${d._id}" data-idx="${cur.index}">↺ Wieder offen</button>`
-      : `<button class="btn primary block" data-action="lp-done" data-id="${d._id}" data-idx="${cur.index}">✓ Als gelesen markieren</button>`}</div>` });
+      : `<button class="btn primary block" data-action="lp-done" data-id="${d._id}" data-idx="${cur.index}">✓ Als gelesen markieren</button>`}
+      <button class="btn block" data-action="lp-learning-note" data-id="${d._id}">🧠 Lernnotiz</button></div>` });
 }
 
 function openNewSheet() {
@@ -361,8 +382,18 @@ function copyPrompt() {
 registerActions({
   'lp-select': (d) => {
     state.selectedId = d.id;
-    if (isTablet()) navigate('leseplan', { params: { id: d.id } });
+    if (isTablet()) navigate(current().route, { params: { id: d.id } });
     else { const doc = state.docs[d.id]; if (doc) openReaderSheet(Object.assign({ _id: d.id }, doc)); }
+  },
+  'lp-learning-note': (d) => {
+    const doc = state.docs[d.id]; if (!doc) return;
+    const context = lessonContext();
+    const label = doc.title || context.title;
+    openNoteComposer({
+      heading: `Lernnotiz · ${context.title}`, noteClass: 'learning', tags: [label], lockedTags: [label],
+      source: { app: context.app, entityType: 'document', entityId: d.id, label, route: `#/${context.route}/${encodeURIComponent(d.id)}` },
+      placeholder: 'Merksatz, Erklärung, Fehler, Frage oder Zusammenfassung…',
+    });
   },
   'lp-new': () => openNewSheet(),
   'lp-prompt': () => openPromptSheet(),
@@ -380,20 +411,21 @@ export default {
     if (!state.loaded && !state.loading) { load(false); }
     if (ctx.params && ctx.params.id && state.docs[ctx.params.id]) state.selectedId = ctx.params.id;
 
+    const context = lessonContext();
     const headRight = `<button class="chip" data-action="lp-prompt">📋 Prompt</button><button class="chip accent" data-action="lp-new">＋ Neu</button>`;
 
     if (state.loading && !state.loaded) {
-      return `<div class="pad">${pageHeader('Leseplan', 'Dokumente aufs Zieldatum verteilt', headRight)}<div class="skel-list">${'<div class="skel-row"></div>'.repeat(4)}</div></div>`;
+      return `<div class="pad">${pageHeader(context.title, 'Dokumente aufs Zieldatum verteilt', headRight)}<div class="skel-list">${'<div class="skel-row"></div>'.repeat(4)}</div></div>`;
     }
     if (state.error && !docsList().length) {
-      return `<div class="pad">${pageHeader('Leseplan', 'Dokumente aufs Zieldatum verteilt', headRight)}
+      return `<div class="pad">${pageHeader(context.title, 'Dokumente aufs Zieldatum verteilt', headRight)}
         <div class="empty"><div class="empty-icon">⚠️</div><div class="empty-title">Cloud nicht erreichbar</div><div class="empty-sub">${escHTML(state.error)}</div>
         <button class="btn block" style="max-width:220px;margin:14px auto 0" data-action="lp-refresh">↻ Erneut versuchen</button></div></div>`;
     }
 
     const list = docsList();
     if (!list.length) {
-      return `<div class="pad">${pageHeader('Leseplan', 'Dokumente aufs Zieldatum verteilt', headRight)}
+      return `<div class="pad">${pageHeader(context.title, 'Dokumente aufs Zieldatum verteilt', headRight)}
         <div class="empty"><div class="empty-icon">📖</div><div class="empty-title">Noch keine Dokumente</div>
         <div class="empty-sub">Lege ein HTML-Dokument mit Zieldatum an — es wird automatisch in Lerneinheiten geschnitten und gleichmässig verteilt.</div>
         <button class="btn primary block" style="max-width:260px;margin:16px auto 0" data-action="lp-new">＋ Neues Dokument</button></div></div>`;
@@ -402,13 +434,13 @@ export default {
     const listHtml = list.map(docRow).join('');
     if (isTablet()) {
       const sel = state.selectedId && state.docs[state.selectedId] ? Object.assign({ _id: state.selectedId }, state.docs[state.selectedId]) : null;
-      return `<div class="pad">${pageHeader('Leseplan', 'Dokumente aufs Zieldatum verteilt', headRight)}
+      return `<div class="pad">${pageHeader(context.title, 'Dokumente aufs Zieldatum verteilt', headRight)}
         <div class="split">
           <div class="split-list lp-doclist">${listHtml}</div>
           <div class="split-detail">${detailHtml(sel)}</div>
         </div></div>`;
     }
-    return `<div class="pad">${pageHeader('Leseplan', 'Dokumente aufs Zieldatum verteilt', headRight)}
+    return `<div class="pad">${pageHeader(context.title, 'Dokumente aufs Zieldatum verteilt', headRight)}
       <div class="lp-doclist">${listHtml}</div></div>`;
   },
   mount(root, ctx) {

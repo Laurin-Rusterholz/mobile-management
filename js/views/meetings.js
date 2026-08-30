@@ -6,11 +6,13 @@ import * as store from '../store.js';
 import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
 import { pageHeader } from './common.js';
+import { openNoteComposer } from '../note-ui.js';
 
 registerActions({
   'meeting-open': (d) => {
     const m = store.getById('meeting', d.id); if (!m) return;
     const items = Array.isArray(m.agendaItems) ? m.agendaItems : [];
+    const notes = store.getNotesBySource('meetings', m.id);
     openSheet({ title: 'Meeting', size: 'full', body: `<div class="detail">
       <div class="detail-title">${escHTML(m.title || '(ohne Titel)')}</div>
       <div class="detail-badges">
@@ -20,16 +22,23 @@ registerActions({
       ${m.description ? `<div class="detail-text">${escHTML(m.description)}</div>` : ''}
       ${items.length ? `<div class="section-title">Agenda</div>${items.map(a => `<div class="mini-row"><span class="mini-dot"></span>${escHTML(typeof a === 'string' ? a : (a.text || a.title || ''))}</div>`).join('')}` : ''}
       <div class="detail-actions">
-        <button class="btn" data-action="meeting-note" data-id="${m.id}">📝 Notiz anlegen</button>
+        <button class="btn" data-action="meeting-note" data-id="${m.id}">📝 Notiz hinzufügen</button>
         <button class="btn" data-action="meeting-task" data-id="${m.id}">✅ Aktionspunkt</button>
+      </div>
+      <div class="context-notes"><div class="section-title">Notizen (${notes.length})</div>
+        ${notes.length ? notes.map(n => `<button class="context-note-row" data-action="meeting-note-open" data-id="${escHTML(n.id)}"><span>${escHTML(n.title || 'Meetingnotiz')}</span><b>›</b></button>`).join('') : '<div class="muted-row">Noch keine zentralen Notizen.</div>'}
       </div>
     </div>` });
   },
-  'meeting-note': async (d) => {
+  'meeting-note': (d) => {
     const m = store.getById('meeting', d.id); if (!m) return;
-    await store.performOp({ type: 'add-note', payload: { id: newId('note'), title: 'Notizen: ' + (m.title || 'Meeting'), content: '', tags: ['meeting'], source: 'mobile', linkedMeetings: [m.id], createdAt: nowISO(), updatedAt: nowISO() } });
-    closeSheet(); toast('Notiz angelegt', 'ok'); navigate('noteflow');
+    const label = m.title || 'Meeting';
+    openNoteComposer({
+      heading: 'Meetingnotiz', noteClass: 'research', tags: [label], lockedTags: [label],
+      source: { app: 'meetings', entityType: 'meeting', entityId: m.id, label, route: `#/meetings?id=${encodeURIComponent(m.id)}` },
+    });
   },
+  'meeting-note-open': (d) => { closeSheet(); navigate('noteflow', { params: { id: d.id } }); },
   'meeting-task': async (d) => {
     const m = store.getById('meeting', d.id); if (!m) return;
     const title = prompt('Aktionspunkt / Aufgabe:'); if (!title) return;

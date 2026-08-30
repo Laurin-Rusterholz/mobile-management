@@ -12,6 +12,7 @@ import { registerActions, initActions } from './actions.js';
 import { applyTheme } from './theme.js';
 import * as focus from './focus.js';
 import { openNewType } from './new.js';
+import { openShortnote } from './note-ui.js';
 import { initAuth } from './auth.js';
 import { openSearch } from './search.js';
 
@@ -71,7 +72,7 @@ export function buildSkeleton() {
         <div class="ptr" id="ptr"><span class="ptr-spin">↻</span></div>
         <main class="content" id="content" tabindex="-1"></main>
       </div>
-      <button class="fab" id="fab" data-action="open-new" aria-label="Neu erstellen">＋</button>
+      <button class="fab shortnote-fab" id="fab" data-action="open-shortnote" aria-label="Shortnote erfassen">✎</button>
       <nav class="tabbar" id="tabbar"></nav>
     </div>`;
   renderTabbar();
@@ -198,6 +199,7 @@ registerActions({
   'go': (d) => router.navigate(d.route, { params: d.sub ? { } : {}, sub: d.sub || null }),
   'go-sub': (d) => router.navigate(d.route, { sub: d.sub || null, params: d.params ? JSON.parse(d.params) : {} }),
   'open-new': () => openNewMenu(),
+  'open-shortnote': () => openShortnote(),
   'open-search': () => openSearch(),
   'cycle-theme': () => { import('./theme.js').then(m => { const mode = m.cycleTheme(); toast('Theme: ' + mode, 'ok'); }); },
   'open-notifications': () => openNotifications(),
@@ -220,6 +222,7 @@ function openNewMenu() {
     </div>
     <div class="new-quick">
       <div class="new-quick-title">Schnellaktionen</div>
+      <button class="qa accent" data-action="open-shortnote">⚡ Shortnote erfassen</button>
       <button class="qa" data-action="new-type" data-type="focus">🎯 Fokus jetzt starten</button>
       <button class="qa" data-action="go" data-route="planen" data-sub="heute">📅 Heute planen</button>
       <button class="qa" data-action="go" data-route="inbox">📥 Inbox leeren</button>

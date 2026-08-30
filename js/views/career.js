@@ -52,6 +52,7 @@ function modulKarte(daten, modul) {
     </div>
     <div class="cm-bar"><span style="width:${f.prozent}%"></span></div>
     <div class="cm-mod-sub">${f.erledigt}/${f.gesamt} Tage${ziel ? ' · Ziel ' + escHTML(ziel) : ''}${modul.status === 'archived' ? ' · archiviert' : ''}</div>
+    <button class="btn ghost block" data-action="cm-note" data-id="${escHTML(modul.id)}">🧠 Lernnotiz</button>
   </div>`;
 }
 
@@ -149,6 +150,15 @@ registerActions({
     if (r.ok) return;                       // onAuthChange zeichnet neu
     if (r.abgebrochen) return;
     toast(r.grund || 'Anmeldung fehlgeschlagen', 'error');
+  },
+  'cm-note': async (d) => {
+    const modul = liste(S.daten && S.daten.modules).find((item) => item.id === d.id); if (!modul) return;
+    const label = modul.title || modul.name || 'Career Model';
+    const { openNoteComposer } = await import('../note-ui.js');
+    openNoteComposer({
+      heading: 'Lernnotiz · Career Model', noteClass: 'learning', tags: [label], lockedTags: [label],
+      source: { app: 'career', entityType: 'module', entityId: modul.id, label, route: '#/career' },
+    });
   },
 });
 

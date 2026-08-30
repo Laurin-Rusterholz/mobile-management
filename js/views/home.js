@@ -444,6 +444,12 @@ const view = {
 
       ${briefingBlock()}
 
+      <button class="shortnote-home" data-action="open-shortnote">
+        <span class="shortnote-home-icon">⚡</span>
+        <span><b>Shortnote</b><small>Notiz festhalten oder Mitteilung planen</small></span>
+        <span class="shortnote-home-plus">＋</span>
+      </button>
+
       ${widgets()}
 
       <div class="sb-pages" id="sbPages">

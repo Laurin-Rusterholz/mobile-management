@@ -124,6 +124,28 @@ textarea.input { resize: vertical; }
 .new-tile-icon { font-size: 24px; } .new-tile-label { font-size: 11px; font-weight: 600; }
 .new-quick { margin-top: 12px; } .new-quick-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
 .qa { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-primary); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.qa.accent { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+/* ── Quantus-weite Notizen ─────────────────────────────────────────────── */
+.note-context { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-base); color: var(--text-muted); font-size: 13px; }
+.note-inbox-hint { color: var(--text-muted); font-size: 12px; line-height: 1.45; padding: 8px 10px; background: var(--surface-base); border-radius: var(--radius-sm); }
+.tag-editor { position: relative; }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.tag-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 9px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; }
+.tag-chip button { border: 0; background: transparent; color: inherit; padding: 0; width: 18px; height: 18px; border-radius: 50%; font-size: 16px; line-height: 16px; }
+.tag-suggestions { position: absolute; z-index: 8; top: calc(100% + 4px); left: 0; right: 0; max-height: 210px; overflow-y: auto; padding: 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-overlay); box-shadow: var(--shadow-lg); }
+.tag-suggestion { display: block; width: 100%; min-height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--text-primary); text-align: left; padding: 8px 10px; }
+.tag-suggestion.active, .tag-suggestion:active { background: var(--accent-soft); color: var(--accent); }
+.shortnote-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shortnote-mode { min-height: 74px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-raised); color: var(--text-muted); font-size: 23px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.shortnote-mode span { font-size: 13px; font-weight: 700; }
+.shortnote-mode.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.note-success { display: flex; flex-direction: column; gap: 10px; text-align: center; padding: 12px 0; }
+.note-success .empty-icon { color: var(--success); }
+.context-notes { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 12px; }
+.context-notes-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+.context-note-row { width: 100%; min-height: 44px; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text-primary); text-align: left; padding: 8px 2px; }
+.context-note-row small { color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px; }
 
 /* ── Home ── */
 .home-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }

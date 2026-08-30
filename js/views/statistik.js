@@ -8,6 +8,19 @@ import * as store from '../store.js';
 import * as focus from '../focus.js';
 import { COLLECTIONS } from '../config.js';
 import { pageHeader } from './common.js';
+import { registerActions } from '../actions.js';
+
+registerActions({
+  'stats-note': async () => {
+    const label = `Statistik ${todayYmd().slice(0, 7)}`;
+    const { openNoteComposer } = await import('../note-ui.js');
+    openNoteComposer({
+      heading: 'Erkenntnis aus Statistiken', noteClass: 'learning', tags: [label], lockedTags: [label],
+      source: { app: 'statistics', entityType: 'month', entityId: todayYmd().slice(0, 7), label, route: '#/statistik' },
+      placeholder: 'Welche Entwicklung fällt dir auf? (Keine Finanzdetails werden automatisch kopiert.)',
+    });
+  },
+});
 
 function last7() {
   const out = [];
@@ -49,7 +62,7 @@ export default {
     const income = txns.filter(t => Number(t.amount) > 0).reduce((s, t) => s + Number(t.amount), 0);
 
     return `<div class="pad">
-      ${pageHeader('Statistiken', 'Die letzten sieben Tage')}
+      ${pageHeader('Statistiken', 'Die letzten sieben Tage', '<button class="chip" data-action="stats-note">🧠 Erkenntnis</button>')}
 
       <section class="hcard"><div class="hcard-head"><span class="hcard-icon">✅</span><span class="hcard-title">Aufgaben</span></div>
         <div class="hcard-body">
@@ -93,7 +106,7 @@ export default {
             <span class="mini-value">${store.getNotes().length}</span></button>
           <button class="mini-row" data-action="go" data-route="ideen">
             <span class="mini-dot"></span><span class="mini-label">💡 Ideen</span>
-            <span class="mini-value">${store.getIdeas().length}</span></button>
+            <span class="mini-value">${store.getIdeaNotes().filter((note) => ((note.ideaMeta && note.ideaMeta.status) || note.status || 'idea') !== 'archived').length}</span></button>
         </div></section>
     </div>`;
   },

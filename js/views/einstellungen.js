@@ -11,7 +11,41 @@ import { pageHeader } from './common.js';
 import { getInstallPrompt } from '../pwa.js';
 import * as auth from '../auth.js';
 
+// Konfliktablage (Review P2-3): unterlegene Sync-Fassungen sichtbar machen,
+// als Notizkopie zurückholen oder bewusst verwerfen.
+function conflictSection() {
+  const conflicts = store.pendingConflicts();
+  if (!conflicts.length) return '';
+  const label = (record) => {
+    if (record && record.kind === 'remote-superseded') return 'Serverfassung unterlegen (lokal war neuer)';
+    if (record && record.kind === 'local-superseded') return 'Lokale Fassung unterlegen (Server war neuer)';
+    return 'Übersprungene Offline-Änderung';
+  };
+  const title = (record) => {
+    const snap = (record && (record.snapshot || record.payload)) || {};
+    return String(snap.title || snap.content || (record && record.opType) || 'Änderung').replace(/\s+/g, ' ').slice(0, 48);
+  };
+  const rows = conflicts.map((record, index) => ({ record, index })).slice(-20).map(({ record, index }) => `
+    <div class="diag-row"><span>${escHTML(title(record))}<br><small>${escHTML(label(record))}</small></span>
+      <b><button class="chip" data-action="conflict-restore" data-i="${index}">Als Kopie zurückholen</button></b></div>`).join('');
+  return `<div class="section-title">Konfliktablage (${conflicts.length})</div>
+    <div class="card"><div class="diag">${rows}
+      <div class="diag-row"><span>Alle Einträge verwerfen</span><b><button class="chip" data-action="conflicts-clear">Leeren</button></b></div>
+    </div></div>`;
+}
+
 registerActions({
+  'conflict-restore': async (data) => {
+    const note = await store.restoreConflictAsNote(Number(data.i));
+    if (note) { toast('Unterlegene Fassung als Notizkopie in der Inbox', 'ok'); navigate('einstellungen'); }
+    else toast('Eintrag nicht gefunden', 'warn');
+  },
+  'conflicts-clear': () => {
+    if (!confirm('Konfliktablage wirklich leeren? Die unterlegenen Fassungen gehen verloren.')) return;
+    store.clearConflicts();
+    toast('Konfliktablage geleert', 'ok');
+    navigate('einstellungen');
+  },
   // Die App traegt die Google-Anmeldung selbst — eine Firebase-Sitzung gilt
   // pro Origin, und dieser Origin ist nicht der der Hauptapp. Ein blosser
   // Verweis nach Quantus haette hier nie eine Nutzerkennung ergeben.
@@ -96,7 +130,8 @@ export default {
   render() {
     const mode = getThemeMode();
     const counts = {
-      Aufgaben: store.getTasks().length, Notizen: store.getNotes().length, Ideen: store.getIdeas().length,
+      Aufgaben: store.getTasks().length, Notizen: store.getNotes().length,
+      Ideen: store.getIdeaNotes().filter((note) => ((note.ideaMeta && note.ideaMeta.status) || note.status || 'idea') !== 'archived').length,
       Projekte: store.getProjects().length, Buchungen: store.getTransactions().length, Karten: store.getCards().length,
     };
     const meta = (store.state.data && store.state.data.meta) || {};
@@ -120,6 +155,8 @@ export default {
       ${row('Server-URL', getBaseUrl().replace(/^https?:\/\//, ''), 'edit-baseurl')}
       ${row('Blob-Key', getBlobKey(), 'edit-blobkey')}
       ${row('Auf Standard zurücksetzen', DEFAULT_BASE_URL.replace(/^https?:\/\//, ''), 'reset-sync')}
+
+      ${conflictSection()}
 
       <div class="section-title">Diagnose</div>
       <div class="card"><div class="diag">
