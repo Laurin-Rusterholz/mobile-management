@@ -73,11 +73,19 @@ registerActions({
   },
 });
 
+// Fuer den Homebildschirm (siehe home.js/widgets): dieselbe Liste wie hier,
+// damit beide nie auseinanderlaufen — genau wie briefingZahlen() fuer das
+// Briefing-Widget auf derselben Seite.
+export function ideenZahlen() {
+  const offen = store.getIdeaNotes().filter((note) => statusOf(note) !== 'archived')
+    .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+  return { offen };
+}
+
 export default {
   title: 'Ideen', icon: '💡',
   render() {
-    const ideas = store.getIdeaNotes().filter((note) => statusOf(note) !== 'archived')
-      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+    const ideas = ideenZahlen().offen;
     return `<div class="pad">
       ${pageHeader('Ideen', ideas.length + ' erfasst', `<button class="chip accent" data-action="idea-new">＋ Idee</button>`)}
       <div class="muted-row">Jede Idee ist zugleich eine zentrale Notiz in Noteflow. Kategorie und Inhalt sind Pflicht.</div>

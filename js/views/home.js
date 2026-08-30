@@ -20,6 +20,7 @@ import { escHTML, todayYmd, fmtDurationMin, haptic, toast, confirmPreview } from
 import * as sb from '../springboard.js';
 import * as store from '../store.js';
 import { briefingZahlen } from './briefing.js';
+import { ideenZahlen } from './ideen.js';
 import * as focus from '../focus.js';
 import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
@@ -42,6 +43,7 @@ function badgeFor(key) {
     return store.getMeetings().filter(m => m.date && new Date(m.date) >= today).length;
   }
   if (key === 'projekte') return store.getProjects().filter(p => (p.status || 'active') === 'active').length;
+  if (key === 'ideen') return ideenZahlen().offen.length;
   if (key === 'flowertech') {
     const ft = (store.state.data && store.state.data.flowertech) || {};
     const invoices = Array.isArray(ft.invoices) ? ft.invoices : [];
@@ -111,12 +113,23 @@ function widgets() {
   const next = store.getMeetings()
     .filter(m => m.date && new Date(m.date) >= new Date(new Date().toDateString()))
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0];
+  // Ideen standen bisher nirgends auf dem Homebildschirm — nur als eine von
+  // ueber zwanzig Kacheln auf der zweiten Springboard-Seite oder vergraben im
+  // "Mehr"-Tab. Dieselbe Liste wie die Ideen-Ansicht (ideenZahlen), damit
+  // beide nie auseinanderlaufen — wie briefingZahlen() fuer den Tag oben.
+  const ideenZ = ideenZahlen();
+  const letzteIdee = ideenZ.offen[0];
 
   return `<div class="sb-widgets">
     <button class="sb-widget wide" data-action="sb-open" data-route="uebersicht">
       <div class="sb-widget-head">📋 Heute</div>
       <div class="sb-widget-big">${dueToday}</div>
       <div class="sb-widget-sub">${dueToday === 1 ? 'Aufgabe fällig' : 'Aufgaben fällig'}${overdue ? ` · ${overdue} überfällig` : ''}</div>
+    </button>
+    <button class="sb-widget wide" data-action="sb-open" data-route="ideen">
+      <div class="sb-widget-head">💡 Ideen</div>
+      <div class="sb-widget-line">${letzteIdee ? escHTML(String(letzteIdee.title || '(ohne Titel)').slice(0, 42)) : 'Noch keine Idee erfasst'}</div>
+      <div class="sb-widget-sub">${ideenZ.offen.length ? `${ideenZ.offen.length} offen` : 'Ideen sammeln, ohne neues Notizbuch'}</div>
     </button>
     <button class="sb-widget" data-action="sb-open" data-route="fokus">
       <div class="sb-widget-head">🎯 Fokus</div>
