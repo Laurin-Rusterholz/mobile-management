@@ -171,6 +171,11 @@ function rerender() {
   if (['leseplan', 'smarter', 'bm'].includes(route)) navigate(route, { sub: current().sub || null, params: current().params || {} });
 }
 
+// Dasselbe Dokument ist je nach Einstiegsroute unter drei Quell-Apps
+// erfasst worden (leseplan/smarter/bmpruefung). Der Zähler und die
+// Notizliste eines Dokuments müssen alle drei sehen (Review P3).
+const LESSON_APPS = ['leseplan', 'smarter', 'bmpruefung'];
+
 function lessonContext() {
   const route = current().route;
   if (route === 'bm') return { route, app: 'bmpruefung', title: 'BM-Vorbereitung' };
@@ -239,7 +244,7 @@ function detailHtml(d) {
   const total = plan.length, done = plan.filter(p => p.done).length;
   const cur = currentSlot(d);
   const context = lessonContext();
-  const related = store.getNotesBySource(context.app, d._id);
+  const related = store.getNotes().filter((n) => n.source && LESSON_APPS.includes(n.source.app) && String(n.source.entityId || '') === String(d._id));
   const today = todayYmd();
   let h = `<div class="detail">
     <div class="lp-detail-head">
@@ -386,7 +391,7 @@ registerActions({
     const label = doc.title || context.title;
     openNoteComposer({
       heading: `Lernnotiz · ${context.title}`, noteClass: 'learning', tags: [label], lockedTags: [label],
-      source: { app: context.app, entityType: 'document', entityId: d.id, label, route: `#/${context.route}?id=${encodeURIComponent(d.id)}` },
+      source: { app: context.app, entityType: 'document', entityId: d.id, label, route: `#/${context.route}/${encodeURIComponent(d.id)}` },
       placeholder: 'Merksatz, Erklärung, Fehler, Frage oder Zusammenfassung…',
     });
   },

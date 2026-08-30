@@ -307,10 +307,16 @@ export function openShortnote() {
           if (!raw || Number.isNaN(deliver.getTime())) { toast('Zustellzeitpunkt fehlt', 'warn'); return; }
           if (deliver.getTime() <= Date.now()) { toast('Der Zustellzeitpunkt muss in der Zukunft liegen', 'warn'); return; }
           const now = nowISO();
+          // Feldparität mit den Desktop-scheduledMessages (Review P3):
+          // title aus dem Inhalt, priority als Zahl, recurrence/tags/isPinned
+          // und sourceType wie am Dashboard.
           await store.performOp({ type: 'add-message', payload: {
-            id: newId('msg'), title: 'Mitteilung', content, scheduledAt: now,
+            id: newId('msg'), title: content.replace(/\s+/g, ' ').slice(0, 72) || 'Mitteilung',
+            content, scheduledAt: now,
             deliverAt: deliver.toISOString(), isDelivered: false, deliveredAt: null,
-            isRead: false, source: 'mobile-shortnote', createdAt: now, updatedAt: now,
+            isRead: false, isPinned: false, priority: 3, recurrence: 'none',
+            tags: ['shortnote'], sourceType: 'shortnote-mobile',
+            createdAt: now, updatedAt: now,
           } });
           closeSheet(); toast('Mitteilung geplant ✓', 'ok'); return;
         }
