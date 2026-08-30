@@ -15,6 +15,7 @@ import polaris from './views/polaris.js';
 import mehr from './views/mehr.js';
 import mail from './views/mail.js';
 import kalender from './views/kalender.js';
+import googlecalendar from './views/googlecalendar.js';
 import statistik from './views/statistik.js';
 import journal from './views/journal.js';
 import flowertech from './views/flowertech.js';
@@ -39,7 +40,7 @@ registerSW();
 
 boot({
   home, uebersicht, planen, fokus, polaris, mehr,
-  mail, kalender, statistik, journal, flowertech,
+  mail, kalender, googlecalendar, statistik, journal, flowertech,
   noteflow, gewohnheiten, flashcards, budget, gmail,
   meetings, ideen, inbox, einstellungen, integrationen,
   leseplan, readinghub, briefing, pinnboard, career,

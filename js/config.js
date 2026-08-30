@@ -26,6 +26,7 @@ export const LS = {
   seenPushes:   'qm-seen-pushes',
   mailCache:    'qm-mail-cache',          // zuletzt geladene Nachrichten je Ordner
   mailDrafts:   'qm-mail-drafts',         // nicht gesendete Entwürfe (offline-sicher)
+  gcalPrefs:    'qm-gcal-prefs',          // ausgewählte Google-Kalender (pro Gerät)
   springboard:  'qm-springboard',         // Seiten-/Favoritenanordnung des Homebildschirms
 };
 
@@ -79,6 +80,7 @@ export const MORE_MODULES = [
   { key: 'mail',         label: 'Mail',          icon: '✉️', route: 'mail',         desc: 'Posteingang, Suche, Senden' },
   { key: 'projekte',     label: 'Projekte',      icon: '📦', route: 'projekte',     desc: 'Vorhaben & Fortschritt' },
   { key: 'kalender',     label: 'Kalender',      icon: '📅', route: 'kalender',     desc: 'Agenda & Termine' },
+  { key: 'googlecalendar', label: 'Google Kalender', icon: '📆', route: 'googlecalendar', desc: 'Echte Google-Termine' },
   { key: 'flowertech',   label: 'FlowerTech',    icon: '🌸', route: 'flowertech',   desc: 'Projekte, Offerten, Rechnungen' },
   { key: 'noteflow',     label: 'Noteflow',      icon: '📝', route: 'noteflow',     desc: 'Notizen & Verknüpfungen' },
   { key: 'gewohnheiten', label: 'Gewohnheiten',  icon: '🔁', route: 'gewohnheiten', desc: 'Routinen & Serien' },
@@ -137,6 +139,7 @@ export const SPRINGBOARD_PAGES = [
       { key: 'uebersicht',   label: 'Übersicht',   icon: '📋', route: 'uebersicht',   tone: 'violet' },
       { key: 'planen',       label: 'Planen',      icon: '🗂️', route: 'planen',       tone: 'blue' },
       { key: 'kalender',     label: 'Kalender',    icon: '📅', route: 'kalender',     tone: 'red' },
+      { key: 'googlecalendar', label: 'G-Kalender', icon: '📆', route: 'googlecalendar', tone: 'red' },
       { key: 'fokus',        label: 'Fokus',       icon: '🎯', route: 'fokus',        tone: 'green' },
       { key: 'projekte',     label: 'Projekte',    icon: '📦', route: 'projekte',     tone: 'sand' },
       { key: 'meetings',     label: 'Meetings',    icon: '🤝', route: 'meetings',     tone: 'blue' },

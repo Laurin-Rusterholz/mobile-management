@@ -289,6 +289,36 @@ function onResize() {
 }
 window.addEventListener('resize', onResize);
 
+/*
+ * TASTATUR, APP-WEIT: TAB-LEISTE UND FAB WEICHEN IHR.
+ *
+ * BEFUND (Playwright, iPhone-13-Ansicht 390x664, Route Briefing): ein Feld am
+ * Seitenende fokussiert, dann die Tastatur simuliert (Layout-Viewport auf
+ * 390px verkleinert, wie Android es tatsaechlich tut) — die Tab-Leiste
+ * (position:fixed, bottom:0) und der FAB blieben an ihrem Platz und legten
+ * sich ueber das gerade fokussierte Feld: 62 bzw. 58 Pixel Notiz-Textarea
+ * verdeckt, der FAB mitten darauf.
+ *
+ * Polaris hat dafuer laengst einen eigenen, praeziseren Beobachter (eigene
+ * Layouthoehe, --kb als Fusspolster) — noetig, weil seine Chat-Ansicht bewusst
+ * NICHT im Dokumentfluss scrollt. Jede andere Route scrollt normal; der
+ * Browser schiebt ein fokussiertes Feld dort von selbst ueber die Tastatur.
+ * Nur die beiden `position:fixed`-Elemente schwimmen nicht mit — sie werden
+ * hier, unabhaengig von Polaris' eigenem Mechanismus, einfach ausgeblendet.
+ */
+const KB_SCHWELLE_GLOBAL = 80;
+function tastaturBeobachtenGlobal() {
+  const vv = window.visualViewport;
+  const layout = $('#layout');
+  if (!vv || !layout) return;
+  const messen = () => {
+    const ueberdeckung = Math.max(0, Math.round(window.innerHeight - vv.height));
+    layout.classList.toggle('kb-hide-chrome', ueberdeckung > KB_SCHWELLE_GLOBAL);
+  };
+  vv.addEventListener('resize', messen);
+  messen();
+}
+
 // ── Auto-Sync (übernommen): alle 60 s + bei Sichtbarkeit ──
 setInterval(() => { if (!document.hidden) store.pullData(true); }, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) store.pullData(true); });
@@ -314,6 +344,7 @@ export async function boot(viewModules) {
   buildSkeleton();
   attachPullToRefresh();
   initActions();
+  tastaturBeobachtenGlobal();
   focus.reconcileOnBoot();      // hängengebliebene Sitzung als „unterbrochen" abschließen
   // Views registrieren
   for (const [key, mod] of Object.entries(viewModules)) router.register(key, mod);

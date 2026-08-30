@@ -143,6 +143,7 @@ const stubs = {
     getMeetings: () => [], getProjects: () => [], notify: () => {}, state: { data: {} },
   },
   './briefing.js': { briefingZahlen: () => ({ termine: [], faellig: [], ueberfaellig: [], erledigt: 1, routinen: HABITS }) },
+  './ideen.js': { ideenZahlen: () => ({ offen: [] }) },
   '../focus.js': { statsForDay: () => ({ minutes: 0, count: 0 }) },
   '../actions.js': { registerActions: (o) => Object.assign(AKTIONEN, o) },
   '../router.js': { navigate: () => {} },

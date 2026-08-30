@@ -219,6 +219,7 @@ const stubs = {
     getMeetings: () => [], getProjects: () => [], notify: () => {}, performOp: async () => {}, state: { data: {} },
   },
   './briefing.js': { briefingZahlen: () => ({ termine: [], faellig: [], ueberfaellig: [], erledigt: 0, routinen: [] }) },
+  './ideen.js': { ideenZahlen: () => ({ offen: [] }) },
   '../focus.js': { statsForDay: () => ({ minutes: 0, count: 0 }) },
   '../actions.js': { registerActions: (o) => Object.assign(AKTIONEN, o) },
   '../router.js': { navigate: () => {} },

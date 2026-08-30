@@ -118,6 +118,12 @@ h1,h2,h3 { letter-spacing: -.012em; }
 }
 .fab:active { transform: scale(.9); }
 
+/* Tastatur offen (siehe shell.js/tastaturBeobachtenGlobal): beide schwimmen
+   sonst ueber dem gerade fokussierten Feld, weil sie position:fixed sind und
+   sich mit dem verkleinerten Layout-Viewport nicht mitverschieben. */
+.layout.kb-hide-chrome .tabbar { display: none; }
+.layout.kb-hide-chrome .fab { display: none; }
+
 /* ── Sidebar (Tablet) ── */
 .sidebar { display: none; }
 .layout.tablet .sidebar {
