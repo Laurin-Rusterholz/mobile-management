@@ -100,7 +100,7 @@ registerActions({
     const book = bookById(data.id); if (!book) return;
     openNoteComposer({
       heading: 'Lesenotiz', noteClass: 'reading', tags: [book.title], lockedTags: [book.title],
-      source: { app: 'readinghub', entityType: 'book', entityId: book.id, label: book.title, route: `#/readinghub?id=${encodeURIComponent(book.id)}` },
+      source: { app: 'readinghub', entityType: 'book', entityId: book.id, label: book.title, route: '#/readinghub/' + encodeURIComponent(book.id) },
       placeholder: 'Zitat, Zusammenfassung oder Erkenntnis…',
     });
   },

@@ -195,6 +195,7 @@ export function openNoteComposer(config = {}) {
             ...(noteClass === 'reading' && subtype ? { readingKind: subtype } : {}),
             ...(noteClass === 'learning' && subtype ? { learningKind: subtype } : {}),
             ...(noteClass === 'research' && subtype ? { researchKind: subtype } : {}),
+            ...(noteClass === 'idea' && tags.length ? { category: tags[0] } : {}),
             ...(config.dedupeKey ? { dedupeKey: config.dedupeKey } : {}),
           });
           showSaved(note, config.onSaved);
@@ -238,7 +239,7 @@ export function openIdeaComposer(existing = null) {
             noteClass: 'idea', title: String(fd.get('title') || ''), content: String(fd.get('content') || ''),
             category: selected[0], tags: selected, notebookId: null,
             dedupeKey: (existing && existing.dedupeKey) || `ideas:${id}`,
-            source: { app: 'ideas', entityType: 'idea', entityId: (existing && existing.source && existing.source.entityId) || id, label: selected[0], route: '#/ideen' },
+            source: { app: 'ideas', entityType: 'idea', entityId: (existing && existing.source && existing.source.entityId) || id, label: selected[0], route: '#/ideas/' + encodeURIComponent((existing && existing.source && existing.source.entityId) || id) },
           });
           showSaved(note);
         } catch (error) { toast(error.message || 'Idee konnte nicht gespeichert werden', 'error'); }

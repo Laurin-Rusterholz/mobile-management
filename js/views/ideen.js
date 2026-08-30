@@ -7,8 +7,9 @@ import { registerActions } from '../actions.js';
 import { navigate } from '../router.js';
 import { pageHeader } from './common.js';
 import { openIdeaComposer } from '../note-ui.js';
+import { ideaStatusToShared, ideaStatusFromShared } from '../notes.js';
 
-const statusOf = (note) => (note.ideaMeta && note.ideaMeta.status) || note.status || 'idea';
+const statusOf = (note) => (note.ideaMeta && note.ideaMeta.status) || (note.ideaStatus && ideaStatusFromShared(note.ideaStatus)) || note.status || 'idea';
 const STATUS = { idea: 'Neu', neu: 'Neu', reviewed: 'Geprüft', planned: 'Geplant', archived: 'Archiviert' };
 
 registerActions({
@@ -40,6 +41,7 @@ registerActions({
     const note = store.getById('note', data.id); if (!note) return;
     await store.performOp({ type: 'update-note', payload: {
       id: note.id, ideaMeta: { ...(note.ideaMeta || {}), status: data.s },
+      ideaStatus: ideaStatusToShared(data.s),
     } });
     closeSheet(); toast('Aktualisiert', 'ok'); navigate('ideen');
   },
@@ -64,6 +66,7 @@ registerActions({
     }
     await store.performOp({ type: 'update-note', payload: {
       id: note.id, ideaMeta: { ...(note.ideaMeta || {}), status: 'planned', convertedTo: data.to },
+      ideaStatus: ideaStatusToShared('planned'),
     } });
     closeSheet(); toast('Umgewandelt ✓', 'ok');
     navigate(data.to === 'flashcard' ? 'flashcards' : 'planen');

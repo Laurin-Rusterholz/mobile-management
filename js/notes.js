@@ -15,6 +15,22 @@ export const NOTE_CLASSES = Object.freeze({
   research: 'Recherchenotiz',
 });
 
+// Ideen-Status wandert als note.ideaStatus im Desktop-Vokabular über die
+// Geräte (Review P2-4). Mobile führt ihn lokal in ideaMeta.status weiter;
+// beide Felder werden hier ineinander übersetzt. Unbekannte Werte bleiben
+// unangetastet, damit kein Gerät Informationen verliert.
+const IDEA_STATUS_TO_SHARED = { idea: 'open', neu: 'open', 'new': 'open', planned: 'processed', archived: 'archived' };
+const IDEA_STATUS_FROM_SHARED = { open: 'idea', 'new': 'idea', neu: 'idea', processed: 'planned', archived: 'archived' };
+export function ideaStatusToShared(status) {
+  const value = String(status || '').trim();
+  return IDEA_STATUS_TO_SHARED[value] || value || 'open';
+}
+export function ideaStatusFromShared(status) {
+  const value = String(status || '').trim();
+  return IDEA_STATUS_FROM_SHARED[value] || value || 'idea';
+}
+
+
 export const NOTE_CLASS_KEYS = Object.freeze(Object.keys(NOTE_CLASSES));
 
 export const READING_KINDS = Object.freeze({
@@ -119,11 +135,11 @@ export function inferNoteClass(note = {}) {
 function legacyContext(input, noteClass) {
   if (noteClass === 'reading') {
     const entityId = input.readingHubBookId || input.bookId || input.sourceId || null;
-    return { app: 'readinghub', entityType: entityId ? 'book' : null, entityId, label: input.bookTitle || input.sourceLabel || input.title || 'Reading Hub', route: entityId ? `#/readinghub?id=${encodeURIComponent(entityId)}` : '#/readinghub' };
+    return { app: 'readinghub', entityType: entityId ? 'book' : null, entityId, label: input.bookTitle || input.sourceLabel || input.title || 'Reading Hub', route: entityId ? '#/readinghub/' + encodeURIComponent(entityId) : '#/readinghub' };
   }
   if (noteClass === 'idea') {
     const entityId = input.ideaId || input.linkedIdeaId || input.sourceId || null;
-    return { app: 'ideas', entityType: entityId ? 'idea' : null, entityId, label: input.category || input.sourceLabel || input.title || 'Ideas', route: '#/ideen' };
+    return { app: 'ideas', entityType: entityId ? 'idea' : null, entityId, label: input.category || input.sourceLabel || input.title || 'Ideas', route: entityId ? '#/ideas/' + encodeURIComponent(entityId) : '#/ideas' };
   }
   if (noteClass === 'learning') {
     const recallId = input.cardId || input.flashcardId || input.deckId || null;
@@ -168,7 +184,7 @@ export function migrateNote(note, now = new Date().toISOString()) {
   // Alte Clients schrieben lediglich "mobile"/"desktop". Ein konkreter
   // Legacy-Link (bookId, cardId, articleId …) ist die stärkere Information.
   if (context.app !== 'noteflow' && (!rawApp || rawApp === 'noteflow')) source.app = context.app;
-  return {
+  const result = {
     ...input,
     title: input.title == null ? '' : String(input.title),
     content: input.content == null ? String(input.text || '') : String(input.content),
@@ -179,6 +195,17 @@ export function migrateNote(note, now = new Date().toISOString()) {
     createdAt: input.createdAt || now,
     updatedAt: input.updatedAt || input.createdAt || now,
   };
+  if (result.noteClass === 'idea') {
+    // note.ideaStatus ist das geraeteuebergreifende Feld (Desktop-Vokabular);
+    // bei Divergenz gewinnt es, sonst wird es aus ideaMeta.status gespiegelt.
+    const meta = result.ideaMeta && typeof result.ideaMeta === 'object' ? result.ideaMeta : {};
+    if (result.ideaStatus && ideaStatusToShared(meta.status) !== String(result.ideaStatus)) {
+      result.ideaMeta = { ...meta, status: ideaStatusFromShared(result.ideaStatus) };
+    } else if (meta.status && !result.ideaStatus) {
+      result.ideaStatus = ideaStatusToShared(meta.status);
+    }
+  }
+  return result;
 }
 
 function stableIdeaNoteId(ideaId) {
@@ -228,7 +255,7 @@ function entityMap(value, prefix) {
   const input = Array.isArray(value) ? value : [];
   Object.keys(input).forEach((key) => {
     const entry = input[key];
-    const item = entry && typeof entry === 'object' ? { ...entry } : { legacyValue: entry };
+    const item = entry && typeof entry === 'object' ? { ...entry } : { value: entry };
     const rawKey = String(key);
     const keyPart = /^(0|[1-9]\d*)$/.test(rawKey)
       ? rawKey
@@ -289,11 +316,12 @@ export function migrateNotesData(data, now = new Date().toISOString()) {
         tags: normalizeTags([category, ...(Array.isArray(idea.tags) ? idea.tags : [])]),
         notebookId: null,
         dedupeKey,
+        ideaStatus: ideaStatusToShared(idea.status || 'idea'),
         ideaMeta: {
           status: idea.status || 'idea', rating: idea.rating, score: idea.score,
           convertedTo: idea.convertedTo,
         },
-        source: { app: 'ideas', entityType: 'idea', entityId: ideaId, label: category, route: '#/ideen' },
+        source: { app: 'ideas', entityType: 'idea', entityId: ideaId, label: category, route: '#/ideas/' + encodeURIComponent(ideaId) },
       }, now);
       count++;
     } else {
@@ -301,7 +329,7 @@ export function migrateNotesData(data, now = new Date().toISOString()) {
       // die geräteübergreifenden Identitätsfelder werden vereinheitlicht.
       const old = linked.note;
       const source = normalizeSource(old.source, {
-        app: 'ideas', entityType: 'idea', entityId: ideaId, label: category, route: '#/ideen',
+        app: 'ideas', entityType: 'idea', entityId: ideaId, label: category, route: '#/ideas/' + encodeURIComponent(ideaId),
       });
       const next = migrateNote({
         ...old,
@@ -312,7 +340,7 @@ export function migrateNotesData(data, now = new Date().toISOString()) {
         source: {
           ...source, app: 'ideas', entityType: source.entityType || 'idea', entityId: String(ideaId),
           label: text(old.source && old.source.label) || category,
-          route: source.route || '#/ideen',
+          route: source.route || '#/ideas/' + encodeURIComponent(ideaId),
         },
       }, now);
       if (!sameJson(old, next)) { entities.notes[noteId] = next; count++; }
