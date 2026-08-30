@@ -135,7 +135,22 @@ export default {
   },
   mount(root, ctx) {
     const search = root.querySelector('#noteSearch');
-    if (search) search.addEventListener('input', () => { filters.search = search.value.trim(); clearTimeout(search._timer); search._timer = setTimeout(() => store.notify(), 180); });
+    // Nur die Liste neu zeichnen — store.notify() ersetzte die ganze Ansicht,
+    // das Suchfeld verlor nach jeder Tipppause Fokus/Tastatur und den Rest
+    // der Eingabe (Review P2-6; Muster wie in collection.js).
+    if (search) search.addEventListener('input', () => {
+      filters.search = search.value.trim();
+      clearTimeout(search._timer);
+      search._timer = setTimeout(() => {
+        const list = root.querySelector('.note-list');
+        if (!list) { store.notify(); return; }
+        const notes = filteredNotes();
+        list.innerHTML = notes.length ? notes.map(card).join('')
+          : `<div class="empty"><div class="empty-icon">📝</div><div class="empty-title">Keine passenden Notizen</div><div class="empty-sub">Passe die Filter an oder erstelle eine neue Notiz.</div></div>`;
+        const sub = root.querySelector('.page-sub');
+        if (sub) sub.textContent = `${notes.length} von ${store.getNotes().length} Notizen`;
+      }, 180);
+    });
     root.querySelectorAll('[data-note-filter]').forEach((select) => select.addEventListener('change', () => {
       filters[select.dataset.noteFilter] = select.value; store.notify();
     }));
