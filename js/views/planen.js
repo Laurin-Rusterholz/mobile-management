@@ -11,6 +11,7 @@ import { isTablet } from '../shell.js';
 import { pageHeader, segmented, taskCard } from './common.js';
 import * as focus from '../focus.js';
 import { openNoteComposer } from '../note-ui.js';
+import { chatgptTaskBlock } from './chatgpt.js';
 
 const VIEWS = [
   { key: 'inbox', label: 'Inbox' }, { key: 'heute', label: 'Heute' }, { key: 'geplant', label: 'Geplant' },
@@ -113,7 +114,7 @@ registerActions({
     if (isTablet()) navigate('planen', { sub: current().sub || 'inbox', params: { id: d.id } });
     else {
       const t = store.getById('task', d.id); if (!t) return;
-      openSheet({ title: 'Aufgabe', size: 'half', body: taskDetailHtml(t) });
+      openSheet({ title: 'Aufgabe', size: 'half', body: taskDetailHtml(t) + chatgptTaskBlock('task', t.id, t.title) });
     }
   },
   'open-project': (d) => {
@@ -125,6 +126,7 @@ registerActions({
       <div class="muted-row">Status: ${escHTML(p.status || 'active')}</div>
       <div class="detail-text">Aufgaben in diesem Projekt: ${store.getTasks().filter(t => t.projectId === p.id).length}</div>
       <div class="detail-actions"><button class="btn primary" data-action="entity-note" data-kind="project" data-id="${p.id}">📝 Notiz hinzufügen</button></div>
+      ${chatgptTaskBlock('project', p.id, p.title)}
       <div class="context-notes"><div class="section-title">Notizen (${notes.length})</div>
         ${notes.length ? notes.map(n => `<button class="context-note-row" data-action="entity-note-open" data-id="${escHTML(n.id)}"><span>${escHTML(n.title || 'Notiz')}</span><b>›</b></button>`).join('') : '<div class="muted-row">Noch keine Notizen.</div>'}
       </div>

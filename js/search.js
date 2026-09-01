@@ -14,6 +14,7 @@ const TYPES = [
   { key: 'meeting', label: 'Meetings',   icon: '🤝', get: () => store.getMeetings(),text: m => `${m.title || ''} ${m.location || ''}`, route: 'meetings' },
   { key: 'habit',   label: 'Gewohnheiten',icon: '🔁',get: () => store.getHabits(),  text: h => `${h.text || ''}`, route: 'gewohnheiten' },
   { key: 'card',    label: 'Flashcards', icon: '🎴', get: () => store.getCards(),   text: c => `${c.front || ''} ${c.back || ''}`, route: 'flashcards' },
+  { key: 'chatgptNote', label: 'ChatGPT', icon: '🤖', get: () => store.getCollection('chatgptNotes'), text: n => `${n.instruction || ''} ${n.derived || ''} ${(n.tags || []).join(' ')}`, route: 'chatgpt' },
 ];
 
 let _filter = 'all';

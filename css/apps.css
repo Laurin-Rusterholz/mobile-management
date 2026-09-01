@@ -596,3 +596,18 @@
 .bu-monat { flex: 1; text-align: center; font-weight: 700; font-size: 15px; }
 .bu-schnitt { font-size: 12.5px; color: var(--text-muted); margin: -4px 0 12px; }
 .bu-neu-btn { min-height: 52px; margin-top: 16px; font-size: 16px; }
+
+/* ChatGPT (js/views/chatgpt.js): Notes, Leads, ChatGPT-Aufgaben am Element */
+.cg-capture { display: flex; flex-direction: column; gap: 8px; }
+.cg-capture .chip { align-self: flex-end; }
+.cg-note.done { opacity: .6; }
+.cg-instruction { white-space: pre-wrap; }
+.cg-lead.unread { border-left: 3px solid #D96B5B; }
+.cg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #D96B5B; margin-right: 6px; vertical-align: middle; }
+.cg-closed { margin-top: 10px; }
+.cg-marker { background: rgba(201,169,110,.18); color: #C9A96E; }
+.cg-task-row { padding: 6px 0; border-top: 1px solid var(--border, rgba(127,127,127,.2)); display: flex; flex-direction: column; gap: 2px; }
+.cg-task-row.done { opacity: .55; }
+.cg-task-row.done .cg-task-text { text-decoration: line-through; }
+.cg-task-add { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.cg-task-add .input { flex: 1; min-width: 0; }

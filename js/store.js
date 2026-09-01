@@ -473,6 +473,8 @@ const KIND_MAP = {
   organization: 'organizations', person: 'persons', protocol: 'protocols',
   workflow: 'workflows', article: 'articles', thesis: 'theses',
   event: 'calendarEvents', measure: 'measures', update: 'updates',
+  // ChatGPT-Modul (js/views/chatgpt.js): dieselben Sammlungen wie AI Sync
+  chatgptNote: 'chatgptNotes', chatgptLead: 'chatgptLeads', chatgptTask: 'chatgptTasks',
 };
 
 function ents() {

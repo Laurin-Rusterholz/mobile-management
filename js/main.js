@@ -34,6 +34,7 @@ import ideen from './views/ideen.js';
 import inbox from './views/inbox.js';
 import einstellungen from './views/einstellungen.js';
 import integrationen from './views/integrationen.js';
+import chatgpt from './views/chatgpt.js';        // ChatGPT Notes, Leads, ChatGPT-Aufgaben
 import { collectionViews } from './views/collection.js';
 
 registerSW();
@@ -43,7 +44,7 @@ boot({
   mail, kalender, googlecalendar, statistik, journal, flowertech,
   noteflow, gewohnheiten, flashcards, budget, gmail,
   meetings, ideen, inbox, einstellungen, integrationen,
-  leseplan, readinghub, briefing, pinnboard, career,
+  leseplan, readinghub, briefing, pinnboard, career, chatgpt,
   // Smarter und BM-Vorbereitung sind KEINE eigenen Apps: leseplan.js ist
   // ausweislich seines eigenen Kopfes die "Kombination aus Smarter +
   // BM-Vorbereitung". Statt zwei Attrappen zu bauen, fuehren beide Namen auf
