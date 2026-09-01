@@ -4,7 +4,7 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v21-gmail-vacation';
+const VERSION = 'quantus-mobile-v22-chatgpt';
 const SHELL = [
   './',
   './index.html',
@@ -49,6 +49,7 @@ const SHELL = [
   './js/views/einstellungen.js',
   './js/views/integrationen.js',
   './js/views/leseplan.js',
+  './js/views/chatgpt.js',
   './js/views/readinghub.js',
   './js/views/uebersicht.js',
   './js/views/mail.js',

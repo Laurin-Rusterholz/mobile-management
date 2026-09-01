@@ -14,6 +14,7 @@ import { registerActions } from '../actions.js';
 import { pageHeader, segmented } from './common.js';
 import { navigate } from '../router.js';
 import { openNoteComposer } from '../note-ui.js';
+import { chatgptTaskBlock } from './chatgpt.js';
 
 // Ansichtszustand je Modul (Suche/Filter bleiben beim Wechsel erhalten)
 const uiState = {};
@@ -106,7 +107,8 @@ function formHtml(key, item) {
     ${related.length ? related.map((note) => `<button class="context-note-row" data-action="coll-note-open" data-id="${escHTML(note.id)}">
       <span>${escHTML(note.title || 'Notiz')}</span><small>${escHTML((note.tags || []).join(', '))}</small><b>›</b></button>`).join('')
       : '<div class="muted-row">Noch keine verknüpften Notizen.</div>'}
-  </div>` : ''}`;
+  </div>` : ''}
+  ${v.id ? chatgptTaskBlock(cfg.kind, v.id, titleOf(v)) : ''}`;
 }
 
 function openForm(key, id) {
