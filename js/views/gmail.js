@@ -6,7 +6,7 @@
 // ============================================================================
 import { escHTML, formatDate, openSheet, closeSheet, toast, confirmPreview } from '../util.js';
 import * as store from '../store.js';
-import { getBaseUrl } from '../config.js';
+import { getBaseUrl, queueAuthHeaders } from '../config.js';
 import { registerActions } from '../actions.js';
 import { pageHeader } from './common.js';
 
@@ -16,6 +16,109 @@ async function gmailRpc(method, path, query, body) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
   return data;
+}
+
+/* ── Geplanter Versand (13.09.2026) ──────────────────────────────────────────
+   Auch hier gilt der sichere Standard: Eine Mail geht erst in drei Stunden
+   raus und liegt bis dahin im Ausgang — abbrechbar, sofort sendbar. Geplant
+   und gesendet wird serverseitig (/.netlify/functions/mail-queue); die
+   Gmail-API kennt keine Versandplanung, und Gmails Ansicht „Geplant" wird
+   nicht vorgetaeuscht. */
+const VERSANDZONE = 'Europe/Zurich';
+
+async function queueRpc(aktion, daten) {
+  const url = getBaseUrl() + '/.netlify/functions/mail-queue';
+  const r = await fetch(url, {
+    method: 'POST',
+    /* Der Ausgang ist fail-closed: ohne Zugangsschlüssel gibt der Server
+       nichts heraus und plant nichts ein. Dieses Gerät schickt denselben
+       Schlüssel mit, den Quantus am Rechner führt — aus dem Gerätespeicher,
+       nie aus dem Quelltext und nie in der Adresse. */
+    headers: Object.assign({ 'Content-Type': 'application/json' }, queueAuthHeaders()),
+    body: JSON.stringify(Object.assign({ aktion }, daten || {})),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.ok === false) throw new Error(data.grund || data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+/* Stabiler Schlüssel je VERFASSEN-VORGANG — eine Wiederholung im selben
+   Formular legt keinen zweiten Eintrag an.
+
+   Befund der Integrationsprüfung (13.09.2026): Er darf nicht über Dialoge
+   hinweg leben. Blieb er nach einem gescheiterten Versuch stehen, nahm die
+   nächste, ganz andere Mail denselben Schlüssel — der Server antwortete mit
+   dem alten Eintrag und meldete Erfolg, während die neue Mail nie hinausging.
+   Vergeben wird er deshalb beim Öffnen des Verfassen-Blatts. */
+function anfrageSchluessel() {
+  try { if (window.crypto && crypto.randomUUID) return 'a' + crypto.randomUUID().replace(/-/g, ''); } catch (e) { /* ältere Browser */ }
+  return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+let offenerSchluessel = null;
+
+function zuercherZeit(ms) {
+  const t = Number(ms);
+  if (!isFinite(t)) return '';
+  try {
+    return new Intl.DateTimeFormat('de-CH', { timeZone: VERSANDZONE, day: '2-digit', month: '2-digit',
+      year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(t));
+  } catch (e) { return new Date(t).toLocaleString('de-CH'); }
+}
+
+async function openOutboxSheet() {
+  openSheet({ title: 'Ausgang (geplant)', size: 'full', body: '<div id="gmOutbox" class="form"><div class="muted-row">Wird geladen…</div></div>' });
+  await renderOutbox();
+}
+
+async function renderOutbox() {
+  const host = document.getElementById('gmOutbox');
+  if (!host) return;
+  let eintraege = [];
+  try {
+    const antwort = await queueRpc('liste', {});
+    eintraege = (antwort.eintraege || []).filter(e => e &&
+      (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen' || e.status === 'unklar'));
+  } catch (e) {
+    const gesperrt = /GESPERRT|KEIN_ZUGANG|Zugangsschl/i.test(e.message || '');
+    host.innerHTML = `<div class="empty"><div class="empty-icon">${gesperrt ? '🔒' : '🔌'}</div>
+      <div class="empty-title">${gesperrt ? 'Ausgang gesperrt' : 'Ausgang nicht erreichbar'}</div>
+      <div class="empty-sub">${gesperrt
+        ? 'Der Server gibt den Ausgang nur mit Zugangsschlüssel heraus; auf diesem Gerät ist keiner hinterlegt.'
+        : 'Der geplante Versand liegt auf dem Server.'} (${escHTML(e.message)})</div></div>`;
+    return;
+  }
+  if (!eintraege.length) {
+    host.innerHTML = `<div class="empty"><div class="empty-icon">🕒</div><div class="empty-title">Nichts geplant</div>
+      <div class="empty-sub">Neue Mails gehen standardmässig erst in drei Stunden raus und stehen bis dahin hier.</div></div>`;
+    return;
+  }
+  host.innerHTML = eintraege.map(e => {
+    const laeuft = e.status === 'sendet';
+    if (e.status === 'unklar') {
+      // Ungeklärt: nichts wiederholen, nichts behaupten — fragen.
+      return `<div class="card row-card"><div class="row-main">
+        <div class="row-title">${escHTML(e.subject || '(kein Betreff)')}</div>
+        <div class="row-sub">An: ${escHTML(e.to || '')} · ❓ Ungeklärt, ob gesendet</div>
+        <div class="row-meta">${escHTML(e.letzterFehler || 'Der Versand wurde angestossen, der Ausgang ist ungeklärt.')} Bitte in Gmail nachsehen.</div>
+        <div class="row-meta">
+          <button class="chip accent" data-action="gmail-outbox-sent" data-id="${escHTML(e.id)}">✅ Ist gesendet</button>
+          <button class="chip" data-action="gmail-outbox-unsent" data-id="${escHTML(e.id)}">↩️ Nicht gesendet</button>
+        </div>
+      </div></div>`;
+    }
+    const kopf = laeuft ? '📤 Wird gerade gesendet'
+      : e.status === 'fehlgeschlagen' ? '⚠️ Nicht gesendet — ' + escHTML(e.letzterFehler || 'Grund unbekannt')
+      : '🕒 Geht ' + escHTML(zuercherZeit(e.sendAt)) + ' raus (' + VERSANDZONE + ')';
+    return `<div class="card row-card"><div class="row-main">
+      <div class="row-title">${escHTML(e.subject || '(kein Betreff)')}</div>
+      <div class="row-sub">An: ${escHTML(e.to || '')}${e.hatAnhaenge ? ' 📎' : ''} · ${kopf}</div>
+      ${laeuft ? '<div class="row-meta">Gmail übernimmt gerade — jetzt geht nichts mehr.</div>'
+        : `<div class="row-meta">
+            <button class="chip" data-action="gmail-outbox-now" data-id="${escHTML(e.id)}">📨 Jetzt senden</button>
+            <button class="chip" data-action="gmail-outbox-cancel" data-id="${escHTML(e.id)}">🛑 Abbrechen</button>
+          </div>`}
+    </div></div>`;
+  }).join('');
 }
 
 function cachedIndex() {
@@ -139,11 +242,13 @@ async function openVacationSheet() {
 
 registerActions({
   'gmail-compose': () => {
+    offenerSchluessel = anfrageSchluessel();   // neues Formular, neuer Schlüssel
     openSheet({ title: 'Neue E-Mail', size: 'full', body: `<form class="form" id="gmailForm">
       <label class="f"><span class="f-label">An</span><input id="gmTo" class="input" type="email" placeholder="empfaenger@example.com"></label>
       <label class="f"><span class="f-label">Betreff</span><input id="gmSubject" class="input"></label>
       <label class="f"><span class="f-label">Text</span><textarea id="gmBody" class="input" rows="8"></textarea></label>
-      <button class="btn primary block" type="button" data-action="gmail-send">Senden…</button>
+      <button class="btn primary block" type="button" data-action="gmail-send">Senden (in 3 h)…</button>
+      <div class="muted-row">Die Mail geht erst in rund drei Stunden raus und steht bis dahin im Ausgang — abbrechbar oder sofort sendbar.</div>
     </form>` });
   },
   'gmail-send': async () => {
@@ -152,11 +257,12 @@ registerActions({
     const bodyText = (document.getElementById('gmBody') || {}).value || '';
     if (!to) { toast('Empfänger fehlt', 'error'); return; }
     const ok = await confirmPreview({
-      title: 'E-Mail senden?', confirmLabel: 'Jetzt senden',
+      title: 'In 3 Stunden senden?', confirmLabel: 'Einplanen',
       previewHtml: `<div class="mail-preview">
         <div><b>An:</b> ${escHTML(to)}</div>
         <div><b>Betreff:</b> ${escHTML(subject || '(kein Betreff)')}</div>
         <div class="mail-preview-body">${escHTML(bodyText.slice(0, 400)) || '<i>(leer)</i>'}</div>
+        <div class="muted-row">Geht in rund drei Stunden raus. Bis dahin im Ausgang abbrechbar oder sofort sendbar.</div>
       </div>`,
     });
     if (!ok) return;
@@ -164,9 +270,45 @@ registerActions({
       const raw = btoa(unescape(encodeURIComponent(
         `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${bodyText}`
       ))).replace(/\+/g, '-').replace(/\//g, '_');
-      await gmailRpc('POST', '/users/me/messages/send', {}, { raw });
-      closeSheet(); toast('Gesendet ✓', 'ok');
-    } catch (e) { toast('Senden fehlgeschlagen: ' + e.message, 'error'); }
+      if (!offenerSchluessel) offenerSchluessel = anfrageSchluessel();   // Notnagel
+      const antwort = await queueRpc('plane', { raw, to, subject,
+        koerper: bodyText, vorschau: String(bodyText).slice(0, 300), hatAnhaenge: false,
+        quelle: 'mobile-gmail', anfrageSchluessel: offenerSchluessel });
+      offenerSchluessel = null;
+      closeSheet(); toast('🕒 Geplant: ' + zuercherZeit((antwort.eintrag || {}).sendAt), 'ok');
+    } catch (e) { toast('Nicht geplant: ' + e.message, 'error'); }
+  },
+  'gmail-outbox': () => { openOutboxSheet(); },
+  'gmail-outbox-now': async (d) => {
+    try { await queueRpc('sofort', { id: d.id }); toast('Wird gesendet ✓', 'ok'); }
+    catch (e) { toast('Nicht möglich: ' + e.message, 'error'); }
+    renderOutbox();
+  },
+  'gmail-outbox-sent': async (d) => {
+    const ok = await confirmPreview({ title: 'In Gmail wirklich gesendet?', confirmLabel: 'Ja, ist gesendet',
+      previewHtml: '<div class="mail-preview">Die Mail wird als gesendet vermerkt. Es wird nichts verschickt.</div>' });
+    if (!ok) return;
+    try { await queueRpc('geklaert-gesendet', { id: d.id }); toast('Geklärt ✓', 'ok'); }
+    catch (e) { toast('Nicht geklärt: ' + e.message, 'error'); }
+    renderOutbox();
+  },
+  'gmail-outbox-unsent': async (d) => {
+    const ok = await confirmPreview({ title: 'In Gmail NICHT gesendet?', confirmLabel: 'Erneut einplanen',
+      previewHtml: '<div class="mail-preview">Die Mail wird neu eingeplant und geht beim nächsten Serverlauf raus.</div>' });
+    if (!ok) return;
+    try { await queueRpc('geklaert-nicht-gesendet', { id: d.id }); toast('Neu eingeplant ✓', 'ok'); }
+    catch (e) { toast('Nicht geklärt: ' + e.message, 'error'); }
+    renderOutbox();
+  },
+  'gmail-outbox-cancel': async (d) => {
+    const ok = await confirmPreview({
+      title: 'Geplante Mail abbrechen?', confirmLabel: 'Abbrechen',
+      previewHtml: '<div class="mail-preview">Diese Mail geht dann nicht raus.</div>',
+    });
+    if (!ok) return;
+    try { await queueRpc('abbrechen', { id: d.id }); toast('Abgebrochen ✓', 'ok'); }
+    catch (e) { toast('Nicht abgebrochen: ' + e.message, 'error'); }
+    renderOutbox();
   },
   'gmail-vacation': () => { openVacationSheet(); },
   'gmail-refresh': async (d, elBtn) => {
@@ -208,9 +350,10 @@ export default {
     const sub = 'Posteingang' + (vacationOn ? ' · 🌴 Abwesenheit aktiv' : '');
     return `<div class="pad">
       ${pageHeader('Gmail', sub, `<button class="chip" data-action="gmail-refresh">⟳ Laden</button>` +
+        `<button class="chip" data-action="gmail-outbox">🕒 Ausgang</button>` +
         `<button class="chip${vacationOn ? ' accent' : ''}" data-action="gmail-vacation">🌴 Abwesenheit</button>` +
         `<button class="chip accent" data-action="gmail-compose">✎ Neu</button>`)}
-      <div class="muted-row" style="margin-bottom:8px">Senden & Löschen nur mit Vorschau-Bestätigung.</div>
+      <div class="muted-row" style="margin-bottom:8px">Senden &amp; Löschen nur mit Vorschau-Bestätigung. Neue Mails gehen standardmässig erst in 3 Stunden raus — bis dahin im Ausgang.</div>
       <div id="gmailList">
         ${idx.length
           ? idx.slice(0, 30).map(e => `<div class="card row-card"><div class="row-main">
