@@ -11,7 +11,7 @@
 // ============================================================================
 import { escHTML, formatDate, formatTime, openSheet, closeSheet, toast, confirmPreview, emptyState, skeletonList, haptic } from '../util.js';
 import * as store from '../store.js';
-import { getBaseUrl, LS } from '../config.js';
+import { getBaseUrl, LS, authHeaders } from '../config.js';
 import { registerActions } from '../actions.js';
 import { navigate, current } from '../router.js';
 import { pageHeader } from './common.js';
@@ -43,6 +43,7 @@ const ui = {
   profile: null,      // { emailAddress }
   plain: false,       // Nur-Text statt Original-Darstellung (pro Sitzung)
   ausgang: [],        // geplante ausgehende Mails aus der Server-Warteschlange
+  sendeSchluessel: null,  // stabiler Schlüssel des laufenden Sendeversuchs
 };
 
 function cacheKey() { return ui.search ? 'search' : ui.folder; }
@@ -89,12 +90,25 @@ async function queueRpc(aktion, daten) {
   const url = getBaseUrl() + '/.netlify/functions/mail-queue';
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    /* Der Ausgang ist fail-closed: ohne Zugangsschlüssel gibt der Server
+       nichts heraus und plant nichts ein. Dieses Gerät schickt denselben
+       Schlüssel mit, den Quantus am Rechner führt — aus dem Gerätespeicher,
+       nie aus dem Quelltext und nie in der Adresse. */
+    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
     body: JSON.stringify(Object.assign({ aktion }, daten || {})),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || data.ok === false) throw new Error(data.grund || data.error || ('HTTP ' + r.status));
   return data;
+}
+
+/* Ein stabiler Schlüssel je Sendeversuch: Geht die Antwort verloren und
+   jemand tippt noch einmal auf Senden, landet der zweite Versuch auf
+   derselben Stelle im Ausgang — statt als zweiter Eintrag und damit später
+   als zweite Mail. */
+function anfrageSchluessel() {
+  try { if (window.crypto && crypto.randomUUID) return 'a' + crypto.randomUUID().replace(/-/g, ''); } catch (e) { /* ältere Browser */ }
+  return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
 }
 
 function zuercherZeit(ms) {
@@ -413,8 +427,15 @@ function ausgangRowHtml(e) {
 function ausgangHtml() {
   if (ui.loading && !ui.ausgang.length) return skeletonList(3);
   if (ui.error && !ui.ausgang.length) {
-    return emptyState('🔌', 'Ausgang nicht erreichbar',
-      'Der geplante Versand liegt auf dem Server. (' + ui.error + ')',
+    /* Der Ausgang ist bewusst fail-closed: Ohne hinterlegten Zugangsschlüssel
+       gibt der Server nichts heraus und plant nichts ein — dort liegen ganze
+       Mails samt Anhängen. Das wird gesagt, nicht als „offline" verkleidet. */
+    const gesperrt = /GESPERRT|KEIN_ZUGANG|Zugangsschl/i.test(ui.error);
+    return emptyState(gesperrt ? '🔒' : '🔌',
+      gesperrt ? 'Ausgang gesperrt' : 'Ausgang nicht erreichbar',
+      gesperrt
+        ? 'Der Server gibt den Ausgang nur mit Zugangsschlüssel heraus. Auf diesem Gerät ist keiner hinterlegt — geplante Mails siehst du in Quantus am Rechner. (' + ui.error + ')'
+        : 'Der geplante Versand liegt auf dem Server. (' + ui.error + ')',
       '<button class="btn primary" data-action="mail-refresh">Erneut versuchen</button>');
   }
   if (!ui.ausgang.length) {
@@ -772,11 +793,13 @@ registerActions({
     });
     if (!ok) return;
     try {
+      if (!ui.sendeSchluessel) ui.sendeSchluessel = anfrageSchluessel();
       const antwort = await queueRpc('plane', {
         raw: encodeRaw({ to, cc, subject, text }),
         to, cc, subject, koerper: text, vorschau: String(text).slice(0, 300),
-        hatAnhaenge: false, quelle: 'mobile',
+        hatAnhaenge: false, quelle: 'mobile', anfrageSchluessel: ui.sendeSchluessel,
       });
+      ui.sendeSchluessel = null;
       closeSheet();
       toast('🕒 Geplant: ' + zuercherZeit((antwort.eintrag || {}).sendAt), 'ok');
       if (ui.folder === 'outbox') refresh(false);

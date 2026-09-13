@@ -6,7 +6,7 @@
 // ============================================================================
 import { escHTML, formatDate, openSheet, closeSheet, toast, confirmPreview } from '../util.js';
 import * as store from '../store.js';
-import { getBaseUrl } from '../config.js';
+import { getBaseUrl, authHeaders } from '../config.js';
 import { registerActions } from '../actions.js';
 import { pageHeader } from './common.js';
 
@@ -29,13 +29,26 @@ const VERSANDZONE = 'Europe/Zurich';
 async function queueRpc(aktion, daten) {
   const url = getBaseUrl() + '/.netlify/functions/mail-queue';
   const r = await fetch(url, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    /* Der Ausgang ist fail-closed: ohne Zugangsschlüssel gibt der Server
+       nichts heraus und plant nichts ein. Dieses Gerät schickt denselben
+       Schlüssel mit, den Quantus am Rechner führt — aus dem Gerätespeicher,
+       nie aus dem Quelltext und nie in der Adresse. */
+    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
     body: JSON.stringify(Object.assign({ aktion }, daten || {})),
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok || data.ok === false) throw new Error(data.grund || data.error || ('HTTP ' + r.status));
   return data;
 }
+
+/* Stabiler Schlüssel je Sendeversuch — eine Wiederholung nach verlorener
+   Antwort legt keinen zweiten Eintrag an. */
+function anfrageSchluessel() {
+  try { if (window.crypto && crypto.randomUUID) return 'a' + crypto.randomUUID().replace(/-/g, ''); } catch (e) { /* ältere Browser */ }
+  return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+}
+let offenerSchluessel = null;
 
 function zuercherZeit(ms) {
   const t = Number(ms);
@@ -60,8 +73,12 @@ async function renderOutbox() {
     eintraege = (antwort.eintraege || []).filter(e => e &&
       (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen' || e.status === 'unklar'));
   } catch (e) {
-    host.innerHTML = `<div class="empty"><div class="empty-icon">🔌</div><div class="empty-title">Ausgang nicht erreichbar</div>
-      <div class="empty-sub">Der geplante Versand liegt auf dem Server. (${escHTML(e.message)})</div></div>`;
+    const gesperrt = /GESPERRT|KEIN_ZUGANG|Zugangsschl/i.test(e.message || '');
+    host.innerHTML = `<div class="empty"><div class="empty-icon">${gesperrt ? '🔒' : '🔌'}</div>
+      <div class="empty-title">${gesperrt ? 'Ausgang gesperrt' : 'Ausgang nicht erreichbar'}</div>
+      <div class="empty-sub">${gesperrt
+        ? 'Der Server gibt den Ausgang nur mit Zugangsschlüssel heraus; auf diesem Gerät ist keiner hinterlegt.'
+        : 'Der geplante Versand liegt auf dem Server.'} (${escHTML(e.message)})</div></div>`;
     return;
   }
   if (!eintraege.length) {
@@ -246,8 +263,11 @@ registerActions({
       const raw = btoa(unescape(encodeURIComponent(
         `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${bodyText}`
       ))).replace(/\+/g, '-').replace(/\//g, '_');
+      if (!offenerSchluessel) offenerSchluessel = anfrageSchluessel();
       const antwort = await queueRpc('plane', { raw, to, subject,
-        koerper: bodyText, vorschau: String(bodyText).slice(0, 300), hatAnhaenge: false, quelle: 'mobile-gmail' });
+        koerper: bodyText, vorschau: String(bodyText).slice(0, 300), hatAnhaenge: false,
+        quelle: 'mobile-gmail', anfrageSchluessel: offenerSchluessel });
+      offenerSchluessel = null;
       closeSheet(); toast('🕒 Geplant: ' + zuercherZeit((antwort.eintrag || {}).sendAt), 'ok');
     } catch (e) { toast('Nicht geplant: ' + e.message, 'error'); }
   },

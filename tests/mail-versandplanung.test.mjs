@@ -61,6 +61,17 @@ const PRUEFUNGEN = {
   'geklaert wird nur ausdruecklich': (q) =>
     q.mail.includes("queueRpc('geklaert-gesendet'") && q.mail.includes("queueRpc('geklaert-nicht-gesendet'") &&
     q.gmail.includes("queueRpc('geklaert-gesendet'") && q.gmail.includes("queueRpc('geklaert-nicht-gesendet'"),
+  /* Der Ausgang ist fail-closed: ohne Zugangsschluessel gibt der Server nichts
+     heraus. Das Geraet schickt den gespeicherten Schluessel mit — und erklaert
+     sein Fehlen, statt „offline" zu behaupten. */
+  'der Zugangsschluessel wird mitgeschickt': (q) =>
+    q.mail.includes('authHeaders()') && q.gmail.includes('authHeaders()'),
+  'kein Schluessel im Quelltext': (q) =>
+    !/authToken\s*=\s*['"][A-Za-z0-9]{6,}/.test(q.mail + q.gmail),
+  'ein fehlender Zugangsschluessel wird erklaert': (q) =>
+    q.mail.includes('Ausgang gesperrt') && q.gmail.includes('Ausgang gesperrt'),
+  'wiederholtes Planen legt keinen zweiten Eintrag an': (q) =>
+    q.mail.includes('anfrageSchluessel') && q.gmail.includes('anfrageSchluessel'),
 };
 
 const jetzt = { mail: lies('js/views/mail.js'), gmail: lies('js/views/gmail.js') };

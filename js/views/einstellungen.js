@@ -2,7 +2,7 @@
 //  Einstellungen — Theme, Sync-Konfiguration, Diagnose, Backup, PWA-Install
 // ============================================================================
 import { escHTML, toast, todayYmd } from '../util.js';
-import { LS, DEFAULT_BASE_URL, DEFAULT_BLOB_KEY, getBaseUrl, getBlobKey } from '../config.js';
+import { LS, DEFAULT_BASE_URL, DEFAULT_BLOB_KEY, getBaseUrl, getBlobKey, getAuthToken, setAuthToken } from '../config.js';
 import * as store from '../store.js';
 import { getThemeMode, setThemeMode } from '../theme.js';
 import { registerActions } from '../actions.js';
@@ -75,6 +75,16 @@ registerActions({
     const c = v.trim();
     if (!c || c === DEFAULT_BLOB_KEY) localStorage.removeItem(LS.blobKey); else localStorage.setItem(LS.blobKey, c);
     store.state.initialPullDone = false; store.state.initialPullStatus = 'pending'; store.pullData(false); navigate('einstellungen');
+  },
+  /* Der Zugangsschlüssel bleibt im Gerät. Er steht in keiner Adresse, in
+     keinem Quelltext und wird auch nicht mitsynchronisiert — eingetragen wird
+     er von Hand, so wie in Quantus am Rechner. */
+  'edit-authtoken': () => {
+    const v = prompt('Zugangsschlüssel (derselbe wie in Quantus am Rechner). Leer lassen = entfernen:', getAuthToken());
+    if (v == null) return;
+    setAuthToken(v);
+    toast(String(v).trim() ? 'Zugangsschlüssel gespeichert' : 'Zugangsschlüssel entfernt', 'ok');
+    navigate('einstellungen');
   },
   'reset-sync': () => {
     if (!confirm('Server-URL & Blob-Key zurücksetzen?')) return;
@@ -154,6 +164,7 @@ export default {
       ${row('Ausstehende Änderungen', String(store.pendingCount()), 'sync-now')}
       ${row('Server-URL', getBaseUrl().replace(/^https?:\/\//, ''), 'edit-baseurl')}
       ${row('Blob-Key', getBlobKey(), 'edit-blobkey')}
+      ${row('Zugangsschlüssel (Ausgang)', getAuthToken() ? 'hinterlegt' : 'fehlt — Ausgang gesperrt', 'edit-authtoken')}
       ${row('Auf Standard zurücksetzen', DEFAULT_BASE_URL.replace(/^https?:\/\//, ''), 'reset-sync')}
 
       ${conflictSection()}

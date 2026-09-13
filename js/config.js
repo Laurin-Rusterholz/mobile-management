@@ -28,6 +28,11 @@ export const LS = {
   mailDrafts:   'qm-mail-drafts',         // nicht gesendete Entwürfe (offline-sicher)
   gcalPrefs:    'qm-gcal-prefs',          // ausgewählte Google-Kalender (pro Gerät)
   springboard:  'qm-springboard',         // Seiten-/Favoritenanordnung des Homebildschirms
+  /* Derselbe Zugangsschlüssel, den Quantus am Rechner in seinen Einstellungen
+     führt (SYNC_AUTH_TOKEN). Er liegt NUR hier im Gerät, nie im Quelltext und
+     nie in einer Adresse — und er wird von Hand eingetragen, damit dieses
+     Gerät die fail-closed gesicherten Endpunkte (Ausgang) nutzen kann. */
+  authToken:    'qm-auth-token',
 };
 
 // Migration alter qc-mobile-* Keys → neue qm-* Keys (einmalig, verlustfrei)
@@ -48,6 +53,21 @@ export function migrateLegacyKeys() {
 }
 
 export function getBaseUrl() { return localStorage.getItem(LS.baseUrl) || DEFAULT_BASE_URL; }
+
+/* Der Zugangsschlüssel dieses Geräts. Fehlt er, bleibt es dabei: gesperrte
+   Endpunkte antworten gesperrt — das ist die Absicht, kein Fehler. */
+export function getAuthToken() { try { return localStorage.getItem(LS.authToken) || ''; } catch (e) { return ''; } }
+export function setAuthToken(wert) {
+  try {
+    const w = String(wert || '').trim();
+    if (w) localStorage.setItem(LS.authToken, w); else localStorage.removeItem(LS.authToken);
+  } catch (e) { /* privater Modus: dann eben nicht */ }
+}
+export function authHeaders() {
+  const t = getAuthToken();
+  if (!t) return {};
+  return { Authorization: /^bearer\s/i.test(t) ? t : 'Bearer ' + t };
+}
 export function getBlobKey() { return localStorage.getItem(LS.blobKey) || DEFAULT_BLOB_KEY; }
 
 // Firebase-Config (nur für Storage-Download-URLs von Anhängen; identisch zur Hauptapp)
