@@ -371,6 +371,25 @@ function rowHtml(item) {
 
 function ausgangRowHtml(e) {
   const laeuft = e.status === 'sendet';
+  /* Ungeklärt: der Versand war angestossen, der Ausgang ist offen. Es wird
+     nichts wiederholt und nichts behauptet — es wird gefragt. */
+  if (e.status === 'unklar') {
+    return `<div class="mail-row">
+      <span class="mail-avatar red">❓</span>
+      <div class="mail-row-main">
+        <div class="mail-row-top">
+          <span class="mail-from">An: ${escHTML(e.to || '(Empfänger?)')}</span>
+          <span class="mail-when">❓ Ungeklärt</span>
+        </div>
+        <div class="mail-subject">${escHTML(e.subject || '(kein Betreff)')}</div>
+        <div class="mail-snippet">${escHTML(e.letzterFehler || 'Der Versand wurde angestossen, der Ausgang ist ungeklärt.')} Bitte in Gmail unter „Gesendet" nachsehen.</div>
+        <div class="mail-row-actions">
+          <button class="chip accent" data-action="mail-outbox-sent" data-id="${escHTML(e.id)}">✅ Ist gesendet</button>
+          <button class="chip" data-action="mail-outbox-unsent" data-id="${escHTML(e.id)}">↩️ Nicht gesendet</button>
+        </div>
+      </div>
+    </div>`;
+  }
   const kopf = laeuft ? '📤 Wird gerade gesendet'
     : e.status === 'fehlgeschlagen' ? '⚠️ Nicht gesendet — ' + escHTML(e.letzterFehler || 'Grund unbekannt')
     : '🕒 Geht ' + escHTML(zuercherZeit(e.sendAt)) + ' raus (' + VERSANDZONE + ')';
@@ -491,7 +510,7 @@ async function refresh(showSpinner = true) {
     try {
       const antwort = await queueRpc('liste', {});
       ui.ausgang = (antwort.eintraege || []).filter(e => e &&
-        (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen'));
+        (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen' || e.status === 'unklar'));
       ui.error = '';
     } catch (e) { ui.error = e.message || String(e); }
     finally { ui.loading = false; rerender(); }
@@ -769,6 +788,30 @@ registerActions({
   'mail-outbox-now': async (d) => {
     try { await queueRpc('sofort', { id: d.id }); toast('Wird gesendet ✓', 'ok'); }
     catch (e) { toast('Nicht möglich: ' + (e.message || e), 'error'); }
+    refresh(false);
+  },
+
+  /* Die beiden Klärungen eines ungeklärten Versands — ausdrücklich, nachdem
+     ein Mensch in Gmail nachgesehen hat. Automatisch geschieht hier nichts. */
+  'mail-outbox-sent': async (d) => {
+    const ok = await confirmPreview({
+      title: 'In Gmail wirklich gesendet?', confirmLabel: 'Ja, ist gesendet',
+      previewHtml: '<div class="mail-preview">Die Mail wird als gesendet vermerkt. Es wird nichts verschickt.</div>',
+    });
+    if (!ok) return;
+    try { await queueRpc('geklaert-gesendet', { id: d.id }); toast('Geklärt ✓', 'ok'); }
+    catch (e) { toast('Nicht geklärt: ' + (e.message || e), 'error'); }
+    refresh(false);
+  },
+
+  'mail-outbox-unsent': async (d) => {
+    const ok = await confirmPreview({
+      title: 'In Gmail NICHT gesendet?', confirmLabel: 'Erneut einplanen',
+      previewHtml: '<div class="mail-preview">Die Mail wird neu eingeplant und geht beim nächsten Serverlauf raus.</div>',
+    });
+    if (!ok) return;
+    try { await queueRpc('geklaert-nicht-gesendet', { id: d.id }); toast('Neu eingeplant ✓', 'ok'); }
+    catch (e) { toast('Nicht geklärt: ' + (e.message || e), 'error'); }
     refresh(false);
   },
 

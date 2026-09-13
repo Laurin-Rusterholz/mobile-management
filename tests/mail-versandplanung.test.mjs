@@ -53,6 +53,14 @@ const PRUEFUNGEN = {
     !q.mail.includes('SCHEDULED') && !q.gmail.includes('SCHEDULED'),
   'kein Geraetetimer plant den Versand': (q) =>
     !/setInterval\([^)]*send/i.test(q.mail) && !/setInterval\([^)]*send/i.test(q.gmail),
+  /* Ein Versand, dessen Ausgang ungeklaert ist, wird NIE automatisch
+     wiederholt — er wird gezeigt und nur von einem Menschen geklaert. */
+  'ein ungeklaerter Versand wird gezeigt': (q) =>
+    q.mail.includes("'unklar'") && q.gmail.includes("'unklar'") &&
+    q.mail.includes('Ungeklärt') && q.gmail.includes('Ungeklärt'),
+  'geklaert wird nur ausdruecklich': (q) =>
+    q.mail.includes("queueRpc('geklaert-gesendet'") && q.mail.includes("queueRpc('geklaert-nicht-gesendet'") &&
+    q.gmail.includes("queueRpc('geklaert-gesendet'") && q.gmail.includes("queueRpc('geklaert-nicht-gesendet'"),
 };
 
 const jetzt = { mail: lies('js/views/mail.js'), gmail: lies('js/views/gmail.js') };

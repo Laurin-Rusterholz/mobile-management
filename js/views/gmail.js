@@ -58,7 +58,7 @@ async function renderOutbox() {
   try {
     const antwort = await queueRpc('liste', {});
     eintraege = (antwort.eintraege || []).filter(e => e &&
-      (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen'));
+      (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen' || e.status === 'unklar'));
   } catch (e) {
     host.innerHTML = `<div class="empty"><div class="empty-icon">🔌</div><div class="empty-title">Ausgang nicht erreichbar</div>
       <div class="empty-sub">Der geplante Versand liegt auf dem Server. (${escHTML(e.message)})</div></div>`;
@@ -71,6 +71,18 @@ async function renderOutbox() {
   }
   host.innerHTML = eintraege.map(e => {
     const laeuft = e.status === 'sendet';
+    if (e.status === 'unklar') {
+      // Ungeklärt: nichts wiederholen, nichts behaupten — fragen.
+      return `<div class="card row-card"><div class="row-main">
+        <div class="row-title">${escHTML(e.subject || '(kein Betreff)')}</div>
+        <div class="row-sub">An: ${escHTML(e.to || '')} · ❓ Ungeklärt, ob gesendet</div>
+        <div class="row-meta">${escHTML(e.letzterFehler || 'Der Versand wurde angestossen, der Ausgang ist ungeklärt.')} Bitte in Gmail nachsehen.</div>
+        <div class="row-meta">
+          <button class="chip accent" data-action="gmail-outbox-sent" data-id="${escHTML(e.id)}">✅ Ist gesendet</button>
+          <button class="chip" data-action="gmail-outbox-unsent" data-id="${escHTML(e.id)}">↩️ Nicht gesendet</button>
+        </div>
+      </div></div>`;
+    }
     const kopf = laeuft ? '📤 Wird gerade gesendet'
       : e.status === 'fehlgeschlagen' ? '⚠️ Nicht gesendet — ' + escHTML(e.letzterFehler || 'Grund unbekannt')
       : '🕒 Geht ' + escHTML(zuercherZeit(e.sendAt)) + ' raus (' + VERSANDZONE + ')';
@@ -243,6 +255,22 @@ registerActions({
   'gmail-outbox-now': async (d) => {
     try { await queueRpc('sofort', { id: d.id }); toast('Wird gesendet ✓', 'ok'); }
     catch (e) { toast('Nicht möglich: ' + e.message, 'error'); }
+    renderOutbox();
+  },
+  'gmail-outbox-sent': async (d) => {
+    const ok = await confirmPreview({ title: 'In Gmail wirklich gesendet?', confirmLabel: 'Ja, ist gesendet',
+      previewHtml: '<div class="mail-preview">Die Mail wird als gesendet vermerkt. Es wird nichts verschickt.</div>' });
+    if (!ok) return;
+    try { await queueRpc('geklaert-gesendet', { id: d.id }); toast('Geklärt ✓', 'ok'); }
+    catch (e) { toast('Nicht geklärt: ' + e.message, 'error'); }
+    renderOutbox();
+  },
+  'gmail-outbox-unsent': async (d) => {
+    const ok = await confirmPreview({ title: 'In Gmail NICHT gesendet?', confirmLabel: 'Erneut einplanen',
+      previewHtml: '<div class="mail-preview">Die Mail wird neu eingeplant und geht beim nächsten Serverlauf raus.</div>' });
+    if (!ok) return;
+    try { await queueRpc('geklaert-nicht-gesendet', { id: d.id }); toast('Neu eingeplant ✓', 'ok'); }
+    catch (e) { toast('Nicht geklärt: ' + e.message, 'error'); }
     renderOutbox();
   },
   'gmail-outbox-cancel': async (d) => {
