@@ -22,6 +22,7 @@ const FOLDERS = [
   { key: 'inbox',   label: 'Posteingang', icon: '📥', q: 'in:inbox' },
   { key: 'unread',  label: 'Ungelesen',   icon: '🔵', q: 'is:unread in:inbox' },
   { key: 'starred', label: 'Markiert',    icon: '⭐', q: 'is:starred' },
+  { key: 'outbox',  label: 'Ausgang (geplant)', icon: '🕒', warteschlange: true },
   { key: 'sent',    label: 'Gesendet',    icon: '📤', q: 'in:sent' },
   { key: 'archive', label: 'Archiv',      icon: '🗄️', q: '-in:inbox -in:trash -in:sent' },
   { key: 'trash',   label: 'Papierkorb',  icon: '🗑️', q: 'in:trash' },
@@ -41,6 +42,7 @@ const ui = {
   bodyLoading: false,
   profile: null,      // { emailAddress }
   plain: false,       // Nur-Text statt Original-Darstellung (pro Sitzung)
+  ausgang: [],        // geplante ausgehende Mails aus der Server-Warteschlange
 };
 
 function cacheKey() { return ui.search ? 'search' : ui.folder; }
@@ -72,6 +74,36 @@ async function rpc(method, path, query, body) {
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || data.message || ('HTTP ' + r.status));
   return data;
+}
+
+/* ── Geplanter Versand (13.09.2026) ──────────────────────────────────────────
+   Ausgehende Mails gehen standardmaessig erst in DREI STUNDEN raus. Geplant,
+   gehalten und gesendet wird serverseitig (/.netlify/functions/mail-queue) —
+   nicht mit einem Timer im Telefon, das jederzeit zugeklappt wird. Die
+   Gmail-API kennt keine Versandplanung (Discovery v1, Revision 20260907), und
+   Gmails Ansicht „Geplant" wird hier nicht vorgetaeuscht: was hier steht, ist
+   Quantus' eigener Ausgang. */
+const VERSANDZONE = 'Europe/Zurich';
+
+async function queueRpc(aktion, daten) {
+  const url = getBaseUrl() + '/.netlify/functions/mail-queue';
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ aktion }, daten || {})),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.ok === false) throw new Error(data.grund || data.error || ('HTTP ' + r.status));
+  return data;
+}
+
+function zuercherZeit(ms) {
+  const t = Number(ms);
+  if (!isFinite(t)) return '';
+  try {
+    return new Intl.DateTimeFormat('de-CH', { timeZone: VERSANDZONE, day: '2-digit', month: '2-digit',
+      year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(t));
+  } catch (e) { return new Date(t).toLocaleString('de-CH'); }
 }
 
 function header(headers, name) {
@@ -337,7 +369,44 @@ function rowHtml(item) {
   </div>`;
 }
 
+function ausgangRowHtml(e) {
+  const laeuft = e.status === 'sendet';
+  const kopf = laeuft ? '📤 Wird gerade gesendet'
+    : e.status === 'fehlgeschlagen' ? '⚠️ Nicht gesendet — ' + escHTML(e.letzterFehler || 'Grund unbekannt')
+    : '🕒 Geht ' + escHTML(zuercherZeit(e.sendAt)) + ' raus (' + VERSANDZONE + ')';
+  return `<div class="mail-row">
+    <span class="mail-avatar sand">🕒</span>
+    <div class="mail-row-main">
+      <div class="mail-row-top">
+        <span class="mail-from">An: ${escHTML(e.to || '(Empfänger?)')}${e.hatAnhaenge ? ' 📎' : ''}</span>
+        <span class="mail-when">${kopf}</span>
+      </div>
+      <div class="mail-subject">${escHTML(e.subject || '(kein Betreff)')}</div>
+      <div class="mail-snippet">${escHTML(String(e.vorschau || e.koerper || '').slice(0, 110))}</div>
+      ${laeuft ? '<div class="muted-row">Gmail übernimmt gerade — jetzt geht nichts mehr.</div>' : `<div class="mail-row-actions">
+        <button class="chip" data-action="mail-outbox-now" data-id="${escHTML(e.id)}">📨 Jetzt senden</button>
+        <button class="chip" data-action="mail-outbox-cancel" data-id="${escHTML(e.id)}">🛑 Abbrechen</button>
+      </div>`}
+    </div>
+  </div>`;
+}
+
+function ausgangHtml() {
+  if (ui.loading && !ui.ausgang.length) return skeletonList(3);
+  if (ui.error && !ui.ausgang.length) {
+    return emptyState('🔌', 'Ausgang nicht erreichbar',
+      'Der geplante Versand liegt auf dem Server. (' + ui.error + ')',
+      '<button class="btn primary" data-action="mail-refresh">Erneut versuchen</button>');
+  }
+  if (!ui.ausgang.length) {
+    return emptyState('🕒', 'Nichts geplant',
+      'Neue Mails gehen standardmässig erst in drei Stunden raus. Bis dahin stehen sie hier — abbrechbar und sofort sendbar. Verschickt werden sie vom Server, auch wenn dieses Gerät aus ist.');
+  }
+  return `<div class="mail-list">${ui.ausgang.map(ausgangRowHtml).join('')}</div>`;
+}
+
 function listHtml() {
+  if (ui.folder === 'outbox' && !ui.search) return ausgangHtml();
   if (ui.loading && !ui.list.length) return skeletonList(6);
   if (ui.error && !ui.list.length) {
     return emptyState('🔌', 'Nicht verbunden',
@@ -417,6 +486,17 @@ function rerender() {
 
 async function refresh(showSpinner = true) {
   if (showSpinner) { ui.loading = true; ui.error = ''; rerender(); }
+  // Der Ausgang liegt nicht bei Gmail, sondern in der Warteschlange.
+  if (ui.folder === 'outbox' && !ui.search) {
+    try {
+      const antwort = await queueRpc('liste', {});
+      ui.ausgang = (antwort.eintraege || []).filter(e => e &&
+        (e.status === 'geplant' || e.status === 'sendet' || e.status === 'fehlgeschlagen'));
+      ui.error = '';
+    } catch (e) { ui.error = e.message || String(e); }
+    finally { ui.loading = false; rerender(); }
+    return;
+  }
   try {
     ui.list = await fetchList();
     ui.error = '';
@@ -497,8 +577,8 @@ function composeSheet({ to = '', subject = '', body = '', title = 'Neue E-Mail' 
       <label class="f"><span class="f-label">Kopie (optional)</span><input id="mlCc" class="input" type="email" placeholder="cc@example.com"></label>
       <label class="f"><span class="f-label">Betreff</span><input id="mlSubject" class="input" value="${escHTML(subject)}"></label>
       <label class="f"><span class="f-label">Text</span><textarea id="mlBody" class="input" rows="12">${escHTML(body)}</textarea></label>
-      <button class="btn primary block" type="button" data-action="mail-send">Senden…</button>
-      <div class="muted-row">Vor dem Versand erscheint eine Vorschau zur Bestätigung.</div>
+      <button class="btn primary block" type="button" data-action="mail-send">Senden (in 3 h)…</button>
+      <div class="muted-row">Vor dem Einplanen erscheint eine Vorschau. Die Mail geht erst in rund drei Stunden raus und steht bis dahin im Ausgang — abbrechbar oder sofort sendbar.</div>
     </form>`,
   });
 }
@@ -653,6 +733,8 @@ registerActions({
     });
   },
 
+  /* Senden heisst planen: drei Stunden Vorlauf, bis dahin im Ausgang
+     sichtbar und abbrechbar. Kein Gerätetimer — der Server schickt sie los. */
   'mail-send': async () => {
     const to = (document.getElementById('mlTo') || {}).value || '';
     const cc = (document.getElementById('mlCc') || {}).value || '';
@@ -660,23 +742,45 @@ registerActions({
     const text = (document.getElementById('mlBody') || {}).value || '';
     if (!to.trim()) { toast('Empfänger fehlt', 'error'); return; }
     const ok = await confirmPreview({
-      title: 'E-Mail senden?', confirmLabel: 'Jetzt senden',
+      title: 'In 3 Stunden senden?', confirmLabel: 'Einplanen',
       previewHtml: `<div class="mail-preview">
         <div><b>An:</b> ${escHTML(to)}</div>
         ${cc ? `<div><b>Kopie:</b> ${escHTML(cc)}</div>` : ''}
         <div><b>Betreff:</b> ${escHTML(subject || '(kein Betreff)')}</div>
         <div class="mail-preview-body">${escHTML(text.slice(0, 400)) || '<i>(leer)</i>'}</div>
+        <div class="muted-row">Geht in rund drei Stunden raus. Bis dahin steht sie im Ausgang: abbrechen oder sofort senden.</div>
       </div>`,
     });
     if (!ok) return;
     try {
-      await rpc('POST', '/users/me/messages/send', {}, { raw: encodeRaw({ to, cc, subject, text }) });
+      const antwort = await queueRpc('plane', {
+        raw: encodeRaw({ to, cc, subject, text }),
+        to, cc, subject, koerper: text, vorschau: String(text).slice(0, 300),
+        hatAnhaenge: false, quelle: 'mobile',
+      });
       closeSheet();
-      toast('Gesendet ✓', 'ok');
-      if (ui.folder === 'sent') refresh(false);
+      toast('🕒 Geplant: ' + zuercherZeit((antwort.eintrag || {}).sendAt), 'ok');
+      if (ui.folder === 'outbox') refresh(false);
     } catch (e) {
-      toast('Senden fehlgeschlagen: ' + (e.message || e), 'error');
+      toast('Nicht geplant: ' + (e.message || e), 'error');
     }
+  },
+
+  'mail-outbox-now': async (d) => {
+    try { await queueRpc('sofort', { id: d.id }); toast('Wird gesendet ✓', 'ok'); }
+    catch (e) { toast('Nicht möglich: ' + (e.message || e), 'error'); }
+    refresh(false);
+  },
+
+  'mail-outbox-cancel': async (d) => {
+    const ok = await confirmPreview({
+      title: 'Geplante Mail abbrechen?', confirmLabel: 'Abbrechen',
+      previewHtml: '<div class="mail-preview">Diese Mail geht dann nicht raus. Der Entwurf ist damit weg.</div>',
+    });
+    if (!ok) return;
+    try { await queueRpc('abbrechen', { id: d.id }); toast('Abgebrochen ✓', 'ok'); }
+    catch (e) { toast('Nicht abgebrochen: ' + (e.message || e), 'error'); }
+    refresh(false);
   },
 });
 
