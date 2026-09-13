@@ -6,7 +6,7 @@
 // ============================================================================
 import { escHTML, formatDate, openSheet, closeSheet, toast, confirmPreview } from '../util.js';
 import * as store from '../store.js';
-import { getBaseUrl, authHeaders } from '../config.js';
+import { getBaseUrl, queueAuthHeaders } from '../config.js';
 import { registerActions } from '../actions.js';
 import { pageHeader } from './common.js';
 
@@ -34,7 +34,7 @@ async function queueRpc(aktion, daten) {
        nichts heraus und plant nichts ein. Dieses Gerät schickt denselben
        Schlüssel mit, den Quantus am Rechner führt — aus dem Gerätespeicher,
        nie aus dem Quelltext und nie in der Adresse. */
-    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+    headers: Object.assign({ 'Content-Type': 'application/json' }, queueAuthHeaders()),
     body: JSON.stringify(Object.assign({ aktion }, daten || {})),
   });
   const data = await r.json().catch(() => ({}));
@@ -42,8 +42,14 @@ async function queueRpc(aktion, daten) {
   return data;
 }
 
-/* Stabiler Schlüssel je Sendeversuch — eine Wiederholung nach verlorener
-   Antwort legt keinen zweiten Eintrag an. */
+/* Stabiler Schlüssel je VERFASSEN-VORGANG — eine Wiederholung im selben
+   Formular legt keinen zweiten Eintrag an.
+
+   Befund der Integrationsprüfung (13.09.2026): Er darf nicht über Dialoge
+   hinweg leben. Blieb er nach einem gescheiterten Versuch stehen, nahm die
+   nächste, ganz andere Mail denselben Schlüssel — der Server antwortete mit
+   dem alten Eintrag und meldete Erfolg, während die neue Mail nie hinausging.
+   Vergeben wird er deshalb beim Öffnen des Verfassen-Blatts. */
 function anfrageSchluessel() {
   try { if (window.crypto && crypto.randomUUID) return 'a' + crypto.randomUUID().replace(/-/g, ''); } catch (e) { /* ältere Browser */ }
   return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
@@ -236,6 +242,7 @@ async function openVacationSheet() {
 
 registerActions({
   'gmail-compose': () => {
+    offenerSchluessel = anfrageSchluessel();   // neues Formular, neuer Schlüssel
     openSheet({ title: 'Neue E-Mail', size: 'full', body: `<form class="form" id="gmailForm">
       <label class="f"><span class="f-label">An</span><input id="gmTo" class="input" type="email" placeholder="empfaenger@example.com"></label>
       <label class="f"><span class="f-label">Betreff</span><input id="gmSubject" class="input"></label>
@@ -263,7 +270,7 @@ registerActions({
       const raw = btoa(unescape(encodeURIComponent(
         `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${bodyText}`
       ))).replace(/\+/g, '-').replace(/\//g, '_');
-      if (!offenerSchluessel) offenerSchluessel = anfrageSchluessel();
+      if (!offenerSchluessel) offenerSchluessel = anfrageSchluessel();   // Notnagel
       const antwort = await queueRpc('plane', { raw, to, subject,
         koerper: bodyText, vorschau: String(bodyText).slice(0, 300), hatAnhaenge: false,
         quelle: 'mobile-gmail', anfrageSchluessel: offenerSchluessel });

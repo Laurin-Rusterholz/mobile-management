@@ -11,7 +11,7 @@
 // ============================================================================
 import { escHTML, formatDate, formatTime, openSheet, closeSheet, toast, confirmPreview, emptyState, skeletonList, haptic } from '../util.js';
 import * as store from '../store.js';
-import { getBaseUrl, LS, authHeaders } from '../config.js';
+import { getBaseUrl, LS, queueAuthHeaders } from '../config.js';
 import { registerActions } from '../actions.js';
 import { navigate, current } from '../router.js';
 import { pageHeader } from './common.js';
@@ -94,7 +94,7 @@ async function queueRpc(aktion, daten) {
        nichts heraus und plant nichts ein. Dieses Gerät schickt denselben
        Schlüssel mit, den Quantus am Rechner führt — aus dem Gerätespeicher,
        nie aus dem Quelltext und nie in der Adresse. */
-    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders()),
+    headers: Object.assign({ 'Content-Type': 'application/json' }, queueAuthHeaders()),
     body: JSON.stringify(Object.assign({ aktion }, daten || {})),
   });
   const data = await r.json().catch(() => ({}));
@@ -102,10 +102,16 @@ async function queueRpc(aktion, daten) {
   return data;
 }
 
-/* Ein stabiler Schlüssel je Sendeversuch: Geht die Antwort verloren und
-   jemand tippt noch einmal auf Senden, landet der zweite Versuch auf
-   derselben Stelle im Ausgang — statt als zweiter Eintrag und damit später
-   als zweite Mail. */
+/* Ein stabiler Schlüssel je VERFASSEN-VORGANG: Geht die Antwort verloren und
+   jemand tippt noch einmal auf Senden, landet der zweite Versuch auf derselben
+   Stelle im Ausgang — statt als zweiter Eintrag und damit später als zweite
+   Mail.
+
+   Befund der Integrationsprüfung (13.09.2026): Der Schlüssel darf NICHT über
+   Dialoge hinweg leben. Sonst nimmt eine zweite, ganz andere Mail nach einem
+   gescheiterten ersten Versuch denselben Schlüssel — der Server antwortet mit
+   dem alten Eintrag, meldet Erfolg, und die neue Mail geht nie raus. Er wird
+   deshalb beim ÖFFNEN des Verfassen-Blatts neu vergeben, nicht beim Senden. */
 function anfrageSchluessel() {
   try { if (window.crypto && crypto.randomUUID) return 'a' + crypto.randomUUID().replace(/-/g, ''); } catch (e) { /* ältere Browser */ }
   return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
@@ -610,6 +616,7 @@ function quoteOf(item, body) {
 }
 
 function composeSheet({ to = '', subject = '', body = '', title = 'Neue E-Mail' }) {
+  ui.sendeSchluessel = anfrageSchluessel();   // neues Formular, neuer Schlüssel
   openSheet({
     title, size: 'full',
     body: `<form class="form" id="mailForm">
@@ -793,7 +800,7 @@ registerActions({
     });
     if (!ok) return;
     try {
-      if (!ui.sendeSchluessel) ui.sendeSchluessel = anfrageSchluessel();
+      if (!ui.sendeSchluessel) ui.sendeSchluessel = anfrageSchluessel();   // Notnagel
       const antwort = await queueRpc('plane', {
         raw: encodeRaw({ to, cc, subject, text }),
         to, cc, subject, koerper: text, vorschau: String(text).slice(0, 300),

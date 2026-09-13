@@ -28,11 +28,12 @@ export const LS = {
   mailDrafts:   'qm-mail-drafts',         // nicht gesendete Entwürfe (offline-sicher)
   gcalPrefs:    'qm-gcal-prefs',          // ausgewählte Google-Kalender (pro Gerät)
   springboard:  'qm-springboard',         // Seiten-/Favoritenanordnung des Homebildschirms
-  /* Derselbe Zugangsschlüssel, den Quantus am Rechner in seinen Einstellungen
-     führt (SYNC_AUTH_TOKEN). Er liegt NUR hier im Gerät, nie im Quelltext und
-     nie in einer Adresse — und er wird von Hand eingetragen, damit dieses
-     Gerät die fail-closed gesicherten Endpunkte (Ausgang) nutzen kann. */
-  authToken:    'qm-auth-token',
+  /* Der Schlüssel NUR für den Ausgang (geplanter Mailversand), auf dem Server
+     MAIL_QUEUE_AUTH_TOKEN. Ausdrücklich nicht der gemeinsame SYNC_AUTH_TOKEN:
+     den zu setzen würde auch blob-put, gcal-* und gmail-api verlangen — und
+     genau dort schickt diese App bis heute keine Kopfzeile mit. Der Wert liegt
+     NUR hier im Gerät, nie im Quelltext und nie in einer Adresse. */
+  mailQueueToken: 'qm-mail-queue-token',
 };
 
 // Migration alter qc-mobile-* Keys → neue qm-* Keys (einmalig, verlustfrei)
@@ -54,17 +55,18 @@ export function migrateLegacyKeys() {
 
 export function getBaseUrl() { return localStorage.getItem(LS.baseUrl) || DEFAULT_BASE_URL; }
 
-/* Der Zugangsschlüssel dieses Geräts. Fehlt er, bleibt es dabei: gesperrte
-   Endpunkte antworten gesperrt — das ist die Absicht, kein Fehler. */
-export function getAuthToken() { try { return localStorage.getItem(LS.authToken) || ''; } catch (e) { return ''; } }
-export function setAuthToken(wert) {
+/* Der Ausgangs-Schlüssel dieses Geräts. Fehlt er, bleibt es dabei: der
+   Ausgang antwortet gesperrt — das ist die Absicht, kein Fehler. Alle übrigen
+   Aufrufe dieser App sind davon NICHT betroffen. */
+export function getQueueToken() { try { return localStorage.getItem(LS.mailQueueToken) || ''; } catch (e) { return ''; } }
+export function setQueueToken(wert) {
   try {
     const w = String(wert || '').trim();
-    if (w) localStorage.setItem(LS.authToken, w); else localStorage.removeItem(LS.authToken);
+    if (w) localStorage.setItem(LS.mailQueueToken, w); else localStorage.removeItem(LS.mailQueueToken);
   } catch (e) { /* privater Modus: dann eben nicht */ }
 }
-export function authHeaders() {
-  const t = getAuthToken();
+export function queueAuthHeaders() {
+  const t = getQueueToken();
   if (!t) return {};
   return { Authorization: /^bearer\s/i.test(t) ? t : 'Bearer ' + t };
 }

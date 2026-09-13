@@ -64,10 +64,20 @@ const PRUEFUNGEN = {
   /* Der Ausgang ist fail-closed: ohne Zugangsschluessel gibt der Server nichts
      heraus. Das Geraet schickt den gespeicherten Schluessel mit — und erklaert
      sein Fehlen, statt „offline" zu behaupten. */
-  'der Zugangsschluessel wird mitgeschickt': (q) =>
-    q.mail.includes('authHeaders()') && q.gmail.includes('authHeaders()'),
+  /* Der Ausgang hat einen EIGENEN Schluessel. Der gemeinsame SYNC_AUTH_TOKEN
+     wuerde auch blob-put, gcal-* und gmail-api verlangen — und genau dort
+     schickt diese App keine Kopfzeile mit. */
+  'der Ausgangs-Schluessel wird mitgeschickt': (q) =>
+    q.mail.includes('queueAuthHeaders()') && q.gmail.includes('queueAuthHeaders()'),
+  'die uebrigen Gmail-Aufrufe bleiben unangetastet': (q) =>
+    !/gmailRpc[\s\S]{0,400}?queueAuthHeaders/.test(q.gmail),
   'kein Schluessel im Quelltext': (q) =>
-    !/authToken\s*=\s*['"][A-Za-z0-9]{6,}/.test(q.mail + q.gmail),
+    !/(authToken|mailQueueToken)\s*[:=]\s*['"][A-Za-z0-9]{6,}/.test(q.mail + q.gmail),
+  /* Der Schluessel gehoert zum Formular, nicht zum Modul: sonst nimmt eine
+     zweite, andere Mail nach einem Fehlversuch den Schluessel der ersten. */
+  'der Schluessel wird beim Oeffnen des Formulars neu vergeben': (q) =>
+    /function composeSheet\([^)]*\)\s*\{\s*\n?\s*ui\.sendeSchluessel = anfrageSchluessel\(\)/.test(q.mail)
+    && /'gmail-compose':[\s\S]{0,120}offenerSchluessel = anfrageSchluessel\(\)/.test(q.gmail),
   'ein fehlender Zugangsschluessel wird erklaert': (q) =>
     q.mail.includes('Ausgang gesperrt') && q.gmail.includes('Ausgang gesperrt'),
   'wiederholtes Planen legt keinen zweiten Eintrag an': (q) =>
