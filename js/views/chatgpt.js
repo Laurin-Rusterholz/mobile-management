@@ -1,21 +1,51 @@
 // ============================================================================
-//  ChatGPT — Notes (Schnellerfassung + Liste), Leads (anlegen + Liste),
-//  ChatGPT-Aufgaben (einzeiliges Feld am Element)
+//  ChatGPT — Notes (Schnellerfassung + Liste), Leads (anlegen + Liste,
+//  kompakte Anfrage-Einreichung), ChatGPT-Aufgaben (einzeiliges Feld am
+//  Element), Aufgaben-Delegation (kompakter Umschalt-Knopf am Task)
 //  ---------------------------------------------------------------------------
 //  Apple-Notes-Prinzip: so einfach wie moeglich. Erfassen muss unterwegs
-//  gehen, alles Weitere (Abloesen, Bearbeiten, Bewerten, Abschliessen) macht
-//  der Assistent am Rechner. Geschrieben wird in dieselben Sammlungen wie in
-//  AI Sync (entities.chatgptNotes / chatgptLeads / chatgptTasks) ueber die
-//  normale Operations-Warteschlange — kein Sonderweg.
+//  gehen. Geschrieben wird in dieselben Sammlungen wie in AI Sync
+//  (entities.chatgptNotes / chatgptLeads / chatgptTasks) ueber die normale
+//  Operations-Warteschlange — kein Sonderweg.
 //  ---------------------------------------------------------------------------
-//  Tagesbriefing-Gesamtkonzept-v2, "compact parity": operationalState und die
-//  Cowork-Handover-Felder eines Leads werden ehrlich ANGEZEIGT (nie erfunden),
-//  aber bewusst NICHT frei bearbeitbar — das bleibt Aufgabe des Rechners. Nur
-//  zwei eng umrissene Ausnahmen sind erlaubt, weil sie ohne Computer sonst
-//  liegen blieben: eine Rueckfrage (pendingQuestion) einmalig beantworten, und
-//  einen zurueckgekehrten Cowork-Auftrag als geprueft quittieren. Beides
-//  aendert je EIN Feld (plus operationalState → "doing") am selben
-//  Lead-Datensatz — keine Statuswahl, kein Zuweisen, kein Freitext-Editieren.
+//  Tagesbriefing-Gesamtkonzept-v2 (Master-PDF, 28 Seiten): der App-Besitzer
+//  hat die fruehere reine Capture-only-Beschraenkung fuer Delegation und
+//  Intake ausdruecklich AUFGEHOBEN — beide sollen auf Tablet/Mobile ebenfalls
+//  kompakt moeglich sein, mit denselben Bezeichnungen wie am Rechner:
+//   • Delegation (Aufgabe → ChatGPT): delegateTaskToChatgpt(), Spiegel der
+//     Desktop-Referenz (ai-sync/public/index.html, case
+//     "task-delegate-chatgpt") — genau EIN verknuepfter Lead pro Aufgabe
+//     (task.delegatedLeadId), Reaktivierung statt Duplikat beim erneuten
+//     Delegieren, Ruecknahme schliesst den Lead als hinfaellig statt ihn zu
+//     loeschen. Der Knopf sitzt in der gemeinsamen taskCard (./common.js).
+//   • Intake (Anfrage einreichen): kompaktes Ein-Feld-Formular auf dem
+//     Hauptbildschirm (Notes-Reiter) — benutzt denselben Lead-Erzeugungsweg
+//     (addChatgptLead) wie die bestehende Leads-Erfassung, nur als eigene,
+//     jederzeit erreichbare Kurz-Aktion.
+//  Upload (Dokument anhaengen) bleibt bewusst NICHT implementiert — geprueft,
+//  nicht angenommen: index.html laedt zwar firebase-storage-compat.js und
+//  js/auth.js initialisiert die Firebase-App bereits beim Start (fuer das
+//  Career Model), also waere ein SDK-Aufruf technisch moeglich. Aber
+//  ai-sync/firebase/storage.rules verlangt fuer JEDEN Zugriff
+//  "request.auth != null" — und die Firebase-Anmeldung dieser App ist ein
+//  separater, manueller Google-Login (Einstellungen/Career Model), den die
+//  kompakte ChatGPT-Erfassung nicht auslöst. Ein Upload hier würde also im
+//  gewöhnlichen (nicht angemeldeten) Fall reproduzierbar mit
+//  storage/unauthorized scheitern — eine Funktion, die aussieht wie sie
+//  funktioniert, es im Normalfall aber nicht tut. Sie erst zuverlaessig zu
+//  machen bräuchte eine Anmelde-Gate-UI genau an dieser Stelle — das sprengt
+//  "kompakt" und den Auftrag "Diff minimal halten". Eine Attrappe waere eine
+//  erfundene Erfolgsmeldung; das verletzt die Projektregel "keine
+//  erfundenen Erfolgszustaende". Deshalb: dokumentiert ausgelassen, keine
+//  Datei-UI. Das ist eine eigene, groessere Entscheidung des App-Besitzers
+//  (Anmeldezwang fuer die Erfassung? Oeffentliche Storage-Regel fuer einen
+//  Anhang-Unterpfad? Andere Ablage?).
+//  ---------------------------------------------------------------------------
+//  Ansonsten bleibt operationalState/Cowork-Handover eines Leads ehrlich
+//  ANGEZEIGT (nie erfunden), aber nicht frei bearbeitbar — das bleibt Aufgabe
+//  des Rechners. Am Lead selbst sind weiterhin nur zwei eng umrissene
+//  Ausnahmen erlaubt: eine Rueckfrage (pendingQuestion) einmalig beantworten,
+//  und einen zurueckgekehrten Cowork-Auftrag als geprueft quittieren.
 // ============================================================================
 import { escHTML, formatDate, newId, nowISO, todayYmd, toast } from '../util.js';
 import * as store from '../store.js';
@@ -102,6 +132,50 @@ export async function addChatgptTask(kind, id, text, label) {
   return tid;
 }
 
+// ── Aufgaben-Delegation an ChatGPT (Tagesbriefing-Gesamtkonzept-v2) ─────────
+// Spiegelt die Desktop-Referenz exakt (ai-sync/public/index.html,
+// case "task-delegate-chatgpt"): "assignee" ist die Sperre, ob delegiert ist;
+// task.delegatedLeadId zeigt auf GENAU EINEN Lead, der bei erneutem
+// Delegieren reaktiviert statt verdoppelt wird. Zwei echte Operationen pro
+// Umschaltung (Task + Lead) ueber store.performOp, nie eine gemergte Payload.
+export async function delegateTaskToChatgpt(taskId) {
+  const task = store.getById('task', taskId);
+  if (!task) return null;
+  const wasDelegated = (task.assignee || 'user') === 'chatgpt';
+  const existingLead = task.delegatedLeadId ? store.getById('chatgptLead', task.delegatedLeadId) : null;
+
+  if (wasDelegated) {
+    // Ruecknahme: Lead bleibt bestehen (Historie/Wiederverwendung), wird aber
+    // als hinfaellig geschlossen — kein zweiter, verwaister Lead beim
+    // naechsten Delegieren desselben Tasks.
+    await store.performOp({ type: 'update-task', payload: { id: taskId, assignee: 'user' } });
+    if (existingLead && existingLead.status !== 'abgeschlossen') {
+      await store.performOp({ type: 'update-chatgptLead', payload: {
+        id: existingLead.id, status: 'abgeschlossen', closedAt: nowISO(), closedBy: 'laurin',
+        obsoleteReason: 'Aufgabe wieder zurückgeholt', operationalState: 'cancelled',
+      } });
+    }
+    return { taskId, leadId: existingLead ? existingLead.id : null, delegated: false };
+  }
+
+  let leadId = existingLead ? existingLead.id : null;
+  if (!existingLead) {
+    leadId = await addChatgptLead(task.title, 'Delegierte Aufgabe: ' + (task.title || ''));
+    if (!leadId) return null;
+    await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, operationalState: 'doing' } });
+  } else if (existingLead.status === 'abgeschlossen') {
+    // Idempotente Wiederverwendung: derselbe Lead wird reaktiviert statt
+    // einen zweiten anzulegen.
+    await store.performOp({ type: 'update-chatgptLead', payload: {
+      id: leadId, status: 'neu', closedAt: null, closedBy: null, obsoleteReason: null, operationalState: 'doing',
+    } });
+  } else {
+    await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, operationalState: 'doing' } });
+  }
+  await store.performOp({ type: 'update-task', payload: { id: taskId, assignee: 'chatgpt', delegatedLeadId: leadId } });
+  return { taskId, leadId, delegated: true };
+}
+
 // ── Rueckfrage beantworten (einmalig) & Cowork-Ruecklauf pruefen ────────────
 // Die einzigen zwei schreibenden Ausnahmen vom Capture-only-Prinzip (siehe
 // Kopfkommentar): beide mutieren denselben Lead-Datensatz ueber die normale
@@ -176,6 +250,16 @@ async function submitAnswerInput(input) {
   toast('Antwort gespeichert ✓', 'ok');
   store.notify();
 }
+// Intake: ein Feld, ein Absenden — nutzt denselben Erzeugungsweg wie die
+// Leads-Erfassung (addChatgptLead leitet den Titel selbst aus der ersten
+// Zeile ab, wenn keiner mitgegeben wird).
+async function submitIntakeInput(input) {
+  const id = await addChatgptLead('', input ? input.value : '');
+  if (!id) { toast('Bitte Text eingeben', 'error'); return; }
+  if (input) input.value = '';
+  toast('Anfrage eingereicht ✓ — liegt als Lead im Eingang', 'ok');
+  store.notify();
+}
 
 // Enter im Feld — einmal fuer alle Bloecke, egal in welchem Sheet sie liegen.
 if (typeof document !== 'undefined' && document.addEventListener) {
@@ -184,7 +268,9 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     const taskInput = e.target && e.target.closest ? e.target.closest('[data-cg-task-input]') : null;
     if (taskInput) { e.preventDefault(); submitTaskInput(taskInput); return; }
     const answerInput = e.target && e.target.closest ? e.target.closest('[data-cg-answer-input]') : null;
-    if (answerInput) { e.preventDefault(); submitAnswerInput(answerInput); }
+    if (answerInput) { e.preventDefault(); submitAnswerInput(answerInput); return; }
+    const intakeInput = e.target && e.target.id === 'cgIntakeInput' ? e.target : null;
+    if (intakeInput) { e.preventDefault(); submitIntakeInput(intakeInput); }
   });
 }
 
@@ -220,6 +306,15 @@ registerActions({
     const ok = await markChatgptLeadReturnChecked(d.leadId);
     if (!ok) { toast('Rücklauf bereits geprüft', 'error'); return; }
     toast('Rücklauf geprüft ✓', 'ok');
+    store.notify();
+  },
+  'cg-intake-add': () => submitIntakeInput(document.getElementById('cgIntakeInput')),
+  // Tagesbriefing-Gesamtkonzept-v2: kompakter Delegations-Umschalter, sitzt
+  // am Task (taskCard in ./common.js), Logik in delegateTaskToChatgpt().
+  'task-delegate-chatgpt': async (d) => {
+    const result = await delegateTaskToChatgpt(d.id);
+    if (!result) { toast('Aufgabe nicht gefunden', 'error'); return; }
+    toast(result.delegated ? 'An ChatGPT delegiert ✓' : 'Zurückgeholt', 'ok');
     store.notify();
   },
 });
@@ -296,7 +391,12 @@ function renderNotes() {
       <button class="chip accent" data-action="cg-note-add">＋ Notiz</button>
     </div>
     <div class="muted-row">${fresh.length} neu seit ${last ? formatDate(last) : 'je'} · ${all.length} insgesamt. Ableitung, Ablösen und Korrigieren macht der Assistent am Rechner.</div>
-    ${all.length ? all.map(noteCard).join('') : `<div class="empty"><div class="empty-icon">🤖</div><div class="empty-title">Noch keine ChatGPT Notes</div><div class="empty-sub">Erfasse eine Anweisung — sie landet als Feedback mit heutigem Datum.</div></div>`}`;
+    ${all.length ? all.map(noteCard).join('') : `<div class="empty"><div class="empty-icon">🤖</div><div class="empty-title">Noch keine ChatGPT Notes</div><div class="empty-sub">Erfasse eine Anweisung — sie landet als Feedback mit heutigem Datum.</div></div>`}
+    <div class="card cg-capture cg-intake">
+      <input class="input" id="cgIntakeInput" placeholder="Anfrage an ChatGPT — Enter oder einreichen" autocomplete="off">
+      <button class="chip accent" data-action="cg-intake-add">📩 Anfrage einreichen</button>
+    </div>
+    <div class="muted-row">Kurzform der Lead-Erfassung — jederzeit erreichbar, ohne in den Leads-Reiter zu wechseln.</div>`;
 }
 function renderLeads() {
   const all = chatgptLeads();
