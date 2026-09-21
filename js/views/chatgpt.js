@@ -30,10 +30,12 @@ const STATUS = { neu: 'Neu', verstanden: 'Verstanden', in_arbeit: 'In Arbeit', w
 // einzigen zwei Ausnahmen: eine Rueckfrage einmalig beantworten und einen
 // Cowork-Ruecklauf als geprueft markieren (siehe answerChatgptLeadQuestion /
 // markChatgptLeadReturnChecked) — beides ohne Lead-Bearbeitung im Uebrigen.
+// Einheitlich mit AI Sync (Desktop) V3_OPERATIONAL_STATE_LABEL — dieselben
+// deutschen Bezeichnungen auf allen drei Clients.
 const OPERATIONAL_STATE = {
-  doing: 'In Arbeit', waiting_external: 'Wartet extern', followup_scheduled: 'Followup geplant',
-  decision_required: 'Entscheid nötig', information_required: 'Information nötig',
-  delegated_cowork: 'An Cowork delegiert', review: 'Review', done: 'Erledigt', cancelled: 'Abgebrochen',
+  doing: 'In Arbeit (ChatGPT)', waiting_external: 'Wartet extern', followup_scheduled: 'Follow-up terminiert',
+  decision_required: 'Entscheidung gefragt', information_required: 'Frage gestellt',
+  delegated_cowork: 'Bei Cowork', review: 'Cowork-Rücklauf zu prüfen', done: 'Erledigt', cancelled: 'Storniert',
 };
 const newest = (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
 
@@ -109,16 +111,24 @@ export async function answerChatgptLeadQuestion(id, answerText) {
   const l = store.getById('chatgptLead', id);
   const text = String(answerText || '').trim();
   if (!l || !l.pendingQuestion || l.pendingQuestion.answeredAt || !text) return null;
+  // Review-Fix (einheitlich auf allen Clients, Desktop/AI Sync + Tablet):
+  // eine bereits abgeschlossene Anfrage wird durch eine Antwort NICHT
+  // reaktiviert; eine beantwortete Frage loescht questionForBriefingAt und
+  // vermerkt den letzten Stand in lastAction.
+  if (l.status === 'abgeschlossen') return null;
   await store.performOp({ type: 'update-chatgptLead', payload: {
     id,
     pendingQuestion: { ...l.pendingQuestion, answer: text, answeredAt: nowISO() },
     operationalState: 'doing',
+    questionForBriefingAt: null,
+    lastAction: 'Antwort erhalten: ' + text.slice(0, 140),
   } });
   return id;
 }
 export async function markChatgptLeadReturnChecked(id) {
   const l = store.getById('chatgptLead', id);
   if (!l || !l.returnedAt || l.returnChecked) return null;
+  if (l.status === 'abgeschlossen') return null;
   await store.performOp({ type: 'update-chatgptLead', payload: {
     id, returnChecked: true, operationalState: 'doing',
   } });

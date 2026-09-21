@@ -65,6 +65,12 @@ const ENT = {
       handoverAt: '2026-08-25T08:00:00.000Z', expectedReturnAt: '2026-08-27T08:00:00.000Z', returnedAt: '2026-08-28T09:00:00.000Z', returnChecked: false },
     l6: { id: 'l6', createdAt: '2026-08-20T08:00:00.000Z', title: 'Cowork-Rückgabe geprüft', rawInput: '...', status: 'in_arbeit', readAt: '2026-08-20T09:00:00.000Z',
       handoverAt: '2026-08-20T08:00:00.000Z', returnedAt: '2026-08-21T09:00:00.000Z', returnChecked: true },
+    // Review-Fix (einheitlich auf allen Clients): ein bereits abgeschlossener
+    // Lead darf durch eine Antwort/Ruecklaufpruefung nicht reaktiviert werden.
+    l7: { id: 'l7', createdAt: '2026-08-15T08:00:00.000Z', title: 'Geschlossen mit offener Frage', rawInput: '...', status: 'abgeschlossen', readAt: '2026-08-15T09:00:00.000Z',
+      pendingQuestion: { text: 'Zu spät?', options: [], recommendation: '', askedAt: '2026-08-15T08:00:00.000Z', answeredAt: null, answer: null } },
+    l8: { id: 'l8', createdAt: '2026-08-15T08:00:00.000Z', title: 'Geschlossen mit Rücklauf', rawInput: '...', status: 'abgeschlossen', readAt: '2026-08-15T09:00:00.000Z',
+      handoverAt: '2026-08-15T08:00:00.000Z', returnedAt: '2026-08-16T09:00:00.000Z', returnChecked: false },
   },
   chatgptTasks: {
     t1: { id: 't1', createdAt: '2026-09-01T08:00:00.000Z', text: 'Adresse nachtragen', state: 'offen', anchorKind: 'organization', anchorId: 'o1' },
@@ -204,16 +210,26 @@ ok(modul && typeof modul.render === 'function', 'die Ansicht hat kein render()')
   ok(answerOp.payload.pendingQuestion.text === 'Variante A oder B wählen?', 'die uebrigen Felder der Rueckfrage (text/options/recommendation) gehen beim Antworten verloren');
   ok(answerOp.payload.operationalState === 'doing', 'operationalState wechselt beim Beantworten nicht auf "doing"');
   ok(protokoll.ops.filter((o) => o.type === 'add-chatgptLead' && o.payload.id === 'l3').length === 0, 'das Beantworten legt einen zweiten/neuen Lead an statt den bestehenden zu mutieren');
+  // Review-Fix (einheitlich auf allen Clients, Desktop/AI Sync + Tablet):
+  // eine Antwort loescht questionForBriefingAt und vermerkt lastAction.
+  ok(answerOp.payload.questionForBriefingAt === null, 'eine beantwortete Frage loescht questionForBriefingAt nicht (Client-Uneinheitlichkeit)');
+  ok(/Antwort erhalten: A bitte/.test(answerOp.payload.lastAction || ''), 'eine beantwortete Frage setzt lastAction nicht (Client-Uneinheitlichkeit)');
   // Der Store-Stub wendet Operationen nicht auf ENT an (er zeichnet sie nur
   // auf) — die Sperre "einmalig beantwortbar" wird deshalb hier am Datensatz
   // nachgestellt, so wie es nach einem echten Replay aussaehe.
   ENT.chatgptLeads.l3.pendingQuestion = { ...ENT.chatgptLeads.l3.pendingQuestion, answer: 'A bitte', answeredAt: '2026-09-01T12:00:00.000Z' };
   ok((await exporte.answerChatgptLeadQuestion('l3', 'B doch')) === null && protokoll.ops.length === n + 1, 'nach dem Speichern der Antwort laesst sich dieselbe Rueckfrage nochmals beantworten');
 
+  // Ein bereits abgeschlossener Lead wird durch eine Antwort NICHT reaktiviert.
+  const vorGeschlossen = protokoll.ops.length;
+  ok((await exporte.answerChatgptLeadQuestion('l7', 'Zu spät geantwortet')) === null && protokoll.ops.length === vorGeschlossen,
+    'eine Antwort auf einen abgeschlossenen Lead (l7) wurde angenommen/gespeichert');
+
   // Cowork-Ruecklauf pruefen: dieselbe Regel.
   const m = protokoll.ops.length;
   ok((await exporte.markChatgptLeadReturnChecked('l6')) === null && protokoll.ops.length === m, 'ein bereits gepruefter Ruecklauf (l6) laesst sich erneut pruefen');
   ok((await exporte.markChatgptLeadReturnChecked('l1')) === null && protokoll.ops.length === m, 'ein Ruecklauf ohne returnedAt (l1) laesst sich pruefen');
+  ok((await exporte.markChatgptLeadReturnChecked('l8')) === null && protokoll.ops.length === m, 'ein Ruecklauf auf einem abgeschlossenen Lead (l8) liess sich pruefen');
   const checked = await exporte.markChatgptLeadReturnChecked('l5');
   ok(checked === 'l5' && protokoll.ops.length === m + 1, 'der gueltige Ruecklauf-Check (l5) wurde nicht gespeichert');
   const checkOp = protokoll.ops[protokoll.ops.length - 1];
