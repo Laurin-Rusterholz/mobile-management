@@ -17,6 +17,17 @@
  * Anker, und Verdrahtung, die fehlt (Ansicht nicht registriert, Kachel nicht
  * da, Service Worker kennt die Datei nicht). Die Ansicht laeuft ECHT gegen
  * einen Store-Stub; kein Browser, kein Netz.
+ *
+ * Tagesbriefing-Gesamtkonzept-v2 ("compact parity"): AI Sync hat Leads um
+ * operationalState, Cowork-Handover und pendingQuestion erweitert. Das Handy
+ * zeigt sie nur an (nie erfunden — fehlt operationalState, steht "nicht
+ * gesetzt") und erlaubt genau zwei schreibende Ausnahmen vom Capture-only-
+ * Prinzip: eine Rueckfrage einmalig beantworten, einen Cowork-Ruecklauf als
+ * geprueft quittieren. Was hier schiefgehen kann: ein Status wird erfunden
+ * statt "nicht gesetzt" zu zeigen, eine beantwortete Rueckfrage laesst sich
+ * ein zweites Mal beantworten, die Aktion schreibt per direktem fetch statt
+ * ueber die Operations-Warteschlange, oder der Ruecklauf-Knopf bleibt sichtbar
+ * obwohl schon geprueft.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -44,6 +55,16 @@ const ENT = {
   },
   chatgptLeads: {
     l1: { id: 'l1', createdAt: '2026-09-01T08:00:00.000Z', title: 'Firma X erfassen', rawInput: 'Bitte anlegen.', status: 'neu', readAt: null, assignee: 'cowork' },
+    l2: { id: 'l2', createdAt: '2026-09-01T08:05:00.000Z', title: 'Angebot prüfen', rawInput: 'Angebot pruefen.', status: 'in_arbeit', readAt: '2026-09-01T09:00:00.000Z',
+      assignee: 'chatgpt', operationalState: 'waiting_external', nextAction: 'Rückruf abwarten', waitingOn: 'Lieferant', followUpAt: '2026-09-05T00:00:00.000Z' },
+    l3: { id: 'l3', createdAt: '2026-09-01T08:10:00.000Z', title: 'Cowork-Rückfrage', rawInput: 'Bitte entscheiden.', status: 'in_arbeit', readAt: '2026-09-01T09:00:00.000Z',
+      pendingQuestion: { text: 'Variante A oder B wählen?', options: ['A', 'B'], recommendation: 'A', askedAt: '2026-09-01T08:10:00.000Z', answeredAt: null, answer: null } },
+    l4: { id: 'l4', createdAt: '2026-08-30T08:00:00.000Z', title: 'Bereits beantwortet', rawInput: '...', status: 'in_arbeit', readAt: '2026-08-30T09:00:00.000Z',
+      pendingQuestion: { text: 'Schon geklärt?', options: [], recommendation: '', askedAt: '2026-08-30T08:00:00.000Z', answeredAt: '2026-08-30T10:00:00.000Z', answer: 'Ja' } },
+    l5: { id: 'l5', createdAt: '2026-08-25T08:00:00.000Z', title: 'Cowork-Rückgabe ungeprüft', rawInput: '...', status: 'in_arbeit', readAt: '2026-08-25T09:00:00.000Z',
+      handoverAt: '2026-08-25T08:00:00.000Z', expectedReturnAt: '2026-08-27T08:00:00.000Z', returnedAt: '2026-08-28T09:00:00.000Z', returnChecked: false },
+    l6: { id: 'l6', createdAt: '2026-08-20T08:00:00.000Z', title: 'Cowork-Rückgabe geprüft', rawInput: '...', status: 'in_arbeit', readAt: '2026-08-20T09:00:00.000Z',
+      handoverAt: '2026-08-20T08:00:00.000Z', returnedAt: '2026-08-21T09:00:00.000Z', returnChecked: true },
   },
   chatgptTasks: {
     t1: { id: 't1', createdAt: '2026-09-01T08:00:00.000Z', text: 'Adresse nachtragen', state: 'offen', anchorKind: 'organization', anchorId: 'o1' },
@@ -138,6 +159,66 @@ ok(modul && typeof modul.render === 'function', 'die Ansicht hat kein render()')
   ok(op.payload.assessment && Object.values(op.payload.assessment).every((v) => v === null) && Object.keys(op.payload.assessment).length === 6,
     'das Bewertungsraster startet nicht leer mit sechs Kriterien');
   ok(['interpretation', 'research', 'plan', 'execution', 'result'].every((f) => op.payload[f] === ''), 'die Schritte starten nicht leer');
+}
+
+// ═══ 2B. LEADS: STATUS EHRLICH ANZEIGEN, DIE ZWEI SCHREIBENDEN AUSNAHMEN ═══
+{
+  const html = modul.render();  // ui.seg ist seit Abschnitt 2 'leads'
+  ok(/Status: nicht gesetzt/.test(html), 'ein fehlender operationalState wird nicht ehrlich als "nicht gesetzt" gezeigt (Lead l1)');
+  ok(/Wartet extern/.test(html), 'das operationalState-Label (l2) fehlt oder ist nicht auf Deutsch');
+  ok(/Rückruf abwarten/.test(html), 'nextAction (l2) fehlt');
+  ok(/Wartet auf: Lieferant/.test(html), 'waitingOn (l2) fehlt');
+  ok(/Followup: 2026-09-05/.test(html), 'followUpAt (l2) fehlt');
+
+  // Rueckfrage: nur sichtbar, solange unbeantwortet (l3 ja, l4 nein).
+  ok(/id="cgAnswer-l3"/.test(html) && /data-action="cg-lead-answer" data-lead-id="l3"/.test(html), 'die Rueckfrage-Antwort (l3, unbeantwortet) fehlt');
+  ok(/Variante A oder B wählen/.test(html), 'der Fragetext (l3) fehlt');
+  ok(!/id="cgAnswer-l4"/.test(html), 'eine bereits beantwortete Rueckfrage (l4) zeigt trotzdem ein Antwortfeld');
+
+  // Cowork-Ruecklauf: Knopf nur sichtbar, solange ungeprueft (l5 ja, l6 nein).
+  ok(/data-action="cg-lead-return-checked" data-lead-id="l5"/.test(html), 'der Ruecklauf-Pruefen-Knopf (l5, ungeprueft) fehlt');
+  ok(!/data-lead-id="l6"/.test(html), 'der Ruecklauf-Knopf (l6, bereits geprueft) bleibt sichtbar');
+  ok(/Cowork-Rücklauf geprüft/.test(html), 'der geprüfte Ruecklauf (l6) wird nicht angezeigt');
+
+  // Kein direkter Netzzugriff — beide Aktionen muessen ueber die normale
+  // Operations-Warteschlange (store.performOp) laufen, kein Sonderpfad.
+  ok(!/\bfetch\(/.test(quelle), 'chatgpt.js greift direkt per fetch zu, statt ueber die Warteschlange zu schreiben');
+
+  // Der Klick-Handler ('cg-lead-answer') liest dasselbe Feld und ruft
+  // dieselbe Funktion — getestet, solange l3 noch unbeantwortet ist.
+  felder['cgAnswer-l3'] = { value: '   ', dataset: { leadId: 'l3' } };
+  await AKTIONEN['cg-lead-answer']({ leadId: 'l3' });
+  ok(protokoll.toasts[protokoll.toasts.length - 1] === 'error:Bitte Antwort eingeben', 'der Antworten-Knopf meldet eine leere Antwort nicht als Fehler');
+  ok(protokoll.ops.filter((o) => o.type === 'update-chatgptLead' && o.payload.id === 'l3').length === 0, 'eine leere Antwort ueber den Knopf schreibt trotzdem eine Operation');
+
+  // Rueckfrage beantworten: aendert denselben Lead, kein zweites Mal moeglich.
+  const n = protokoll.ops.length;
+  ok((await exporte.answerChatgptLeadQuestion('l3', '   ')) === null && protokoll.ops.length === n, 'eine leere Antwort wurde gespeichert');
+  ok((await exporte.answerChatgptLeadQuestion('gibt-es-nicht', 'X')) === null && protokoll.ops.length === n, 'eine Antwort auf einen unbekannten Lead wurde gespeichert');
+  ok((await exporte.answerChatgptLeadQuestion('l4', 'Nochmal')) === null && protokoll.ops.length === n, 'eine bereits beantwortete Rueckfrage (l4) laesst sich erneut beantworten');
+  const answered = await exporte.answerChatgptLeadQuestion('l3', 'A bitte');
+  ok(answered === 'l3' && protokoll.ops.length === n + 1, 'die gueltige Antwort wurde nicht gespeichert');
+  const answerOp = protokoll.ops[protokoll.ops.length - 1];
+  ok(answerOp.type === 'update-chatgptLead' && answerOp.payload.id === 'l3', `die Antwort mutiert nicht denselben Lead ueber update-chatgptLead: ${JSON.stringify(answerOp)}`);
+  ok(answerOp.payload.pendingQuestion.answer === 'A bitte' && !!answerOp.payload.pendingQuestion.answeredAt, 'answer/answeredAt werden nicht auf demselben pendingQuestion-Objekt gesetzt');
+  ok(answerOp.payload.pendingQuestion.text === 'Variante A oder B wählen?', 'die uebrigen Felder der Rueckfrage (text/options/recommendation) gehen beim Antworten verloren');
+  ok(answerOp.payload.operationalState === 'doing', 'operationalState wechselt beim Beantworten nicht auf "doing"');
+  ok(protokoll.ops.filter((o) => o.type === 'add-chatgptLead' && o.payload.id === 'l3').length === 0, 'das Beantworten legt einen zweiten/neuen Lead an statt den bestehenden zu mutieren');
+  // Der Store-Stub wendet Operationen nicht auf ENT an (er zeichnet sie nur
+  // auf) — die Sperre "einmalig beantwortbar" wird deshalb hier am Datensatz
+  // nachgestellt, so wie es nach einem echten Replay aussaehe.
+  ENT.chatgptLeads.l3.pendingQuestion = { ...ENT.chatgptLeads.l3.pendingQuestion, answer: 'A bitte', answeredAt: '2026-09-01T12:00:00.000Z' };
+  ok((await exporte.answerChatgptLeadQuestion('l3', 'B doch')) === null && protokoll.ops.length === n + 1, 'nach dem Speichern der Antwort laesst sich dieselbe Rueckfrage nochmals beantworten');
+
+  // Cowork-Ruecklauf pruefen: dieselbe Regel.
+  const m = protokoll.ops.length;
+  ok((await exporte.markChatgptLeadReturnChecked('l6')) === null && protokoll.ops.length === m, 'ein bereits gepruefter Ruecklauf (l6) laesst sich erneut pruefen');
+  ok((await exporte.markChatgptLeadReturnChecked('l1')) === null && protokoll.ops.length === m, 'ein Ruecklauf ohne returnedAt (l1) laesst sich pruefen');
+  const checked = await exporte.markChatgptLeadReturnChecked('l5');
+  ok(checked === 'l5' && protokoll.ops.length === m + 1, 'der gueltige Ruecklauf-Check (l5) wurde nicht gespeichert');
+  const checkOp = protokoll.ops[protokoll.ops.length - 1];
+  ok(checkOp.type === 'update-chatgptLead' && checkOp.payload.id === 'l5' && checkOp.payload.returnChecked === true && checkOp.payload.operationalState === 'doing',
+    `der Ruecklauf-Check mutiert den falschen Lead oder die falschen Felder: ${JSON.stringify(checkOp)}`);
 }
 
 // ═══ 3. CHATGPT-AUFGABEN: NUR MIT ANKER, MARKER AM ELEMENT ═════════════════

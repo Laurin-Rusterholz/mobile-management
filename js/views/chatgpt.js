@@ -7,6 +7,15 @@
 //  der Assistent am Rechner. Geschrieben wird in dieselben Sammlungen wie in
 //  AI Sync (entities.chatgptNotes / chatgptLeads / chatgptTasks) ueber die
 //  normale Operations-Warteschlange — kein Sonderweg.
+//  ---------------------------------------------------------------------------
+//  Tagesbriefing-Gesamtkonzept-v2, "compact parity": operationalState und die
+//  Cowork-Handover-Felder eines Leads werden ehrlich ANGEZEIGT (nie erfunden),
+//  aber bewusst NICHT frei bearbeitbar — das bleibt Aufgabe des Rechners. Nur
+//  zwei eng umrissene Ausnahmen sind erlaubt, weil sie ohne Computer sonst
+//  liegen blieben: eine Rueckfrage (pendingQuestion) einmalig beantworten, und
+//  einen zurueckgekehrten Cowork-Auftrag als geprueft quittieren. Beides
+//  aendert je EIN Feld (plus operationalState → "doing") am selben
+//  Lead-Datensatz — keine Statuswahl, kein Zuweisen, kein Freitext-Editieren.
 // ============================================================================
 import { escHTML, formatDate, newId, nowISO, todayYmd, toast } from '../util.js';
 import * as store from '../store.js';
@@ -15,6 +24,17 @@ import { pageHeader, segmented } from './common.js';
 
 const CATEGORY = { auftrag: 'Auftrag', feedback: 'Feedback', konvention: 'Konvention', entscheid: 'Entscheid' };
 const STATUS = { neu: 'Neu', verstanden: 'Verstanden', in_arbeit: 'In Arbeit', wartet: 'Wartet', abgeschlossen: 'Abgeschlossen' };
+// AI Sync hat operationalState um Cowork-Handover/Rueckfragen erweitert (reine
+// Datenfelder, keine Schema-Aenderung). Das Handy zeigt sie nur an — bearbeiten
+// bleibt dem Rechner vorbehalten (Apple-Notes-Prinzip, s. Kopfkommentar). Die
+// einzigen zwei Ausnahmen: eine Rueckfrage einmalig beantworten und einen
+// Cowork-Ruecklauf als geprueft markieren (siehe answerChatgptLeadQuestion /
+// markChatgptLeadReturnChecked) — beides ohne Lead-Bearbeitung im Uebrigen.
+const OPERATIONAL_STATE = {
+  doing: 'In Arbeit', waiting_external: 'Wartet extern', followup_scheduled: 'Followup geplant',
+  decision_required: 'Entscheid nötig', information_required: 'Information nötig',
+  delegated_cowork: 'An Cowork delegiert', review: 'Review', done: 'Erledigt', cancelled: 'Abgebrochen',
+};
 const newest = (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
 
 const ui = { seg: 'notes' };
@@ -80,6 +100,31 @@ export async function addChatgptTask(kind, id, text, label) {
   return tid;
 }
 
+// ── Rueckfrage beantworten (einmalig) & Cowork-Ruecklauf pruefen ────────────
+// Die einzigen zwei schreibenden Ausnahmen vom Capture-only-Prinzip (siehe
+// Kopfkommentar): beide mutieren denselben Lead-Datensatz ueber die normale
+// Operations-Warteschlange (store.performOp/preparePendingOp) — kein
+// Sonderpfad, kein direkter fetch, keine zweite Sammlung.
+export async function answerChatgptLeadQuestion(id, answerText) {
+  const l = store.getById('chatgptLead', id);
+  const text = String(answerText || '').trim();
+  if (!l || !l.pendingQuestion || l.pendingQuestion.answeredAt || !text) return null;
+  await store.performOp({ type: 'update-chatgptLead', payload: {
+    id,
+    pendingQuestion: { ...l.pendingQuestion, answer: text, answeredAt: nowISO() },
+    operationalState: 'doing',
+  } });
+  return id;
+}
+export async function markChatgptLeadReturnChecked(id) {
+  const l = store.getById('chatgptLead', id);
+  if (!l || !l.returnedAt || l.returnChecked) return null;
+  await store.performOp({ type: 'update-chatgptLead', payload: {
+    id, returnChecked: true, operationalState: 'doing',
+  } });
+  return id;
+}
+
 // ── Block am Element (Sammlungen, Aufgaben, Projekte) ───────────────────────
 // Fuer Laurin ein kleiner Marker; ein einzeiliges Feld, Enter oder ＋ genuegt.
 export function chatgptTaskBlock(kind, id, label) {
@@ -112,14 +157,24 @@ async function submitTaskInput(input) {
     block.replaceWith(wrap.firstElementChild);
   }
 }
+// Kurze Antwort auf eine Rueckfrage — Enter genuegt, wie beim Aufgabenfeld.
+async function submitAnswerInput(input) {
+  const id = input.dataset.leadId;
+  const ok = await answerChatgptLeadQuestion(id, input.value);
+  if (!ok) { toast('Bitte Antwort eingeben', 'error'); return; }
+  input.value = '';
+  toast('Antwort gespeichert ✓', 'ok');
+  store.notify();
+}
+
 // Enter im Feld — einmal fuer alle Bloecke, egal in welchem Sheet sie liegen.
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
-    const input = e.target && e.target.closest ? e.target.closest('[data-cg-task-input]') : null;
-    if (!input) return;
-    e.preventDefault();
-    submitTaskInput(input);
+    const taskInput = e.target && e.target.closest ? e.target.closest('[data-cg-task-input]') : null;
+    if (taskInput) { e.preventDefault(); submitTaskInput(taskInput); return; }
+    const answerInput = e.target && e.target.closest ? e.target.closest('[data-cg-answer-input]') : null;
+    if (answerInput) { e.preventDefault(); submitAnswerInput(answerInput); }
   });
 }
 
@@ -147,6 +202,16 @@ registerActions({
     const input = block ? block.querySelector('[data-cg-task-input]') : null;
     if (input) submitTaskInput(input);
   },
+  'cg-lead-answer': (d) => {
+    const input = document.getElementById('cgAnswer-' + d.leadId);
+    return input ? submitAnswerInput(input) : undefined;
+  },
+  'cg-lead-return-checked': async (d) => {
+    const ok = await markChatgptLeadReturnChecked(d.leadId);
+    if (!ok) { toast('Rücklauf bereits geprüft', 'error'); return; }
+    toast('Rücklauf geprüft ✓', 'ok');
+    store.notify();
+  },
 });
 
 // ── Ansicht ─────────────────────────────────────────────────────────────────
@@ -159,6 +224,47 @@ function noteCard(n) {
     ${n.derived ? `<div class="row-sub">${escHTML(n.derived)}</div>` : ''}
   </div>`;
 }
+// Ehrlich anzeigen, nie erfinden: fehlt operationalState, steht "nicht
+// gesetzt" da — kein stillschweigendes "Neu" oder "erledigt".
+function leadStatusRow(l) {
+  const state = l.operationalState ? (OPERATIONAL_STATE[l.operationalState] || l.operationalState) : 'nicht gesetzt';
+  const chips = [`<span class="chip mini">Status: ${escHTML(state)}</span>`];
+  if (l.nextAction) chips.push(`<span class="chip mini">Nächster Schritt: ${escHTML(l.nextAction)}</span>`);
+  if (l.waitingOn) chips.push(`<span class="chip mini">Wartet auf: ${escHTML(l.waitingOn)}</span>`);
+  if (l.followUpAt) chips.push(`<span class="chip mini">Followup: ${escHTML(formatDate(l.followUpAt))}</span>`);
+  if (l.handoverAt) {
+    let coworkText;
+    if (l.returnedAt && !l.returnChecked) coworkText = 'Cowork-Rücklauf ungeprüft';
+    else if (l.returnedAt && l.returnChecked) coworkText = 'Cowork-Rücklauf geprüft';
+    else if (l.expectedReturnAt) coworkText = `Cowork erwartet: ${formatDate(l.expectedReturnAt)}`;
+    else coworkText = 'An Cowork übergeben';
+    chips.push(`<span class="chip mini">${escHTML(coworkText)}</span>`);
+  }
+  return `<div class="row-meta cg-lead-status">${chips.join('')}</div>`;
+}
+// Genau EINE schreibende Ausnahme: eine offene Rueckfrage einmalig
+// beantworten. Sobald answeredAt gesetzt ist, verschwindet der Block.
+function leadQuestionBlock(l) {
+  if (!l.pendingQuestion || l.pendingQuestion.answeredAt) return '';
+  const q = l.pendingQuestion;
+  const options = Array.isArray(q.options) && q.options.length
+    ? `<div class="chip-row">${q.options.map((o) => `<span class="chip mini">${escHTML(o)}</span>`).join('')}</div>` : '';
+  return `<div class="cg-lead-question">
+    <div class="row-sub"><strong>Rückfrage:</strong> ${escHTML(q.text || '')}</div>
+    ${options}
+    ${q.recommendation ? `<div class="muted-row">Empfehlung: ${escHTML(q.recommendation)}</div>` : ''}
+    <input class="input" id="cgAnswer-${escHTML(l.id)}" data-cg-answer-input data-lead-id="${escHTML(l.id)}" placeholder="Kurze Antwort" autocomplete="off">
+    <button class="btn primary block" type="button" data-action="cg-lead-answer" data-lead-id="${escHTML(l.id)}">Antworten</button>
+  </div>`;
+}
+// Die zweite schreibende Ausnahme: einen zurückgekehrten Cowork-Auftrag als
+// geprüft quittieren — nur sichtbar, solange er ungeprüft ist.
+function leadReturnBlock(l) {
+  if (!l.returnedAt || l.returnChecked) return '';
+  return `<div class="cg-lead-return">
+    <button class="btn block" type="button" data-action="cg-lead-return-checked" data-lead-id="${escHTML(l.id)}">🔁 Rücklauf geprüft</button>
+  </div>`;
+}
 function leadCard(l) {
   const unread = !l.readAt && l.status !== 'abgeschlossen';
   return `<div class="card cg-lead ${unread ? 'unread' : ''}">
@@ -166,6 +272,9 @@ function leadCard(l) {
     <div class="row-sub">${escHTML(String(l.rawInput || '').slice(0, 120))}</div>
     <div class="row-meta"><span class="pill ${l.status === 'abgeschlossen' ? '' : 'accent'}">${escHTML(STATUS[l.status] || l.status || 'Neu')}</span>
       <span class="chip mini">${formatDate(l.createdAt)}</span>${l.assignee ? `<span class="chip mini">${l.assignee === 'cowork' ? 'Cowork' : 'ChatGPT'}</span>` : ''}</div>
+    ${leadStatusRow(l)}
+    ${leadQuestionBlock(l)}
+    ${leadReturnBlock(l)}
   </div>`;
 }
 function renderNotes() {

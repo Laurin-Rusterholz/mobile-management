@@ -25,6 +25,7 @@ export function taskCard(t) {
         ${t.dueDate ? `<span class="meta ${overdue ? 'danger' : ''}">📅 ${formatDate(t.dueDate)}</span>` : ''}
         <span class="prio p${prio}">P${prio}</span>
         ${t.source === 'mobile' ? '<span class="meta">📱</span>' : ''}
+        ${t.assignee && t.assignee !== 'user' ? `<span class="meta">${t.assignee === 'cowork' ? '🤝 Cowork' : '🤖 ChatGPT'}</span>` : ''}
       </div>
     </div>
   </div>`;
