@@ -536,7 +536,7 @@ export function applyOp(op) {
   // ── Gewohnheiten (Sonderpfad: dailyBriefing.routines[]) ──
   if (t === 'add-habit' || t === 'update-habit' || t === 'delete-habit' || t === 'toggle-habit'
       || t === 'toggle-subunit') {
-    applyHabitOp(t, op.payload);
+    applyHabitOp(t, op.payload, mutationTime);
     return;
   }
 
@@ -639,19 +639,34 @@ function routines() {
   if (!Array.isArray(state.data.dailyBriefing.routines)) state.data.dailyBriefing.routines = [];
   return state.data.dailyBriefing.routines;
 }
-function applyHabitOp(type, payload) {
+function applyHabitOp(type, payload, mutationTime = nowISO()) {
   const rs = routines();
   if (type === 'add-habit') { rs.push(payload); return; }
   const h = rs.find(r => r.id === payload.id);
   if (!h) return;
-  if (type === 'update-habit') { Object.assign(h, payload); return; }
-  if (type === 'delete-habit') { h.archived = true; return; }
+  if (type === 'update-habit') { Object.assign(h, payload, { updatedAt: mutationTime }); return; }
+  if (type === 'delete-habit') {
+    // Feld-fuer-Feld-Paritaet mit Desktop (ai-sync/public/index.html,
+    // archiveHabit(), Befund 24.09.2026): ohne updatedAt-Bump und
+    // archivedByUser traegt diese Archivierung im gemeinsamen Datensatz
+    // denselben (unveraenderten) createdAt-Zeitstempel wie eine veraltete,
+    // noch aktive Kopie auf Desktop/Tablet. Desktops eigener 3-Wege-Merge
+    // (mergeRoutinesById) entscheidet den Gewinner ueber updatedAt||createdAt
+    // — bei Gleichstand koennte er die Archivierung stillschweigend
+    // rueckgaengig machen, und die No-Braine-Bruecke wuerde eine noch aktive
+    // externe Definition ohne archivedByUser wieder reaktivieren.
+    h.archived = true;
+    h.archivedByUser = true;
+    h.updatedAt = mutationTime;
+    return;
+  }
   if (type === 'toggle-habit') {
     h.completions = Array.isArray(h.completions) ? h.completions : [];
     const day = payload.date || todayYmd();
     const idx = h.completions.findIndex(c => c && c.date === day);
     if (idx >= 0) h.completions.splice(idx, 1);
     else h.completions.push({ date: day, value: payload.value != null ? payload.value : 1 });
+    h.updatedAt = mutationTime;
     return;
   }
   if (type === 'toggle-subunit') {
@@ -681,6 +696,7 @@ function applyHabitOp(type, payload) {
     } else if (!alle && hatAuto) {
       h.completions = h.completions.filter(c => !(c.date === day && c.autoFromSubUnits));
     }
+    h.updatedAt = mutationTime;
   }
 }
 

@@ -137,7 +137,7 @@ const stand = (routines, extra = {}) => ({
   const quelle = await import('node:fs').then(fs => fs.readFileSync(new URL('../js/store.js', import.meta.url), 'utf8'));
   ok(/const h = rs\.find\(r => r\.id === payload\.id\);\s*\n\s*if \(!h\) return;/.test(quelle),
     'applyHabitOp legt bei einer unbekannten id wieder etwas an');
-  ok(/if \(type === 'delete-habit'\) \{ h\.archived = true; return; \}/.test(quelle),
+  ok(/if \(type === 'delete-habit'\) \{/.test(quelle) && /h\.archived = true;/.test(quelle),
     'delete-habit loescht nicht mehr weich — Inhalte koennten verloren gehen');
   ok(!/mergeData|mergePayloads/.test(quelle),
     'diese App fuehrt neuerdings selbst zusammen — dann braucht sie die Grabstein-Regel der anderen Apps');
