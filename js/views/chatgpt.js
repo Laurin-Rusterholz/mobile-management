@@ -22,24 +22,18 @@
 //     Hauptbildschirm (Notes-Reiter) — benutzt denselben Lead-Erzeugungsweg
 //     (addChatgptLead) wie die bestehende Leads-Erfassung, nur als eigene,
 //     jederzeit erreichbare Kurz-Aktion.
-//  Upload (Dokument anhaengen) bleibt bewusst NICHT implementiert — geprueft,
-//  nicht angenommen: index.html laedt zwar firebase-storage-compat.js und
-//  js/auth.js initialisiert die Firebase-App bereits beim Start (fuer das
-//  Career Model), also waere ein SDK-Aufruf technisch moeglich. Aber
-//  ai-sync/firebase/storage.rules verlangt fuer JEDEN Zugriff
-//  "request.auth != null" — und die Firebase-Anmeldung dieser App ist ein
-//  separater, manueller Google-Login (Einstellungen/Career Model), den die
-//  kompakte ChatGPT-Erfassung nicht auslöst. Ein Upload hier würde also im
-//  gewöhnlichen (nicht angemeldeten) Fall reproduzierbar mit
-//  storage/unauthorized scheitern — eine Funktion, die aussieht wie sie
-//  funktioniert, es im Normalfall aber nicht tut. Sie erst zuverlaessig zu
-//  machen bräuchte eine Anmelde-Gate-UI genau an dieser Stelle — das sprengt
-//  "kompakt" und den Auftrag "Diff minimal halten". Eine Attrappe waere eine
-//  erfundene Erfolgsmeldung; das verletzt die Projektregel "keine
-//  erfundenen Erfolgszustaende". Deshalb: dokumentiert ausgelassen, keine
-//  Datei-UI. Das ist eine eigene, groessere Entscheidung des App-Besitzers
-//  (Anmeldezwang fuer die Erfassung? Oeffentliche Storage-Regel fuer einen
-//  Anhang-Unterpfad? Andere Ablage?).
+//  Upload (Dokument anhaengen), Nachtrag 24.09.2026: der App-Besitzer hat
+//  entschieden, dass der Upload den bestehenden Google-Login sichtbar
+//  anbieten darf, statt still zu fehlen (ai-sync/firebase/storage.rules
+//  verlangt fuer JEDEN Zugriff request.auth != null; kein neues Credential,
+//  keine geaenderte Storage-Regel). attachDocumentToLead() nutzt denselben
+//  Login wie das Career Model (js/auth.js, signInGoogle) — fehlt er, loest
+//  der Anhang-Knopf ihn jetzt aus, statt reproduzierbar mit
+//  storage/unauthorized zu scheitern oder eine erfundene Erfolgsmeldung zu
+//  zeigen. Derselbe attachments/<kind>/<entityId>/<fileId>_<name>-Pfad und
+//  dasselbe Dateiobjekt-Schema wie Desktop/Tablet (id, name, originalName,
+//  size, type, storagePath, url, uploadedAt) — sichtbar in derselben
+//  renderFileAttachments-Anzeige auf dem Rechner.
 //  ---------------------------------------------------------------------------
 //  Ansonsten bleibt operationalState/Cowork-Handover eines Leads ehrlich
 //  ANGEZEIGT (nie erfunden), aber nicht frei bearbeitbar — das bleibt Aufgabe
@@ -51,6 +45,7 @@ import { escHTML, formatDate, newId, nowISO, todayYmd, toast } from '../util.js'
 import * as store from '../store.js';
 import { registerActions } from '../actions.js';
 import { pageHeader, segmented } from './common.js';
+import { initAuth, sdkBereit, currentUser, signInGoogle } from '../auth.js';
 
 const CATEGORY = { auftrag: 'Auftrag', feedback: 'Feedback', konvention: 'Konvention', entscheid: 'Entscheid' };
 const STATUS = { neu: 'Neu', verstanden: 'Verstanden', in_arbeit: 'In Arbeit', wartet: 'Wartet', abgeschlossen: 'Abgeschlossen' };
@@ -209,6 +204,45 @@ export async function markChatgptLeadReturnChecked(id) {
   return id;
 }
 
+// ── Dokument anhaengen (Nachtrag 24.09.2026, siehe Kopfkommentar) ───────────
+// Firebase Storage verlangt fuer JEDEN Zugriff request.auth != null; loest
+// bei fehlender Anmeldung jetzt sichtbar den bestehenden Google-Login aus
+// (js/auth.js), statt die Funktion wegzulassen oder einen Erfolg vorzutaeuschen.
+export async function attachDocumentToLead(leadId, fileList) {
+  const l = store.getById('chatgptLead', leadId);
+  if (!l) return { ok: false, grund: 'Lead nicht gefunden' };
+  const file = fileList && fileList[0];
+  if (!file) return { ok: false, grund: 'Keine Datei gewählt' };
+  if (file.size > 50 * 1024 * 1024) return { ok: false, grund: 'Datei zu gross (max. 50 MB)' };
+  if (!sdkBereit()) return { ok: false, grund: 'Firebase ist nicht geladen — Seite neu laden.' };
+  initAuth();
+  if (!currentUser()) {
+    const anmeldung = await signInGoogle();
+    if (anmeldung.abgebrochen) return { ok: false, grund: 'Anmeldung abgebrochen.' };
+    if (!anmeldung.ok) return { ok: false, grund: anmeldung.grund || 'Anmeldung fehlgeschlagen.' };
+    if (anmeldung.weitergeleitet || !currentUser()) {
+      return { ok: false, grund: 'Anmeldung läuft weiter — nach der Rückkehr erneut anhängen.' };
+    }
+  }
+  let storage;
+  try { storage = window.firebase.storage(); } catch (e) { return { ok: false, grund: 'Firebase Storage nicht verfügbar.' }; }
+  const fileId = newId('f');
+  const storagePath = `attachments/chatgptLead/${leadId}/${fileId}_${file.name}`;
+  let url;
+  try {
+    const task = await storage.ref(storagePath).put(file);
+    url = await task.ref.getDownloadURL();
+  } catch (e) {
+    return { ok: false, grund: 'Upload fehlgeschlagen: ' + (e && e.message ? e.message : String(e)) };
+  }
+  const fileObj = {
+    id: fileId, name: file.name, originalName: file.name, size: file.size, type: file.type,
+    storagePath, url, uploadedAt: nowISO(),
+  };
+  await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, files: [...(Array.isArray(l.files) ? l.files : []), fileObj] } });
+  return { ok: true, file: fileObj };
+}
+
 // ── Block am Element (Sammlungen, Aufgaben, Projekte) ───────────────────────
 // Fuer Laurin ein kleiner Marker; ein einzeiliges Feld, Enter oder ＋ genuegt.
 export function chatgptTaskBlock(kind, id, label) {
@@ -271,6 +305,18 @@ if (typeof document !== 'undefined' && document.addEventListener) {
     if (answerInput) { e.preventDefault(); submitAnswerInput(answerInput); return; }
     const intakeInput = e.target && e.target.id === 'cgIntakeInput' ? e.target : null;
     if (intakeInput) { e.preventDefault(); submitIntakeInput(intakeInput); }
+  });
+  document.addEventListener('change', async (e) => {
+    const inp = e.target && e.target.closest ? e.target.closest('[data-cg-attach]') : null;
+    if (!inp || !inp.files || !inp.files.length) return;
+    const leadId = inp.dataset.leadId;
+    const files = inp.files;
+    inp.value = '';
+    toast('Wird hochgeladen…', 'ok');
+    const res = await attachDocumentToLead(leadId, files);
+    if (!res.ok) { toast(res.grund || 'Anhängen fehlgeschlagen', 'error'); return; }
+    toast('Angehängt ✓ ' + res.file.name, 'ok');
+    store.notify();
   });
 }
 
@@ -370,6 +416,16 @@ function leadReturnBlock(l) {
     <button class="btn block" type="button" data-action="cg-lead-return-checked" data-lead-id="${escHTML(l.id)}">🔁 Rücklauf geprüft</button>
   </div>`;
 }
+// Echte Dateien anzeigen (nie erfunden) + Anhang-Knopf, der noetigenfalls den
+// bestehenden Google-Login sichtbar anbietet (siehe attachDocumentToLead).
+function leadFilesBlock(l) {
+  const files = Array.isArray(l.files) ? l.files : [];
+  const rows = files.map((f) => `<a class="chip mini" href="${escHTML(f.url || '#')}" target="_blank" rel="noopener">📎 ${escHTML(f.name || 'Datei')}</a>`).join('');
+  return `<div class="cg-lead-files chip-row">
+    ${rows}
+    <label class="chip">📎 Anhängen<input type="file" data-cg-attach data-lead-id="${escHTML(l.id)}" style="display:none"></label>
+  </div>`;
+}
 function leadCard(l) {
   const unread = !l.readAt && l.status !== 'abgeschlossen';
   return `<div class="card cg-lead ${unread ? 'unread' : ''}">
@@ -380,6 +436,7 @@ function leadCard(l) {
     ${leadStatusRow(l)}
     ${leadQuestionBlock(l)}
     ${leadReturnBlock(l)}
+    ${leadFilesBlock(l)}
   </div>`;
 }
 function renderNotes() {

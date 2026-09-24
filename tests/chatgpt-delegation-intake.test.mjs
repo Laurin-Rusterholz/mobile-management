@@ -85,6 +85,10 @@ const stubs = {
     pageHeader: (t, s) => `<h1>${t}</h1><p>${s}</p>`,
     segmented: (items, active, action) => items.map((i) => `<button data-action="${action}" data-seg="${i.key}" class="${i.key === active ? 'active' : ''}">${i.label}${i.count != null ? ' ' + i.count : ''}</button>`).join(''),
   },
+  '../auth.js': {
+    initAuth: () => {}, sdkBereit: () => true, currentUser: () => ({ uid: 'u_test' }),
+    signInGoogle: async () => ({ ok: true }),
+  },
 };
 const AKTIONEN = {};
 

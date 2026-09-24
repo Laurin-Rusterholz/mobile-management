@@ -101,6 +101,10 @@ const stubs = {
     pageHeader: (t, s) => `<h1>${t}</h1><p>${s}</p>`,
     segmented: (items, active, action) => items.map((i) => `<button data-action="${action}" data-seg="${i.key}" class="${i.key === active ? 'active' : ''}">${i.label}${i.count != null ? ' ' + i.count : ''}</button>`).join(''),
   },
+  '../auth.js': {
+    initAuth: () => {}, sdkBereit: () => true, currentUser: () => ({ uid: 'u_test' }),
+    signInGoogle: async () => ({ ok: true }),
+  },
 };
 const quelle = fs.readFileSync(path.join(root, 'js/views/chatgpt.js'), 'utf8');
 const exporte = {};
@@ -183,7 +187,7 @@ ok(modul && typeof modul.render === 'function', 'die Ansicht hat kein render()')
 
   // Cowork-Ruecklauf: Knopf nur sichtbar, solange ungeprueft (l5 ja, l6 nein).
   ok(/data-action="cg-lead-return-checked" data-lead-id="l5"/.test(html), 'der Ruecklauf-Pruefen-Knopf (l5, ungeprueft) fehlt');
-  ok(!/data-lead-id="l6"/.test(html), 'der Ruecklauf-Knopf (l6, bereits geprueft) bleibt sichtbar');
+  ok(!/data-action="cg-lead-return-checked" data-lead-id="l6"/.test(html), 'der Ruecklauf-Knopf (l6, bereits geprueft) bleibt sichtbar');
   ok(/Cowork-Rücklauf geprüft/.test(html), 'der geprüfte Ruecklauf (l6) wird nicht angezeigt');
 
   // Kein direkter Netzzugriff — beide Aktionen muessen ueber die normale
