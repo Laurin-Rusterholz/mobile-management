@@ -261,7 +261,15 @@ export async function attachDocumentToLead(leadId, fileList) {
     id: fileId, name: file.name, originalName: file.name, size: file.size, type: file.type,
     storagePath, url, uploadedAt: nowISO(),
   };
-  await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, files: [...(Array.isArray(l.files) ? l.files : []), fileObj] } });
+  // Review-Fix (25.09.2026): l.files wurde HIER frueher vor dem obigen
+  // asynchronen Login/Upload gelesen und als vollstaendiges Ersatz-Array
+  // zurueckgeschrieben — ein waehrenddessen gelandeter zweiter Anhang (ein
+  // zweiter lokaler Anhang, oder ein per Pull/Replay eingetroffener) ging
+  // dabei verloren. Die eigens dafuer eingefuehrte Operation unioniert die
+  // Datei stattdessen im Speicher/Replay-Pfad selbst (store.js, applyOp())
+  // gegen den zu diesem Zeitpunkt TATSAECHLICH aktuellen Stand, nicht gegen
+  // diesen veralteten Schnappschuss.
+  await store.performOp({ type: 'attach-chatgptLead-file', payload: { id: leadId, file: fileObj } });
   return { ok: true, file: fileObj };
 }
 

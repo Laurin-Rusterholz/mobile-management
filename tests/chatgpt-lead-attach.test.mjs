@@ -42,6 +42,21 @@ const ENT = { chatgptLeads: {
 const KIND = { chatgptLead: 'chatgptLeads' };
 const protokoll = { ops: [], toasts: [], notified: 0 };
 function applyFakeOp(op) {
+  // Review-Fix (25.09.2026): attachDocumentToLead() schreibt den Anhang nicht
+  // mehr als vollstaendiges Ersatz-Array (verb "update"), sondern ueber eine
+  // eigene Union-Operation — dieselbe Semantik wie applyOp() in store.js
+  // (union nach Datei-Id, gegen den TATSAECHLICH aktuellen Stand, nicht gegen
+  // einen client-seitig vorberechneten Schnappschuss).
+  if (op.type === 'attach-chatgptLead-file') {
+    const cur = ENT.chatgptLeads[op.payload.id];
+    if (!cur) return;
+    const bestehende = Array.isArray(cur.files) ? cur.files : [];
+    const neueDatei = op.payload.file;
+    if (neueDatei && neueDatei.id && !bestehende.some((f) => f && f.id === neueDatei.id)) {
+      cur.files = [...bestehende, neueDatei];
+    }
+    return;
+  }
   const [verb, ...rest] = String(op.type || '').split('-');
   const collName = KIND[rest.join('-')];
   if (!collName) return;
@@ -149,7 +164,7 @@ const datei = (extra = {}) => Object.assign({ name: 'vertrag.pdf', size: 1024, t
   ok(storageState.uploads[0].path === 'attachments/chatgptLead/l1/f_neu_vertrag.pdf',
     `der Speicherpfad weicht von der Desktop/Tablet-Konvention ab: ${storageState.uploads[0].path}`);
   const ops = protokoll.ops.slice(vor);
-  ok(ops.length === 1 && ops[0].type === 'update-chatgptLead', 'der Upload schreibt keine update-chatgptLead-Operation');
+  ok(ops.length === 1 && ops[0].type === 'attach-chatgptLead-file', 'der Upload schreibt keine attach-chatgptLead-file-Operation');
   const f = ENT.chatgptLeads.l1.files[0];
   ok(!!f, 'die Datei wurde nicht in lead.files eingetragen');
   ok(f.id === 'f_neu' && f.name === 'vertrag.pdf' && f.originalName === 'vertrag.pdf' && f.size === 1024 && f.type === 'application/pdf', 'das Dateiobjekt weicht vom Desktop/Tablet-Schema ab');
@@ -209,6 +224,60 @@ const datei = (extra = {}) => Object.assign({ name: 'vertrag.pdf', size: 1024, t
   ok(res.ok === false && /network-fail/.test(res.grund || ''), 'ein fehlgeschlagener Upload wird nicht ehrlich gemeldet');
   ok(protokoll.ops.length === vor, 'trotz fehlgeschlagenem Upload wurde eine Operation geschrieben — erfundener Erfolg');
   storageState.shouldFail = false;
+}
+
+// ── 10. Review-Fix (25.09.2026): zwei Anhaenge an DENSELBEN Lead ueberlappen
+//        sich waehrend des asynchronen Logins/Uploads — VORHER las
+//        attachDocumentToLead() l.files EINMAL ganz am Anfang und schrieb am
+//        Ende ein vollstaendiges Ersatz-Array; der zweite, waehrenddessen
+//        gestartete Anhang haette den ersten beim Zurueckschreiben still
+//        ueberschrieben (klassischer verlorener Schreibvorgang). Jetzt
+//        unioniert die eigene attach-chatgptLead-file-Operation gegen den
+//        TATSAECHLICH aktuellen Stand zum Zeitpunkt jedes einzelnen
+//        performOp()-Aufrufs — beide Anhaenge muessen erhalten bleiben. ─────
+{
+  const ENT2 = { chatgptLeads: { l1: { id: 'l1', title: 'x', rawInput: 'x', status: 'neu', files: [] } } };
+  function applyFakeOp2(op) {
+    if (op.type !== 'attach-chatgptLead-file') return;
+    const cur = ENT2.chatgptLeads[op.payload.id];
+    if (!cur) return;
+    const bestehende = Array.isArray(cur.files) ? cur.files : [];
+    const neueDatei = op.payload.file;
+    if (neueDatei && neueDatei.id && !bestehende.some((f) => f && f.id === neueDatei.id)) cur.files = [...bestehende, neueDatei];
+  }
+  let idZaehler = 0;
+  let freigeben;
+  const wartepunkt = new Promise((resolve) => { freigeben = resolve; });
+  let signedIn2 = false;
+  const stubs2 = {
+    ...stubs,
+    '../util.js': { ...stubs['../util.js'], newId: (k) => k + '_wettlauf_' + (++idZaehler) },
+    '../store.js': {
+      state: { data: { chatgptNotesMeta: {} } },
+      getCollection: (name) => Object.values(ENT2[name] || {}),
+      getById: (kind, id) => (ENT2[KIND[kind] || kind] || {})[id] || null,
+      performOp: async (op) => { applyFakeOp2(op); },
+      notify: () => {},
+    },
+    '../auth.js': {
+      initAuth: () => {},
+      sdkBereit: () => true,
+      currentUser: () => (signedIn2 ? { uid: 'u1' } : null),
+      // Beide ueberlappenden Aufrufe haengen HIER gleichzeitig, bis
+      // freigeben() unten beide zeitgleich weiterlaufen laesst — simuliert
+      // exakt den gemeldeten Fall: der zweite Anhang startet, WAEHREND der
+      // erste noch im asynchronen Login/Upload steckt.
+      signInGoogle: async () => { await wartepunkt; signedIn2 = true; return { ok: true }; },
+    },
+  };
+  const exporte2 = ladeModul('js/views/chatgpt.js', stubs2);
+  const p1 = exporte2.attachDocumentToLead('l1', [datei({ name: 'a.pdf' })]);
+  const p2 = exporte2.attachDocumentToLead('l1', [datei({ name: 'b.pdf' })]);
+  freigeben();
+  const [r1, r2] = await Promise.all([p1, p2]);
+  ok(r1.ok === true && r2.ok === true, `beide ueberlappenden Anhaenge muessten gelingen: ${JSON.stringify({ r1, r2 })}`);
+  const namen2 = ENT2.chatgptLeads.l1.files.map((f) => f.name).sort().join(',');
+  ok(namen2 === 'a.pdf,b.pdf', `ein waehrend des Logins/Uploads gleichzeitig gestarteter zweiter Anhang geht verloren (alter Bug: stale l.files-Snapshot): ${namen2}`);
 }
 
 if (luecken.length) { console.error('FEHLER:\n- ' + luecken.join('\n- ')); process.exit(1); }

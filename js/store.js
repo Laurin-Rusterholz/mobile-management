@@ -530,6 +530,31 @@ export function applyOp(op) {
     return;
   }
 
+  // ── ChatGPT-Lead-Anhang: Union nach Datei-Id, NIE ein voller Ersatz ──
+  // Review-Fix (25.09.2026): attachDocumentToLead() (js/views/chatgpt.js) las
+  // frueher l.files VOR dem asynchronen Login/Upload und schrieb danach ein
+  // vollstaendiges Ersatz-Array — ein zweiter, waehrenddessen gelandeter
+  // Anhang (lokal oder per Replay nach einem Pull) ging dabei verloren, weil
+  // beide vom selben "vorher"-Snapshot ausgingen. Die Union passiert jetzt
+  // HIER, gegen den tatsaechlich AKTUELLEN Stand von cur.files — beim
+  // sofortigen lokalen Anwenden ebenso wie bei einem spaeteren Replay nach
+  // einem Pull (replayIntent() laesst diesen Optyp unveraendert durch,
+  // shouldSkipPendingOp() ueberspringt ihn nie, s. operationParts()/verb
+  // "attach" ist in keiner der beiden Listen — die Operation wird also immer
+  // angewendet, per Datei-Id idempotent).
+  if (t === 'attach-chatgptLead-file') {
+    const coll = ensureColl('chatgptLeads');
+    const cur = coll[op.payload.id];
+    if (!cur) return;
+    const bestehende = Array.isArray(cur.files) ? cur.files : [];
+    const neueDatei = op.payload.file;
+    if (neueDatei && neueDatei.id && !bestehende.some((f) => f && f.id === neueDatei.id)) {
+      cur.files = [...bestehende, neueDatei];
+      cur.updatedAt = mutationTime;
+    }
+    return;
+  }
+
   // ── Zeit-/Fokus-Sitzung ──
   if (t === 'add-time-entry') { ensureColl('timeEntries')[op.payload.id] = op.payload; return; }
 
