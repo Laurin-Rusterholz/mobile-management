@@ -22,9 +22,22 @@
  * verstecken. Ein vollstaendiger Ausschluss braucht einen echten Anhangs-
  * Grabstein, den es auf keinem der drei Clients gibt (Folgearbeit).
  *
- * Beide Tests treiben die ECHTEN Funktionen aus js/store.js
- * (applyPendingChanges/pullData/applyOp/replayPendingOperations) gegen einen
- * lokalen HTTP-Server und einen In-Memory-localStorage-Stub.
+ * ---------------------------------------------------------------------------
+ * Erneute Pruefung (PR14, 25.09. 23 Uhr): der Nach-Pull oben kann ueber
+ * pullData()s eigenes finally (replayPending) SELBST wieder pushData()
+ * ausloesen. Faellt GET dauerhaft (PUT scheitert immer, GET klappt), entsteht
+ * eine ungebremste Pull→Push→Pull-Schleife ohne Rueckstand. Fix: ein
+ * Zaehler (state.ambiguousRecoveryAttempts) begrenzt die automatischen
+ * Verifikationspulls auf MAX_AMBIGUOUS_RECOVERY_ATTEMPTS; danach wird ein
+ * weiterhin unbestaetigter Anhang-Versuch in die Konfliktablage konserviert
+ * (conserveUnconfirmedAttachOps) statt ihn unveraendert der naechsten,
+ * ebenso zum Scheitern verurteilten Runde zu ueberlassen. Test 3 unten
+ * belegt: GET erfolgreich / PUT dauerhaft Fehler endet nach endlich vielen
+ * Versuchen, nicht in einer Endlosschleife.
+ *
+ * Alle drei Tests treiben die ECHTEN Funktionen aus js/store.js
+ * (pullData/pushData/performOp/applyPendingChanges/replayPendingOperations)
+ * gegen einen lokalen HTTP-Server und einen In-Memory-localStorage-Stub.
  */
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -83,6 +96,10 @@ function sendJson(res, status, obj, etag) {
 // schliessen (sonst nur Rauschen: "connection refused" fuer einen
 // Hintergrund-Aufruf, den kein Testfall prueft).
 const naechsterTick = () => new Promise((r) => setTimeout(r, 20));
+async function wartenBis(bedingung, timeoutMs = 4000) {
+  const start = Date.now();
+  while (!bedingung() && Date.now() - start < timeoutMs) await new Promise((r) => setTimeout(r, 15));
+}
 
 const LEAD_ID = 'l1';
 const FILE_ID = 'f_b';
@@ -183,6 +200,63 @@ const { LS } = await import('../js/config.js');
   // unterscheidbar von einem Versuch, der nie ankam.
   ok(store.getById('chatgptLead', LEAD_ID).files.some((f) => f.id === FILE_ID),
     'FEHLERANNAHME NICHT MEHR GUELTIG: bitte diesen Test aktualisieren, falls ein echter Anhangs-Grabstein diese Luecke inzwischen schliesst');
+}
+
+// ── 3. GET erfolgreich, PUT dauerhaft fehlerhaft: die automatischen
+//      Verifikationspulls muessen sich selbst begrenzen (kein Pull→Push→Pull
+//      ohne Ende) und einen weiterhin unbestaetigten Anhang-Versuch am Ende
+//      konservieren statt ihn endlos blind zu wiederholen ──────────────────
+{
+  globalThis.localStorage = speicher();
+  const store = await ladeStore();
+
+  let getCount = 0; let putCount = 0;
+  const server = await startHttp((req, res) => {
+    if (req.method === 'GET') { getCount++; sendJson(res, 200, bestand(false), 'etag-dauerhaft'); return; }
+    if (req.method === 'PUT') {
+      putCount++;
+      // PUT scheitert HIER dauerhaft (z.B. Schreibrechte/Dienstkonto kaputt),
+      // waehrend GET (Lesen) weiterhin klappt — genau der vom Review benannte
+      // Fall, der ohne Grenze eine Endlosschleife erzeugt.
+      req.resume();
+      req.on('end', () => { res.writeHead(500, { 'content-type': 'text/plain' }); res.end('dauerhafter Fehler'); });
+      return;
+    }
+    res.writeHead(404); res.end();
+  });
+  globalThis.localStorage.setItem(LS.baseUrl, server.base);
+
+  // Normaler, erfolgreicher Erstpull (initialPullDone-Schutz).
+  await store.pullData(true);
+  const getNachErstpull = getCount;
+
+  // Ein neuer Anhang-Versuch wird lokal angewendet und gepusht — der PUT
+  // scheitert sofort und stoesst die Verifikationskaskade an.
+  await store.performOp({ type: 'attach-chatgptLead-file', payload: { id: LEAD_ID, file: fileObj } });
+
+  // Die Kaskade laeuft ueber mehrere setTimeout(...,0)-Runden UND echte
+  // HTTP-Anfragen an den lokalen Server — auf Abschluss warten, statt eine
+  // feste Anzahl Ticks zu raten.
+  await wartenBis(() => store.pendingCount() === 0);
+
+  const putNachKaskade = putCount;
+  const getNachKaskade = getCount - getNachErstpull;
+
+  ok(putNachKaskade === 4, `erwartet 1 urspruenglicher Push + 3 begrenzte Wiederholungsversuche, tatsaechlich ${putNachKaskade} PUT-Aufrufe`);
+  ok(getNachKaskade === 3, `erwartet genau 3 Verifikationspulls (einer je Wiederholungsversuch), tatsaechlich ${getNachKaskade}`);
+  ok(store.pendingCount() === 0, 'die Warteschlange muss nach Erreichen der Grenze leer sein (Konservierung statt endlosem Replay)');
+  ok(store.state.conflicts.some((c) => c.kind === 'push-outcome-unklar' && c.opType === 'attach-chatgptLead-file' && c.entityId === LEAD_ID),
+    'ein am Ende weiterhin unbestaetigter Anhang-Versuch muss sichtbar in der Konfliktablage landen');
+  ok(store.state.ambiguousRecoveryAttempts === 0, 'der Zaehler muss nach Konservierung zurueckgesetzt sein — sonst blockiert er kuenftige, unabhaengige Wiederherstellungsversuche dauerhaft');
+
+  // Kein Rueckstand: nach dem Stillstand duerfen KEINE weiteren automatischen
+  // Anfragen mehr erfolgen — das ist der eigentliche Beleg gegen die
+  // Endlosschleife, nicht nur die Zaehlung bis zu diesem Zeitpunkt.
+  await new Promise((r) => setTimeout(r, 250));
+  ok(putCount === putNachKaskade && getCount - getNachErstpull === getNachKaskade,
+    `nach dem Stillstand duerfen keine weiteren automatischen Versuche mehr erfolgen (PUT ${putCount}, GET-Delta ${getCount - getNachErstpull}) — sonst liegt weiterhin eine Endlosschleife vor`);
+
+  await server.close();
 }
 
 if (luecken.length) { console.error('FEHLER:\n- ' + luecken.join('\n- ')); process.exit(1); }
