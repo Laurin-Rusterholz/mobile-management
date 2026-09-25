@@ -17,6 +17,12 @@ export function taskCard(t) {
   const done = t.status === 'done';
   const overdue = t.dueDate && !done && new Date(t.dueDate) < new Date(new Date().toDateString());
   const prio = Number(t.priority || 3);
+  // Tagesbriefing-Gesamtkonzept-v2: Delegation ist jetzt auch am Handy/Tablet
+  // kompakt moeglich (App-Besitzer-Vorgabe, hebt die fruehere Capture-only-
+  // Beschraenkung fuer Delegation ausdruecklich auf). Die eigentliche Logik
+  // liegt in js/views/chatgpt.js (delegateTaskToChatgpt); hier nur der
+  // Umschalt-Knopf, Spiegel der Desktop-Referenz (task-delegate-chatgpt).
+  const delegiert = (t.assignee || 'user') === 'chatgpt';
   return `<div class="card task-card ${done ? 'done' : ''} ${overdue ? 'overdue' : ''}">
     <button class="check ${done ? 'on' : ''}" data-action="toggle-task" data-id="${t.id}" aria-label="Erledigt"></button>
     <div class="task-main" data-action="open-task" data-id="${t.id}">
@@ -25,7 +31,10 @@ export function taskCard(t) {
         ${t.dueDate ? `<span class="meta ${overdue ? 'danger' : ''}">📅 ${formatDate(t.dueDate)}</span>` : ''}
         <span class="prio p${prio}">P${prio}</span>
         ${t.source === 'mobile' ? '<span class="meta">📱</span>' : ''}
+        ${t.assignee && t.assignee !== 'user' ? `<span class="meta">${t.assignee === 'cowork' ? '🤝 Cowork' : '🤖 ChatGPT'}</span>` : ''}
       </div>
     </div>
+    <button class="chip mini ${delegiert ? 'accent' : ''}" type="button" data-action="task-delegate-chatgpt" data-id="${t.id}"
+      title="${delegiert ? 'Zurückholen' : 'An ChatGPT delegieren'}" aria-label="${delegiert ? 'Von ChatGPT zurückholen' : 'An ChatGPT delegieren'}">${delegiert ? '🤖✓' : '🤖'}</button>
   </div>`;
 }

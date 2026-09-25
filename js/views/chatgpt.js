@@ -1,20 +1,67 @@
 // ============================================================================
-//  ChatGPT — Notes (Schnellerfassung + Liste), Leads (anlegen + Liste),
-//  ChatGPT-Aufgaben (einzeiliges Feld am Element)
+//  ChatGPT — Notes (Schnellerfassung + Liste), Leads (anlegen + Liste,
+//  kompakte Anfrage-Einreichung), ChatGPT-Aufgaben (einzeiliges Feld am
+//  Element), Aufgaben-Delegation (kompakter Umschalt-Knopf am Task)
 //  ---------------------------------------------------------------------------
 //  Apple-Notes-Prinzip: so einfach wie moeglich. Erfassen muss unterwegs
-//  gehen, alles Weitere (Abloesen, Bearbeiten, Bewerten, Abschliessen) macht
-//  der Assistent am Rechner. Geschrieben wird in dieselben Sammlungen wie in
-//  AI Sync (entities.chatgptNotes / chatgptLeads / chatgptTasks) ueber die
-//  normale Operations-Warteschlange — kein Sonderweg.
+//  gehen. Geschrieben wird in dieselben Sammlungen wie in AI Sync
+//  (entities.chatgptNotes / chatgptLeads / chatgptTasks) ueber die normale
+//  Operations-Warteschlange — kein Sonderweg.
+//  ---------------------------------------------------------------------------
+//  Tagesbriefing-Gesamtkonzept-v2 (Master-PDF, 28 Seiten): der App-Besitzer
+//  hat die fruehere reine Capture-only-Beschraenkung fuer Delegation und
+//  Intake ausdruecklich AUFGEHOBEN — beide sollen auf Tablet/Mobile ebenfalls
+//  kompakt moeglich sein, mit denselben Bezeichnungen wie am Rechner:
+//   • Delegation (Aufgabe → ChatGPT): delegateTaskToChatgpt(), Spiegel der
+//     Desktop-Referenz (ai-sync/public/index.html, case
+//     "task-delegate-chatgpt") — genau EIN verknuepfter Lead pro Aufgabe
+//     (task.delegatedLeadId), Reaktivierung statt Duplikat beim erneuten
+//     Delegieren, Ruecknahme schliesst den Lead als hinfaellig statt ihn zu
+//     loeschen. Der Knopf sitzt in der gemeinsamen taskCard (./common.js).
+//   • Intake (Anfrage einreichen): kompaktes Ein-Feld-Formular auf dem
+//     Hauptbildschirm (Notes-Reiter) — benutzt denselben Lead-Erzeugungsweg
+//     (addChatgptLead) wie die bestehende Leads-Erfassung, nur als eigene,
+//     jederzeit erreichbare Kurz-Aktion.
+//  Upload (Dokument anhaengen), Nachtrag 24.09.2026: der App-Besitzer hat
+//  entschieden, dass der Upload den bestehenden Google-Login sichtbar
+//  anbieten darf, statt still zu fehlen (ai-sync/firebase/storage.rules
+//  verlangt fuer JEDEN Zugriff request.auth != null; kein neues Credential,
+//  keine geaenderte Storage-Regel). attachDocumentToLead() nutzt denselben
+//  Login wie das Career Model (js/auth.js, signInGoogle) — fehlt er, loest
+//  der Anhang-Knopf ihn jetzt aus, statt reproduzierbar mit
+//  storage/unauthorized zu scheitern oder eine erfundene Erfolgsmeldung zu
+//  zeigen. Derselbe attachments/<kind>/<entityId>/<fileId>_<name>-Pfad und
+//  dasselbe Dateiobjekt-Schema wie Desktop/Tablet (id, name, originalName,
+//  size, type, storagePath, url, uploadedAt) — sichtbar in derselben
+//  renderFileAttachments-Anzeige auf dem Rechner.
+//  ---------------------------------------------------------------------------
+//  Ansonsten bleibt operationalState/Cowork-Handover eines Leads ehrlich
+//  ANGEZEIGT (nie erfunden), aber nicht frei bearbeitbar — das bleibt Aufgabe
+//  des Rechners. Am Lead selbst sind weiterhin nur zwei eng umrissene
+//  Ausnahmen erlaubt: eine Rueckfrage (pendingQuestion) einmalig beantworten,
+//  und einen zurueckgekehrten Cowork-Auftrag als geprueft quittieren.
 // ============================================================================
 import { escHTML, formatDate, newId, nowISO, todayYmd, toast } from '../util.js';
 import * as store from '../store.js';
 import { registerActions } from '../actions.js';
 import { pageHeader, segmented } from './common.js';
+import { initAuth, sdkBereit, currentUser, signInGoogle } from '../auth.js';
 
 const CATEGORY = { auftrag: 'Auftrag', feedback: 'Feedback', konvention: 'Konvention', entscheid: 'Entscheid' };
 const STATUS = { neu: 'Neu', verstanden: 'Verstanden', in_arbeit: 'In Arbeit', wartet: 'Wartet', abgeschlossen: 'Abgeschlossen' };
+// AI Sync hat operationalState um Cowork-Handover/Rueckfragen erweitert (reine
+// Datenfelder, keine Schema-Aenderung). Das Handy zeigt sie nur an — bearbeiten
+// bleibt dem Rechner vorbehalten (Apple-Notes-Prinzip, s. Kopfkommentar). Die
+// einzigen zwei Ausnahmen: eine Rueckfrage einmalig beantworten und einen
+// Cowork-Ruecklauf als geprueft markieren (siehe answerChatgptLeadQuestion /
+// markChatgptLeadReturnChecked) — beides ohne Lead-Bearbeitung im Uebrigen.
+// Einheitlich mit AI Sync (Desktop) V3_OPERATIONAL_STATE_LABEL — dieselben
+// deutschen Bezeichnungen auf allen drei Clients.
+const OPERATIONAL_STATE = {
+  doing: 'In Arbeit (ChatGPT)', waiting_external: 'Wartet extern', followup_scheduled: 'Follow-up terminiert',
+  decision_required: 'Entscheidung gefragt', information_required: 'Frage gestellt',
+  delegated_cowork: 'Bei Cowork', review: 'Cowork-Rücklauf zu prüfen', done: 'Erledigt', cancelled: 'Storniert',
+};
 const newest = (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
 
 const ui = { seg: 'notes' };
@@ -45,13 +92,16 @@ export async function addChatgptNote(text) {
   return id;
 }
 // Lead: Titel + Wortlaut, sonst nichts. Der Rest gehoert dem Assistenten.
-export async function addChatgptLead(title, rawInput) {
+// forcedId (Review-Fix 25.09.2026, siehe delegateTaskToChatgpt unten): erlaubt
+// eine deterministische ID statt der Zufalls-ID von newId() — bestehende
+// Aufrufer (Intake-Kurzform u. a.) bleiben unveraendert, da forcedId optional ist.
+export async function addChatgptLead(title, rawInput, forcedId) {
   title = String(title || '').trim(); rawInput = String(rawInput || '').trim();
   if (!title && !rawInput) return null;
   if (!title) title = rawInput.split('\n')[0].slice(0, 80);
   if (!rawInput) rawInput = title;
   const now = nowISO();
-  const id = newId('chatgptLead');
+  const id = forcedId || newId('chatgptLead');
   await store.performOp({ type: 'add-chatgptLead', payload: {
     id, createdAt: now, updatedAt: now, title, rawInput, status: 'neu', readAt: null,
     interpretation: '', openQuestions: '', research: '', plan: '', execution: '', result: '', workflowNote: '',
@@ -78,6 +128,149 @@ export async function addChatgptTask(kind, id, text, label) {
     resolvedAt: null, blockedReason: null, comments: [], source: 'mobile',
   } });
   return tid;
+}
+
+// ── Aufgaben-Delegation an ChatGPT (Tagesbriefing-Gesamtkonzept-v2) ─────────
+// Spiegelt die Desktop-Referenz exakt (ai-sync/public/index.html,
+// case "task-delegate-chatgpt"): "assignee" ist die Sperre, ob delegiert ist;
+// task.delegatedLeadId zeigt auf GENAU EINEN Lead, der bei erneutem
+// Delegieren reaktiviert statt verdoppelt wird. Zwei echte Operationen pro
+// Umschaltung (Task + Lead) ueber store.performOp, nie eine gemergte Payload.
+export async function delegateTaskToChatgpt(taskId) {
+  const task = store.getById('task', taskId);
+  if (!task) return null;
+  const wasDelegated = (task.assignee || 'user') === 'chatgpt';
+  const existingLead = task.delegatedLeadId ? store.getById('chatgptLead', task.delegatedLeadId) : null;
+
+  if (wasDelegated) {
+    // Ruecknahme: Lead bleibt bestehen (Historie/Wiederverwendung), wird aber
+    // als hinfaellig geschlossen — kein zweiter, verwaister Lead beim
+    // naechsten Delegieren desselben Tasks.
+    await store.performOp({ type: 'update-task', payload: { id: taskId, assignee: 'user' } });
+    if (existingLead && existingLead.status !== 'abgeschlossen') {
+      await store.performOp({ type: 'update-chatgptLead', payload: {
+        id: existingLead.id, status: 'abgeschlossen', closedAt: nowISO(), closedBy: 'laurin',
+        obsoleteReason: 'Aufgabe wieder zurückgeholt', operationalState: 'cancelled',
+      } });
+    }
+    return { taskId, leadId: existingLead ? existingLead.id : null, delegated: false };
+  }
+
+  let leadId = existingLead ? existingLead.id : null;
+  if (!existingLead) {
+    // Deterministische Lead-ID (Review-Fix 25.09.2026, spiegelt ai-sync/
+    // Tablet): zwei Geraete, die dieselbe, noch nicht delegierte Aufgabe
+    // unabhaengig voneinander (offline) delegieren, berechnen dieselbe ID —
+    // der bestehende Merge nach id fuehrt beide Versuche zu EINEM Datensatz
+    // zusammen, statt einen zweiten, ueber delegatedLeadId nicht mehr
+    // erreichbaren Lead anzulegen.
+    const deterministicId = 'chatgptLead_from_task_' + taskId;
+    const deterministicExisting = store.getById('chatgptLead', deterministicId);
+    if (deterministicExisting) {
+      // Existiert der Lead unter dieser ID bereits (z. B. weil ein
+      // Zwischen-Sync ihn brachte, das eigene delegatedLeadId-Feld aber noch
+      // nicht nachzog), wird er wiederverwendet statt neu angelegt — sonst
+      // koennte eine dort bereits begonnene Bearbeitung ueberschrieben werden.
+      leadId = deterministicId;
+      await store.performOp({ type: 'update-chatgptLead', payload: deterministicExisting.status === 'abgeschlossen'
+        ? { id: leadId, status: 'neu', closedAt: null, closedBy: null, obsoleteReason: null, operationalState: 'doing' }
+        : { id: leadId, operationalState: 'doing' } });
+    } else {
+      leadId = await addChatgptLead(task.title, 'Delegierte Aufgabe: ' + (task.title || ''), deterministicId);
+      if (!leadId) return null;
+      await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, operationalState: 'doing' } });
+    }
+  } else if (existingLead.status === 'abgeschlossen') {
+    // Idempotente Wiederverwendung: derselbe Lead wird reaktiviert statt
+    // einen zweiten anzulegen.
+    await store.performOp({ type: 'update-chatgptLead', payload: {
+      id: leadId, status: 'neu', closedAt: null, closedBy: null, obsoleteReason: null, operationalState: 'doing',
+    } });
+  } else {
+    await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, operationalState: 'doing' } });
+  }
+  await store.performOp({ type: 'update-task', payload: { id: taskId, assignee: 'chatgpt', delegatedLeadId: leadId } });
+  return { taskId, leadId, delegated: true };
+}
+
+// ── Rueckfrage beantworten (einmalig) & Cowork-Ruecklauf pruefen ────────────
+// Die einzigen zwei schreibenden Ausnahmen vom Capture-only-Prinzip (siehe
+// Kopfkommentar): beide mutieren denselben Lead-Datensatz ueber die normale
+// Operations-Warteschlange (store.performOp/preparePendingOp) — kein
+// Sonderpfad, kein direkter fetch, keine zweite Sammlung.
+export async function answerChatgptLeadQuestion(id, answerText) {
+  const l = store.getById('chatgptLead', id);
+  const text = String(answerText || '').trim();
+  if (!l || !l.pendingQuestion || l.pendingQuestion.answeredAt || !text) return null;
+  // Review-Fix (einheitlich auf allen Clients, Desktop/AI Sync + Tablet):
+  // eine bereits abgeschlossene Anfrage wird durch eine Antwort NICHT
+  // reaktiviert; eine beantwortete Frage loescht questionForBriefingAt und
+  // vermerkt den letzten Stand in lastAction.
+  if (l.status === 'abgeschlossen') return null;
+  await store.performOp({ type: 'update-chatgptLead', payload: {
+    id,
+    pendingQuestion: { ...l.pendingQuestion, answer: text, answeredAt: nowISO() },
+    operationalState: 'doing',
+    questionForBriefingAt: null,
+    lastAction: 'Antwort erhalten: ' + text.slice(0, 140),
+  } });
+  return id;
+}
+export async function markChatgptLeadReturnChecked(id) {
+  const l = store.getById('chatgptLead', id);
+  if (!l || !l.returnedAt || l.returnChecked) return null;
+  if (l.status === 'abgeschlossen') return null;
+  await store.performOp({ type: 'update-chatgptLead', payload: {
+    id, returnChecked: true, operationalState: 'doing',
+  } });
+  return id;
+}
+
+// ── Dokument anhaengen (Nachtrag 24.09.2026, siehe Kopfkommentar) ───────────
+// Firebase Storage verlangt fuer JEDEN Zugriff request.auth != null; loest
+// bei fehlender Anmeldung jetzt sichtbar den bestehenden Google-Login aus
+// (js/auth.js), statt die Funktion wegzulassen oder einen Erfolg vorzutaeuschen.
+export async function attachDocumentToLead(leadId, fileList) {
+  const l = store.getById('chatgptLead', leadId);
+  if (!l) return { ok: false, grund: 'Lead nicht gefunden' };
+  const file = fileList && fileList[0];
+  if (!file) return { ok: false, grund: 'Keine Datei gewählt' };
+  if (file.size > 50 * 1024 * 1024) return { ok: false, grund: 'Datei zu gross (max. 50 MB)' };
+  if (!sdkBereit()) return { ok: false, grund: 'Firebase ist nicht geladen — Seite neu laden.' };
+  initAuth();
+  if (!currentUser()) {
+    const anmeldung = await signInGoogle();
+    if (anmeldung.abgebrochen) return { ok: false, grund: 'Anmeldung abgebrochen.' };
+    if (!anmeldung.ok) return { ok: false, grund: anmeldung.grund || 'Anmeldung fehlgeschlagen.' };
+    if (anmeldung.weitergeleitet || !currentUser()) {
+      return { ok: false, grund: 'Anmeldung läuft weiter — nach der Rückkehr erneut anhängen.' };
+    }
+  }
+  let storage;
+  try { storage = window.firebase.storage(); } catch (e) { return { ok: false, grund: 'Firebase Storage nicht verfügbar.' }; }
+  const fileId = newId('f');
+  const storagePath = `attachments/chatgptLead/${leadId}/${fileId}_${file.name}`;
+  let url;
+  try {
+    const task = await storage.ref(storagePath).put(file);
+    url = await task.ref.getDownloadURL();
+  } catch (e) {
+    return { ok: false, grund: 'Upload fehlgeschlagen: ' + (e && e.message ? e.message : String(e)) };
+  }
+  const fileObj = {
+    id: fileId, name: file.name, originalName: file.name, size: file.size, type: file.type,
+    storagePath, url, uploadedAt: nowISO(),
+  };
+  // Review-Fix (25.09.2026): l.files wurde HIER frueher vor dem obigen
+  // asynchronen Login/Upload gelesen und als vollstaendiges Ersatz-Array
+  // zurueckgeschrieben — ein waehrenddessen gelandeter zweiter Anhang (ein
+  // zweiter lokaler Anhang, oder ein per Pull/Replay eingetroffener) ging
+  // dabei verloren. Die eigens dafuer eingefuehrte Operation unioniert die
+  // Datei stattdessen im Speicher/Replay-Pfad selbst (store.js, applyOp())
+  // gegen den zu diesem Zeitpunkt TATSAECHLICH aktuellen Stand, nicht gegen
+  // diesen veralteten Schnappschuss.
+  await store.performOp({ type: 'attach-chatgptLead-file', payload: { id: leadId, file: fileObj } });
+  return { ok: true, file: fileObj };
 }
 
 // ── Block am Element (Sammlungen, Aufgaben, Projekte) ───────────────────────
@@ -112,14 +305,48 @@ async function submitTaskInput(input) {
     block.replaceWith(wrap.firstElementChild);
   }
 }
+// Kurze Antwort auf eine Rueckfrage — Enter genuegt, wie beim Aufgabenfeld.
+async function submitAnswerInput(input) {
+  const id = input.dataset.leadId;
+  const ok = await answerChatgptLeadQuestion(id, input.value);
+  if (!ok) { toast('Bitte Antwort eingeben', 'error'); return; }
+  input.value = '';
+  toast('Antwort gespeichert ✓', 'ok');
+  store.notify();
+}
+// Intake: ein Feld, ein Absenden — nutzt denselben Erzeugungsweg wie die
+// Leads-Erfassung (addChatgptLead leitet den Titel selbst aus der ersten
+// Zeile ab, wenn keiner mitgegeben wird).
+async function submitIntakeInput(input) {
+  const id = await addChatgptLead('', input ? input.value : '');
+  if (!id) { toast('Bitte Text eingeben', 'error'); return; }
+  if (input) input.value = '';
+  toast('Anfrage eingereicht ✓ — liegt als Lead im Eingang', 'ok');
+  store.notify();
+}
+
 // Enter im Feld — einmal fuer alle Bloecke, egal in welchem Sheet sie liegen.
 if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
-    const input = e.target && e.target.closest ? e.target.closest('[data-cg-task-input]') : null;
-    if (!input) return;
-    e.preventDefault();
-    submitTaskInput(input);
+    const taskInput = e.target && e.target.closest ? e.target.closest('[data-cg-task-input]') : null;
+    if (taskInput) { e.preventDefault(); submitTaskInput(taskInput); return; }
+    const answerInput = e.target && e.target.closest ? e.target.closest('[data-cg-answer-input]') : null;
+    if (answerInput) { e.preventDefault(); submitAnswerInput(answerInput); return; }
+    const intakeInput = e.target && e.target.id === 'cgIntakeInput' ? e.target : null;
+    if (intakeInput) { e.preventDefault(); submitIntakeInput(intakeInput); }
+  });
+  document.addEventListener('change', async (e) => {
+    const inp = e.target && e.target.closest ? e.target.closest('[data-cg-attach]') : null;
+    if (!inp || !inp.files || !inp.files.length) return;
+    const leadId = inp.dataset.leadId;
+    const files = inp.files;
+    inp.value = '';
+    toast('Wird hochgeladen…', 'ok');
+    const res = await attachDocumentToLead(leadId, files);
+    if (!res.ok) { toast(res.grund || 'Anhängen fehlgeschlagen', 'error'); return; }
+    toast('Angehängt ✓ ' + res.file.name, 'ok');
+    store.notify();
   });
 }
 
@@ -147,6 +374,25 @@ registerActions({
     const input = block ? block.querySelector('[data-cg-task-input]') : null;
     if (input) submitTaskInput(input);
   },
+  'cg-lead-answer': (d) => {
+    const input = document.getElementById('cgAnswer-' + d.leadId);
+    return input ? submitAnswerInput(input) : undefined;
+  },
+  'cg-lead-return-checked': async (d) => {
+    const ok = await markChatgptLeadReturnChecked(d.leadId);
+    if (!ok) { toast('Rücklauf bereits geprüft', 'error'); return; }
+    toast('Rücklauf geprüft ✓', 'ok');
+    store.notify();
+  },
+  'cg-intake-add': () => submitIntakeInput(document.getElementById('cgIntakeInput')),
+  // Tagesbriefing-Gesamtkonzept-v2: kompakter Delegations-Umschalter, sitzt
+  // am Task (taskCard in ./common.js), Logik in delegateTaskToChatgpt().
+  'task-delegate-chatgpt': async (d) => {
+    const result = await delegateTaskToChatgpt(d.id);
+    if (!result) { toast('Aufgabe nicht gefunden', 'error'); return; }
+    toast(result.delegated ? 'An ChatGPT delegiert ✓' : 'Zurückgeholt', 'ok');
+    store.notify();
+  },
 });
 
 // ── Ansicht ─────────────────────────────────────────────────────────────────
@@ -159,6 +405,57 @@ function noteCard(n) {
     ${n.derived ? `<div class="row-sub">${escHTML(n.derived)}</div>` : ''}
   </div>`;
 }
+// Ehrlich anzeigen, nie erfinden: fehlt operationalState, steht "nicht
+// gesetzt" da — kein stillschweigendes "Neu" oder "erledigt".
+function leadStatusRow(l) {
+  const state = l.operationalState ? (OPERATIONAL_STATE[l.operationalState] || l.operationalState) : 'nicht gesetzt';
+  const chips = [`<span class="chip mini">Status: ${escHTML(state)}</span>`];
+  if (l.nextAction) chips.push(`<span class="chip mini">Nächster Schritt: ${escHTML(l.nextAction)}</span>`);
+  if (l.waitingOn) chips.push(`<span class="chip mini">Wartet auf: ${escHTML(l.waitingOn)}</span>`);
+  if (l.followUpAt) chips.push(`<span class="chip mini">Followup: ${escHTML(formatDate(l.followUpAt))}</span>`);
+  if (l.handoverAt) {
+    let coworkText;
+    if (l.returnedAt && !l.returnChecked) coworkText = 'Cowork-Rücklauf ungeprüft';
+    else if (l.returnedAt && l.returnChecked) coworkText = 'Cowork-Rücklauf geprüft';
+    else if (l.expectedReturnAt) coworkText = `Cowork erwartet: ${formatDate(l.expectedReturnAt)}`;
+    else coworkText = 'An Cowork übergeben';
+    chips.push(`<span class="chip mini">${escHTML(coworkText)}</span>`);
+  }
+  return `<div class="row-meta cg-lead-status">${chips.join('')}</div>`;
+}
+// Genau EINE schreibende Ausnahme: eine offene Rueckfrage einmalig
+// beantworten. Sobald answeredAt gesetzt ist, verschwindet der Block.
+function leadQuestionBlock(l) {
+  if (!l.pendingQuestion || l.pendingQuestion.answeredAt) return '';
+  const q = l.pendingQuestion;
+  const options = Array.isArray(q.options) && q.options.length
+    ? `<div class="chip-row">${q.options.map((o) => `<span class="chip mini">${escHTML(o)}</span>`).join('')}</div>` : '';
+  return `<div class="cg-lead-question">
+    <div class="row-sub"><strong>Rückfrage:</strong> ${escHTML(q.text || '')}</div>
+    ${options}
+    ${q.recommendation ? `<div class="muted-row">Empfehlung: ${escHTML(q.recommendation)}</div>` : ''}
+    <input class="input" id="cgAnswer-${escHTML(l.id)}" data-cg-answer-input data-lead-id="${escHTML(l.id)}" placeholder="Kurze Antwort" autocomplete="off">
+    <button class="btn primary block" type="button" data-action="cg-lead-answer" data-lead-id="${escHTML(l.id)}">Antworten</button>
+  </div>`;
+}
+// Die zweite schreibende Ausnahme: einen zurückgekehrten Cowork-Auftrag als
+// geprüft quittieren — nur sichtbar, solange er ungeprüft ist.
+function leadReturnBlock(l) {
+  if (!l.returnedAt || l.returnChecked) return '';
+  return `<div class="cg-lead-return">
+    <button class="btn block" type="button" data-action="cg-lead-return-checked" data-lead-id="${escHTML(l.id)}">🔁 Rücklauf geprüft</button>
+  </div>`;
+}
+// Echte Dateien anzeigen (nie erfunden) + Anhang-Knopf, der noetigenfalls den
+// bestehenden Google-Login sichtbar anbietet (siehe attachDocumentToLead).
+function leadFilesBlock(l) {
+  const files = Array.isArray(l.files) ? l.files : [];
+  const rows = files.map((f) => `<a class="chip mini" href="${escHTML(f.url || '#')}" target="_blank" rel="noopener">📎 ${escHTML(f.name || 'Datei')}</a>`).join('');
+  return `<div class="cg-lead-files chip-row">
+    ${rows}
+    <label class="chip">📎 Anhängen<input type="file" data-cg-attach data-lead-id="${escHTML(l.id)}" style="display:none"></label>
+  </div>`;
+}
 function leadCard(l) {
   const unread = !l.readAt && l.status !== 'abgeschlossen';
   return `<div class="card cg-lead ${unread ? 'unread' : ''}">
@@ -166,6 +463,10 @@ function leadCard(l) {
     <div class="row-sub">${escHTML(String(l.rawInput || '').slice(0, 120))}</div>
     <div class="row-meta"><span class="pill ${l.status === 'abgeschlossen' ? '' : 'accent'}">${escHTML(STATUS[l.status] || l.status || 'Neu')}</span>
       <span class="chip mini">${formatDate(l.createdAt)}</span>${l.assignee ? `<span class="chip mini">${l.assignee === 'cowork' ? 'Cowork' : 'ChatGPT'}</span>` : ''}</div>
+    ${leadStatusRow(l)}
+    ${leadQuestionBlock(l)}
+    ${leadReturnBlock(l)}
+    ${leadFilesBlock(l)}
   </div>`;
 }
 function renderNotes() {
@@ -177,7 +478,12 @@ function renderNotes() {
       <button class="chip accent" data-action="cg-note-add">＋ Notiz</button>
     </div>
     <div class="muted-row">${fresh.length} neu seit ${last ? formatDate(last) : 'je'} · ${all.length} insgesamt. Ableitung, Ablösen und Korrigieren macht der Assistent am Rechner.</div>
-    ${all.length ? all.map(noteCard).join('') : `<div class="empty"><div class="empty-icon">🤖</div><div class="empty-title">Noch keine ChatGPT Notes</div><div class="empty-sub">Erfasse eine Anweisung — sie landet als Feedback mit heutigem Datum.</div></div>`}`;
+    ${all.length ? all.map(noteCard).join('') : `<div class="empty"><div class="empty-icon">🤖</div><div class="empty-title">Noch keine ChatGPT Notes</div><div class="empty-sub">Erfasse eine Anweisung — sie landet als Feedback mit heutigem Datum.</div></div>`}
+    <div class="card cg-capture cg-intake">
+      <input class="input" id="cgIntakeInput" placeholder="Anfrage an ChatGPT — Enter oder einreichen" autocomplete="off">
+      <button class="chip accent" data-action="cg-intake-add">📩 Anfrage einreichen</button>
+    </div>
+    <div class="muted-row">Kurzform der Lead-Erfassung — jederzeit erreichbar, ohne in den Leads-Reiter zu wechseln.</div>`;
 }
 function renderLeads() {
   const all = chatgptLeads();
