@@ -92,13 +92,16 @@ export async function addChatgptNote(text) {
   return id;
 }
 // Lead: Titel + Wortlaut, sonst nichts. Der Rest gehoert dem Assistenten.
-export async function addChatgptLead(title, rawInput) {
+// forcedId (Review-Fix 25.09.2026, siehe delegateTaskToChatgpt unten): erlaubt
+// eine deterministische ID statt der Zufalls-ID von newId() — bestehende
+// Aufrufer (Intake-Kurzform u. a.) bleiben unveraendert, da forcedId optional ist.
+export async function addChatgptLead(title, rawInput, forcedId) {
   title = String(title || '').trim(); rawInput = String(rawInput || '').trim();
   if (!title && !rawInput) return null;
   if (!title) title = rawInput.split('\n')[0].slice(0, 80);
   if (!rawInput) rawInput = title;
   const now = nowISO();
-  const id = newId('chatgptLead');
+  const id = forcedId || newId('chatgptLead');
   await store.performOp({ type: 'add-chatgptLead', payload: {
     id, createdAt: now, updatedAt: now, title, rawInput, status: 'neu', readAt: null,
     interpretation: '', openQuestions: '', research: '', plan: '', execution: '', result: '', workflowNote: '',
@@ -155,9 +158,28 @@ export async function delegateTaskToChatgpt(taskId) {
 
   let leadId = existingLead ? existingLead.id : null;
   if (!existingLead) {
-    leadId = await addChatgptLead(task.title, 'Delegierte Aufgabe: ' + (task.title || ''));
-    if (!leadId) return null;
-    await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, operationalState: 'doing' } });
+    // Deterministische Lead-ID (Review-Fix 25.09.2026, spiegelt ai-sync/
+    // Tablet): zwei Geraete, die dieselbe, noch nicht delegierte Aufgabe
+    // unabhaengig voneinander (offline) delegieren, berechnen dieselbe ID —
+    // der bestehende Merge nach id fuehrt beide Versuche zu EINEM Datensatz
+    // zusammen, statt einen zweiten, ueber delegatedLeadId nicht mehr
+    // erreichbaren Lead anzulegen.
+    const deterministicId = 'chatgptLead_from_task_' + taskId;
+    const deterministicExisting = store.getById('chatgptLead', deterministicId);
+    if (deterministicExisting) {
+      // Existiert der Lead unter dieser ID bereits (z. B. weil ein
+      // Zwischen-Sync ihn brachte, das eigene delegatedLeadId-Feld aber noch
+      // nicht nachzog), wird er wiederverwendet statt neu angelegt — sonst
+      // koennte eine dort bereits begonnene Bearbeitung ueberschrieben werden.
+      leadId = deterministicId;
+      await store.performOp({ type: 'update-chatgptLead', payload: deterministicExisting.status === 'abgeschlossen'
+        ? { id: leadId, status: 'neu', closedAt: null, closedBy: null, obsoleteReason: null, operationalState: 'doing' }
+        : { id: leadId, operationalState: 'doing' } });
+    } else {
+      leadId = await addChatgptLead(task.title, 'Delegierte Aufgabe: ' + (task.title || ''), deterministicId);
+      if (!leadId) return null;
+      await store.performOp({ type: 'update-chatgptLead', payload: { id: leadId, operationalState: 'doing' } });
+    }
   } else if (existingLead.status === 'abgeschlossen') {
     // Idempotente Wiederverwendung: derselbe Lead wird reaktiviert statt
     // einen zweiten anzulegen.
