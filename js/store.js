@@ -31,7 +31,16 @@ export const state = {
   initialPullStatus: 'pending',    // pending | ok | empty | failed
   noteMigrationPending: false,
   replayPending: false,
+  // Review-Fix (25.09.2026, PR14 zweite Pruefung): zaehlt aufeinanderfolgende
+  // automatische Verifikationspulls nach einem ambigen Push (s. pushData()).
+  // Ohne Grenze bilden pushData()-Fehlschlag → Pull → (Replay haelt Eintrag
+  // in der Warteschlange) → pullData()-finally loest erneut pushData() aus →
+  // Fehlschlag → ... eine ungebremste Schleife, wenn GET funktioniert, PUT
+  // aber dauerhaft scheitert (Review: "kann ... eine ungebremste ... Schleife
+  // erzeugen"). Wird bei jedem erfolgreichen Push wieder auf 0 gesetzt.
+  ambiguousRecoveryAttempts: 0,
 };
+const MAX_AMBIGUOUS_RECOVERY_ATTEMPTS = 3;
 
 // Beobachter, die bei Datenänderung neu rendern sollen (Router setzt einen).
 const _subscribers = new Set();
@@ -174,6 +183,7 @@ export async function pushData() {
     try { localStorage.setItem(LS.lastData, body); } catch (e) {}
     state.pending = [];
     localStorage.removeItem(LS.pending);
+    state.ambiguousRecoveryAttempts = 0;
     setSyncStatus('ok', 'Synced');
     return true;
   } catch (e) {
@@ -181,8 +191,75 @@ export async function pushData() {
     setSyncStatus('error', 'Offline');
     savePending();
     toast('Offline gespeichert', 'warn');
+    // Review-Fix (25.09.2026, PR14): ein Netzwerkfehler HIER heisst nicht
+    // zwingend, dass der Schreibvorgang serverseitig nicht doch ankam — die
+    // ANTWORT kann verlorengehen, waehrend der PUT selbst durchging
+    // (Ausgang unbekannt). Ein deshalb weiter gequeuter Anhang-Versuch
+    // (attach-chatgptLead-file) bliebe sonst bis zum naechsten, ganz
+    // unabhaengigen Sync-Ereignis unbestaetigt in der Warteschlange: wird
+    // die betroffene Datei in der Zwischenzeit auf einem ANDEREN Geraet
+    // geloescht, wuerde ein spaeteres, blindes Replay sie wiederauferstehen
+    // lassen. Ein SOFORTIGER Pull (nach state.syncing=false im finally,
+    // deshalb per setTimeout verzoegert) prueft die Wirklichkeit, solange
+    // das Zeitfenster noch klein ist.
+    //
+    // Review-Fix (25.09.2026, zweite Pruefung): dieser Pull kann ueber
+    // pullData()s eigenes finally (replayPending) SELBST wieder pushData()
+    // ausloesen — bei einem dauerhaft fehlschlagenden PUT (GET funktioniert,
+    // PUT nicht) entsteht so eine ungebremste Pull→Push→Pull-Schleife ohne
+    // Rueckstand. Ab MAX_AMBIGUOUS_RECOVERY_ATTEMPTS aufeinanderfolgenden
+    // Fehlschlaegen wird deshalb KEIN weiterer automatischer Verifikationspull
+    // mehr angestossen — ein noch immer unbestaetigter Anhang-Versuch wird
+    // stattdessen konserviert (conserveUnconfirmedAttachOps): sichtbar in der
+    // Konfliktablage statt weiter blind wiederholt zu werden. Der naechste
+    // GANZ normale Sync (Vordergrundwechsel, manueller Sync) startet mit
+    // ambiguousRecoveryAttempts wieder bei 0 (zurueckgesetzt bei jedem
+    // erfolgreichen Push oben). Schliesst die Same-ID-Loeschluecke NICHT
+    // vollstaendig — dafuer braucht es einen echten, geraeteuebergreifenden
+    // Anhangs-Grabstein, den es bisher auf keinem der drei Clients gibt.
+    if (state.ambiguousRecoveryAttempts < MAX_AMBIGUOUS_RECOVERY_ATTEMPTS) {
+      state.ambiguousRecoveryAttempts++;
+      setTimeout(() => { pullData(true); }, 0);
+    } else {
+      state.ambiguousRecoveryAttempts = 0;
+      conserveUnconfirmedAttachOps();
+    }
     return false;
   } finally { state.syncing = false; }
+}
+
+// Review-Fix (25.09.2026, PR14 zweite Pruefung): wird nur erreicht, nachdem
+// MAX_AMBIGUOUS_RECOVERY_ATTEMPTS automatische Verifikationspulls den
+// Anhang-Versuch weiterhin unbestaetigt liessen. Statt ihn unveraendert in
+// der Warteschlange zu belassen (naechster Sync wuerde ihn erneut blind
+// wiederholen — dasselbe Resurrection-Risiko, das die Verifikationspulls
+// eigentlich verkleinern sollten), wird er in die bestehende Konfliktablage
+// verschoben: sichtbar, mit restoreConflictAsNote() wiederherstellbar, aber
+// nicht mehr automatisch repliziert.
+function conserveUnconfirmedAttachOps() {
+  const bleibt = [];
+  let abgelegt = 0;
+  (state.pending || []).forEach((op) => {
+    if (op && op.type === 'attach-chatgptLead-file') {
+      state.conflicts = [...state.conflicts, {
+        kind: 'push-outcome-unklar',
+        at: nowISO(),
+        opType: op.type,
+        entityId: (op.payload && op.payload.id) || null,
+        queuedAt: (op._queue && op._queue.queuedAt) || null,
+        snapshot: op.payload || null,
+      }].slice(-100);
+      abgelegt++;
+    } else {
+      bleibt.push(op);
+    }
+  });
+  if (!abgelegt) return;
+  state.pending = bleibt;
+  if (state.pending.length) savePending(); else localStorage.removeItem(LS.pending);
+  try { localStorage.setItem(LS.pendingConflicts, JSON.stringify(state.conflicts)); } catch (e) {}
+  toast(`${abgelegt} Anhang-Versuch(e) ohne Bestätigung — in Konfliktablage gesichert`, 'warn');
+  notify();
 }
 
 function savePending() {
@@ -381,10 +458,33 @@ async function applyPendingChanges() {
   try {
     const ops = JSON.parse(stored);
     if (!ops || !ops.length) return;
+    // Review-Fix (25.09.2026, PR14): ein gequeuter attach-chatgptLead-file-
+    // Versuch kann bereits VOR diesem Replay tatsaechlich angekommen sein —
+    // ein Push kann serverseitig durchgehen, waehrend seine Antwort verloren
+    // geht (pushData() haengt seither einen sofortigen Nach-Pull an genau
+    // diesen Fall). Der frische Pull oben (state.data) zeigt das schon VOR
+    // jedem Replay. Ist die Datei dort schon vorhanden, wird der Versuch
+    // hier als erledigt ausgesondert statt weiter mitgeschleppt zu werden —
+    // sonst koennte ein SPAETERES, blindes Replay (nach einer zwischen-
+    // zeitlichen Loeschung durch ein anderes Geraet) sie wiederauferstehen
+    // lassen. Schliesst die Luecke nicht vollstaendig: wird die Datei
+    // GENAU IN DIESEM Pull-Fenster (zwischen dem ambiguen Schreiben und
+    // diesem Pull) von einem anderen Geraet bereits geloescht, sieht dieser
+    // Pull sie ebenfalls nicht mehr und der Versuch bleibt (faelschlich)
+    // offen — dafuer braucht es einen echten Anhangs-Grabstein (noch auf
+    // keinem der drei Clients vorhanden). Verkleinert das Zeitfenster aber
+    // von "bis zum naechsten unabhaengigen Sync" auf einen einzigen Pull.
+    const nochOffen = ops.filter((op) => {
+      if (!op || op.type !== 'attach-chatgptLead-file') return true;
+      const lead = state.data && state.data.entities && state.data.entities.chatgptLeads && state.data.entities.chatgptLeads[op.payload && op.payload.id];
+      const dateiId = op.payload && op.payload.file && op.payload.file.id;
+      const bereitsDa = lead && Array.isArray(lead.files) && lead.files.some((f) => f && f.id === dateiId);
+      return !bereitsDa;
+    });
     // Der Server-Snapshot ist wieder die Basis. Die gespeicherte Queue wird
     // genau einmal darüber gelegt und erst NACH Ende des Pulls gepusht (während
     // state.syncing würde pushData den Schreibversuch korrekt blockieren).
-    const replay = replayPendingOperations(ops);
+    const replay = replayPendingOperations(nochOffen);
     state.pending = replay.applied.slice();
     const priorConflicts = (() => {
       try { return JSON.parse(localStorage.getItem(LS.pendingConflicts) || '[]'); } catch (_) { return []; }
