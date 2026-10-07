@@ -4,6 +4,7 @@
 //  Der Funktionsumfang entspricht der Tablet- und Desktop-Version: alle
 //  Sammlungen, Mail, Kalender, FlowerTech, Statistiken und Journal.
 // ============================================================================
+import './briefing-device-adapter.js';
 import { boot } from './shell.js';
 import { registerSW } from './pwa.js';
 

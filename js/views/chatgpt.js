@@ -448,9 +448,9 @@ function leadReturnBlock(l) {
 }
 // Echte Dateien anzeigen (nie erfunden) + Anhang-Knopf, der noetigenfalls den
 // bestehenden Google-Login sichtbar anbietet (siehe attachDocumentToLead).
-function leadFilesBlock(l) {
+export function leadFilesBlock(l) {
   const files = Array.isArray(l.files) ? l.files : [];
-  const rows = files.map((f) => `<a class="chip mini" href="${escHTML(f.url || '#')}" target="_blank" rel="noopener">📎 ${escHTML(f.name || 'Datei')}</a>`).join('');
+  const rows = files.filter(f => { try { return ['https:', 'http:'].includes(new URL(f.url).protocol); } catch (_) { return false; } }).map((f) => `<a class="chip mini" href="${escHTML(f.url || '#')}" target="_blank" rel="noopener">📎 ${escHTML(f.name || 'Datei')}</a>`).join('');
   return `<div class="cg-lead-files chip-row">
     ${rows}
     <label class="chip">📎 Anhängen<input type="file" data-cg-attach data-lead-id="${escHTML(l.id)}" style="display:none"></label>
