@@ -4,8 +4,16 @@
    Navigation). Backend-/API-Aufrufe werden NIE gecacht (die App verwaltet
    ihren eigenen Offline-Cache im localStorage über die Sync-Engine).
    ========================================================================== */
-const VERSION = 'quantus-mobile-v22-chatgpt';
+const VERSION = 'quantus-mobile-v23-briefing-dashboard';
 const SHELL = [
+  './quantus-briefing-device.js',
+  './quantus-briefing-device.css',
+  './quantus-briefing-device-controller.mjs',
+  './quantus-v3-command-client.mjs',
+  './quantus-v3-briefing-answers.mjs',
+  './quantus-v4-quick-capture.mjs',
+  './js/briefing-device-adapter.js',
+
   './',
   './index.html',
   './manifest.webmanifest',

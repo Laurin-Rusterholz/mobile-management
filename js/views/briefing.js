@@ -177,6 +177,8 @@ export default {
         <button class="chip" data-action="bf-day" data-tage="1">Folgetag ›</button>
       </div>
 
+      ${typeof window !== 'undefined' && window.renderQuantusMobileBriefing ? window.renderQuantusMobileBriefing(tag) : ''}
+      <details class="bf-personal"><summary>Persönliche Tagesplanung, Routinen und Notizen</summary>
       <div class="bf-kpis">
         <div class="bf-kpi"><strong>${b.meetings.length}</strong><span>Termine</span></div>
         <div class="bf-kpi"><strong>${b.faellig.length}</strong><span>fällig</span></div>
@@ -297,6 +299,9 @@ export default {
 
         </div>
       </div>
+      </details>
     </div>`;
   },
+  mount(root) { window.mountQuantusMobileBriefing?.(root); },
+  unmount() { window.unmountQuantusMobileBriefing?.(); },
 };
